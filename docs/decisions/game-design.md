@@ -972,3 +972,25 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Les mini-bots donnent son identité à PetBot et annoncent son tir secondaire : on voit d'où part la salve.
 
 **Conséquences.** Leur place est la même pour la simulation (point de départ des drones, `petAnchors`) et pour l'affichage ; leur retard et leur flottement ne sont que de l'affichage, donc sans effet sur le jeu ni sur le réseau. Réglages : `petOffsets` dans `src/sim/config.ts`, `PETS` dans `WorldView.ts`. Sprite d'origine `spr_PetDrone` (celui des drones en vol). Vu à l'écran en solo : à l'arrêt, en déplacement, au départ de la salve et au retour.
+
+## GD-046 — Mini-bots de PetBot : plus gros, sortis du coffre, ombre sur PetBot
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (retour sur GD-045) ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** Premier essai des mini-bots de PetBot (GD-045) : trop petits, ombre trop grosse et dessinée sous PetBot, apparition sur place sans mise en scène.
+
+**Décision.**
+
+- **Deux fois plus gros** (1,84 fois le sprite d'origine).
+- **Ombre à leur taille** : c'est leur propre silhouette, en noir, légèrement décalée.
+- **Ils volent au-dessus de PetBot** : leur ombre se dessine sur lui quand ils le survolent, et au sol sinon.
+- **L'ombre les suit en salve** : partis au tir secondaire, ils la gardent jusqu'à l'explosion.
+- **Sortie du coffre** : ils sortent un par un de la trappe du coffre dorsal de PetBot, entre la croix rouge et le crâne, passent au-dessus du crâne en grandissant et rejoignent leur place (0,5 s chacun, un départ toutes les 0,28 s). Cela vaut à la fin du déploiement comme après chaque salve.
+- **Retard un peu plus long** : en pleine course ils traînent d'environ 85 px (70 avant), et se replacent toujours en une demi-seconde environ.
+- *Par défaut* : en salve, les drones gardent cette taille doublée, pour qu'ils ne rétrécissent pas en partant. Seul l'affichage change : leur rayon de collision, leur explosion et leur soin sont inchangés.
+
+**Pourquoi.** Des compagnons bien visibles, qui sortent d'un coffre et volent au-dessus du robot, se lisent comme des personnages et non comme des projectiles.
+
+**Conséquences.** Tout est dans l'affichage (`PETS` et `syncPets` dans `WorldView.ts`) : rien ne change pour la simulation ni pour le réseau. Leur place autour de PetBot (`petOffsets`) n'a pas bougé : deux fois plus gros, ils débordent maintenant sur ses épaules, ce qui va avec « au-dessus de l'épaule ».

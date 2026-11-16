@@ -135,20 +135,33 @@ interface HeroParts {
   chargeTop: Img | null;
   /** Mini-bots de PetBot (GD-045) : ils flottent à leur place autour de lui. */
   pets: Pet[] | null;
-  /** Les mini-bots sont à leur place (et non partis en salve) : de 0 à 1 pendant qu'ils réapparaissent. */
+  /** Secondes écoulées depuis que les mini-bots sont revenus (0 tant qu'ils sont partis en salve). */
   petsHome: number;
 }
 
 interface Pet {
   img: Img;
-  shadow: Phaser.GameObjects.Ellipse;
+  /** Son ombre : la même silhouette, en noir. */
+  shadow: Img;
   x: number;
   y: number;
   angle: number;
 }
 
-/** Mini-bots de PetBot : temps de rattrapage, taille au repos et amplitude du flottement. */
-const PETS = { followSeconds: 0.5, scale: 0.92, bob: 0.06, returnSeconds: 0.35 };
+/** Mini-bots de PetBot (GD-045, GD-046). */
+const PETS = {
+  /** Taille par rapport au sprite d'origine : deux fois celle du drone de 2019. */
+  scale: 1.84,
+  /** Amplitude du flottement, en part de la taille. */
+  bob: 0.04,
+  /** Constante de temps du rattrapage : en pleine course, ils traînent de 85 px environ derrière PetBot. */
+  followSeconds: 0.125,
+  /** Trappe d'où ils sortent, dans le repère de PetBot : sur son coffre dorsal, entre la croix rouge et le crâne. */
+  hatch: { x: -21, y: 0 },
+  /** Ils sortent un par un : écart entre deux sorties, et durée du trajet de la trappe à leur place. */
+  stagger: 0.28,
+  emerge: 0.5,
+};
 
 /** Couleur de l'énergie de chaque robot quand il lance son ulti : teinte principale et reflet. */
 const ULTI_COLORS: Record<string, { main: number; light: number }> = {
@@ -186,6 +199,7 @@ export class WorldView {
   private readonly npcImgs = new Map<number, Img>();
   private readonly bulletImgs = new Map<number, Img>();
   private readonly droneImgs = new Map<number, Img>();
+  private readonly droneShadowImgs = new Map<number, Img>();
   private readonly explosionImgs = new Map<number, Img>();
   private readonly batImgs = new Map<number, Img>();
   /** Effets d'ultis en cours : image principale et, selon l'effet, une seconde (zone de soin, impulsion). */
@@ -529,47 +543,58 @@ export class WorldView {
   }
 
   /**
-   * Mini-bots de PetBot (GD-045) : trois petits drones flottent près de lui, épaule gauche, épaule droite et
-   * tête. Ils le suivent avec un léger retard et regagnent leur place en une demi-seconde ; à l'arrêt ils
-   * montent et descendent doucement. Quand PetBot lance sa salve, ce sont eux qui partent : ils disparaissent
-   * d'ici le temps du vol, puis de nouveaux se reforment à leur place.
+   * Mini-bots de PetBot (GD-045, GD-046) : trois drones flottent près de lui, épaule gauche, épaule droite et
+   * tête. Ils sortent un par un de la trappe de son coffre dorsal, le suivent avec un léger retard, et montent
+   * et descendent doucement à l'arrêt. Ils volent au-dessus de lui : leur ombre se dessine sur PetBot quand
+   * ils le survolent. Quand il lance sa salve, ce sont eux qui partent ; d'autres ressortent ensuite du coffre.
    */
   private syncPets(h: Hero, p: HeroParts, dt: number, present: boolean): void {
-    const scene = this.scene;
     const anchors = petAnchors(h);
     if (!p.pets) {
       p.pets = anchors.map((a) => ({
-        shadow: scene.add.ellipse(a.x, a.y, 30, 22, 0x000000).setDepth(DEPTH.legs - 0.2),
+        // l'ombre est au-dessus du corps des robots et sous les mini-bots
+        shadow: this.image('spr_PetDrone', 0, a.x, a.y, DEPTH.character + 2.5).setTintFill(0x000000),
         img: this.image('spr_PetDrone', 0, a.x, a.y, DEPTH.character + 3),
         x: a.x, y: a.y, angle: h.angle,
       }));
     }
     // partis en salve : la simulation les fait voler comme des drones, on ne les dessine plus ici
     const home = present && this.world.drones.length === 0;
-    if (!home) p.petsHome = 0;
-    else p.petsHome = Math.min(1, p.petsHome + dt / PETS.returnSeconds);
-    const now = scene.time.now / 1000;
-    // rattrapage exponentiel : en `followSeconds`, il ne reste plus qu'un centième de l'écart.
-    // En pleine course, ils traînent d'une soixantaine de pixels derrière PetBot.
-    const pull = 1 - Math.exp((-5 * dt) / PETS.followSeconds);
+    p.petsHome = home ? p.petsHome + dt : 0;
+    const now = this.scene.time.now / 1000;
+    const pull = 1 - Math.exp(-dt / PETS.followSeconds);
+    const c = Math.cos(h.angle);
+    const s = Math.sin(h.angle);
+    const local = (lx: number, ly: number): { x: number; y: number } => ({ x: h.x + lx * c - ly * s, y: h.y + lx * s + ly * c });
+    const hatch = local(PETS.hatch.x, PETS.hatch.y);
     p.pets.forEach((pet, i) => {
-      pet.img.setVisible(home);
-      pet.shadow.setVisible(home);
-      if (!home) {
-        // ils se reformeront à leur place, pas là où ils étaient
-        pet.x = anchors[i].x;
-        pet.y = anchors[i].y;
+      // sortie de la trappe, l'un après l'autre : 0 = encore dans le coffre, 1 = arrivé à sa place
+      const out = Math.max(0, Math.min(1, (p.petsHome - i * PETS.stagger) / PETS.emerge));
+      const visible = home && out > 0;
+      pet.img.setVisible(visible);
+      pet.shadow.setVisible(visible);
+      if (!visible) return;
+      let size = 1;
+      if (out < 1) {
+        // il jaillit de la trappe en passant au-dessus du crâne, puis rejoint sa place en grandissant
+        const e = 1 - (1 - out) ** 2;
+        const skull = local(8, 0);
+        pet.x = (1 - e) ** 2 * hatch.x + 2 * e * (1 - e) * skull.x + e * e * anchors[i].x;
+        pet.y = (1 - e) ** 2 * hatch.y + 2 * e * (1 - e) * skull.y + e * e * anchors[i].y;
         pet.angle = h.angle;
-        return;
+        size = 0.25 + 0.75 * e;
+      } else {
+        pet.x += (anchors[i].x - pet.x) * pull;
+        pet.y += (anchors[i].y - pet.y) * pull;
+        pet.angle += angleDiff(pet.angle, h.angle) * pull;
       }
-      pet.x += (anchors[i].x - pet.x) * pull;
-      pet.y += (anchors[i].y - pet.y) * pull;
-      pet.angle += angleDiff(pet.angle, h.angle) * pull;
       // flottement : chacun à son rythme, pour qu'ils ne paraissent jamais figés
       const lift = Math.sin(now * 2.4 + i * 2.1);
-      const scale = (PETS.scale + PETS.bob * lift) * p.petsHome;
-      pet.img.setPosition(pet.x, pet.y - 3 * lift).setRotation(pet.angle).setScale(scale).setAlpha(p.petsHome);
-      pet.shadow.setPosition(pet.x + 5 + 2 * lift, pet.y + 9 + 3 * lift).setScale(p.petsHome * (1 - 0.12 * lift)).setAlpha(0.26 - 0.06 * lift);
+      const scale = PETS.scale * size * (1 + PETS.bob * lift);
+      pet.img.setPosition(pet.x, pet.y - 4 * lift).setRotation(pet.angle).setScale(scale);
+      // l'ombre a la taille du mini-bot ; elle s'en écarte un peu plus quand il monte
+      pet.shadow.setPosition(pet.x + (9 + 3 * lift) * size, pet.y + (13 + 4 * lift) * size).setRotation(pet.angle)
+        .setScale(PETS.scale * size).setAlpha(0.3 - 0.05 * lift);
     });
   }
 
@@ -862,9 +887,14 @@ export class WorldView {
 
   private syncAbilityObjects(): void {
     const world = this.world;
+    // en salve, les mini-bots gardent leur ombre jusqu'à l'explosion (GD-046)
+    this.syncPool(this.droneShadowImgs, world.drones,
+      (d) => this.image('spr_PetDrone', d.level - 1, d.x, d.y, DEPTH.character + 2.5).setTintFill(0x000000).setAlpha(0.3),
+      (img, d) => img.setPosition(d.x + 9, d.y + 13).setRotation(d.angle).setScale(PETS.scale));
     this.syncPool(this.droneImgs, world.drones,
       (d) => this.image('spr_PetDrone', d.level - 1, d.x, d.y, DEPTH.bullet),
-      (img, d) => img.setPosition(d.x, d.y).setRotation(d.angle));
+      // en salve, ils gardent la taille qu'ils ont autour de PetBot
+      (img, d) => img.setPosition(d.x, d.y).setRotation(d.angle).setScale(PETS.scale));
     this.syncPool(this.explosionImgs, world.explosions,
       (e) => {
         if (e.sprite === 'spr_bullet2_explosion') this.blastFx(e.x, e.y, e.radius);
