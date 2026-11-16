@@ -124,6 +124,7 @@ export class Hud {
     if (h.state !== 'dead') {
       if (h.charging) hint = 'Linked to the charging station - E to unplug';
       else if (h.def.magazine > 0 && h.reloadTimer === 0 && h.ammo === 0) hint = 'Press R to reload';
+      else if (h.def.kind === 'BatBot' && h.bats === 0 && world.bats.some((b) => b.state !== 'returning')) hint = 'Press R to call your bats back';
       else if (world.nearCardDoor()) {
         // messages des portes à carte de l'original
         const door = world.nearCardDoor();

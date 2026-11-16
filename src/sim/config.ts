@@ -272,6 +272,8 @@ export const CONFIG = {
         { explosionRadius: 500, explosionDamage: 7, pierce: true },
       ],
       pickupDistance: 30,
+      /** Position des mains dans le repère du héros (relativeBras* d'origine) : les battes y reviennent. */
+      hand: { x: 17, y: 50 },
     },
     badaBot: {
       fullChargeSteps: 60,

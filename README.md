@@ -29,7 +29,7 @@ Il faut Node 22.18 ou plus récent. Sur la machine de développement, une copie 
 | Viser | souris |
 | Tirer (BadaBot : maintenir pour charger) | clic gauche |
 | Tir secondaire (coûte de l'énergie) | clic droit |
-| Recharger | R |
+| Recharger ; BatBot : rappeler ses battes | R |
 | Dash (en marchant) | Espace ou Maj |
 | Utiliser un bouton ; se recharger sur une borne (maintenir) | E |
 | Pause | Échap |

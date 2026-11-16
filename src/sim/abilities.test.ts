@@ -145,6 +145,33 @@ test('BatBot : sans batte en main, un clic droit rappelle les battes', () => {
   assert.equal(h.bats, 2);
 });
 
+test('BatBot : R rappelle les battes, qui frappent aussi au retour', () => {
+  const { w, npc, aim } = arena('BatBot', 'obj_npc_robot_shotBot', 5000);
+  const h = w.hero;
+  npc.fireTimer = 100000;
+  npc.y = h.y + 2000;
+  h.energy = 3;
+  w.step({ ...aim, fire2: true });
+  w.step(aim);
+  run(w, 90, aim);
+  assert.equal(w.bats[0].state, 'stopped');
+  // un ennemi se place entre la batte et le héros
+  const bat = w.bats[0];
+  npc.x = (bat.x + h.x) / 2;
+  npc.y = h.y;
+  const hp = npc.hp;
+  w.step({ ...aim, reloadPressed: true });
+  assert.equal(bat.state, 'returning');
+  assert.equal(h.energy, 1, 'le rappel coûte 1 énergie');
+  run(w, 120, aim);
+  assert.ok(npc.hp < hp || !w.npcs.includes(npc), 'la batte frappe au retour');
+  assert.equal(h.bats, 2);
+  // R sans batte à rappeler ne coûte rien
+  const energy = h.energy;
+  w.step({ ...aim, reloadPressed: true });
+  assert.equal(h.energy, energy);
+});
+
 test('BatBot : une batte lancée à 6 d\'énergie explose', () => {
   const { w, npc, aim } = arena('BatBot', 'obj_npc_human_pistol', 600);
   npc.fireTimer = 100000;

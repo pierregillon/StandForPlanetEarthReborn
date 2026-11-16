@@ -548,3 +548,26 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** Rendre le niveau jouable par une seule personne et lisible sans quitter le robot des yeux, en gardant l'idée du robot qui se branche.
 
 **Conséquences.** Réglages dans `src/sim/config.ts` (`outlet`, `hero.overcharge*`, `npc.shield*`, `camera`). L'alignement des sprites des trois autres héros (jambes et corps) n'a pas été revu : à signaler s'il gêne.
+
+---
+
+## GD-030 — BatBot : R rappelle les battes, qui frappent aussi au retour
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée (complète GD-023 et GD-025)
+- **Décidée par** : l'utilisateur
+
+**Contexte.** BatBot n'a pas de munitions : la touche R, qui recharge les autres robots, ne lui servait à rien. L'utilisateur rappelle que dans le jeu d'origine BatBot attire ses battes à lui, avec une petite animation sur sa ou ses mains libres, qu'il peut en lancer une ou deux puis les rappeler, et qu'une batte qui revient fait autant de dégâts sur sa route qu'à l'aller. Relecture du code de 2019 (`scr_BatBot_recallBatte`, `scr_createReturningBatteParticules`, `obj_bullet_batte_parent/Step_0.gml`) : le rappel concerne toutes les battes qui ne reviennent pas déjà, y compris en vol ; une particule magenta apparaît à chaque step sur la main qui attend la batte ; la batte revient vers cette main, et seulement si aucun mur ne la sépare du robot.
+
+**Décision.**
+
+- R rappelle les battes de BatBot. Le clic droit maintenu et le clic droit sans batte en main (GD-025) restent valables.
+- Le rappel vaut pour toutes les battes lancées, au sol ou encore en vol. Il coûte 1 énergie, seulement s'il y a une batte à rappeler.
+- La batte revient vers la main correspondante. Si un mur la sépare du robot, elle attend que la voie soit libre.
+- Au retour, elle frappe chaque ennemi croisé comme à l'aller : 3 dégâts si elle est simple ; si elle est explosive, son explosion, une seule fois sur le trajet de retour.
+- Une lueur magenta pulse sur chaque main libre tant que sa batte revient, avec un fil ténu jusqu'à la batte.
+- Sans batte en main, l'écran rappelle « Press R to call your bats back ».
+
+**Pourquoi.** Comportement du jeu d'origine, que l'utilisateur connaît ; et R devient utile pour les quatre robots.
+
+**Conséquences.** GD-023 disait qu'une batte rappelée ignorait les murs : c'était une lecture erronée de l'analyse, corrigée ici d'après le code. Dans le code d'origine, la touche du rappel est l'appui long sur le tir secondaire ; R est un ajout demandé par l'utilisateur.

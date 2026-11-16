@@ -64,6 +64,8 @@ export function stepWeapons(world: World, h: Hero, input: Input): void {
       engiBotFire2(world, h, input, busy);
       break;
     case 'BatBot':
+      // BatBot n'a rien à recharger : R rappelle ses battes (GD-030)
+      if (input.reloadPressed) recallBats(world, h);
       batBotFire1(world, h, input, busy);
       batBotFire2(world, h, input, busy);
       break;
@@ -370,7 +372,7 @@ function batBotFire2(world: World, h: Hero, input: Input, busy: boolean): void {
   const side = h.bats >= 2 ? 'd' : 'g';
   const m = muzzle(h);
   const angle = h.angle + world.rng.range(-h.def.precisionDeg, h.def.precisionDeg) * DEG;
-  world.bats.push({ id: world.newId(), x: m.x, y: m.y, angle, side, level, state: 'flying', startX: m.x, startY: m.y, hit: new Set(), steps: 0 });
+  world.bats.push({ id: world.newId(), x: m.x, y: m.y, angle, side, level, state: 'flying', startX: m.x, startY: m.y, hit: new Set(), steps: 0, exploded: false });
   h.swing = side;
   h.fire2Timer = h.def.fire2CooldownSteps;
   h.fire2Anim = 0;
@@ -380,15 +382,25 @@ function batBotFire2(world: World, h: Hero, input: Input, busy: boolean): void {
   playOneOf(world, h.def.sounds.fire2, h.x, h.y);
 }
 
-/** Rappelle les battes au sol : coûte 1 énergie, seulement s'il y en a une à rappeler. */
+/**
+ * Rappelle les battes : toutes celles qui ne reviennent pas déjà, au sol ou en vol, comme dans l'original.
+ * Coûte 1 énergie, seulement s'il y en a une à rappeler.
+ */
 function recallBats(world: World, h: Hero): void {
-  const grounded = world.bats.filter((b) => b.state === 'stopped');
-  if (h.energy < A.batBot.recallCost || grounded.length === 0) return;
-  for (const b of grounded) {
+  const away = world.bats.filter((b) => b.state !== 'returning');
+  if (h.energy < A.batBot.recallCost || away.length === 0) return;
+  for (const b of away) {
     b.state = 'returning';
     b.hit = new Set();
+    b.exploded = false;
   }
   spendEnergy(world, h, A.batBot.recallCost);
+  world.emit({ type: 'sound', name: 'snd_batBot_fire2_souffle', x: h.x, y: h.y });
+}
+
+/** Main vers laquelle revient une batte : droite ou gauche selon la batte. */
+export function batHand(h: Hero, side: 'd' | 'g'): { x: number; y: number } {
+  return localToWorld(h.x, h.y, h.angle, A.batBot.hand.x, side === 'd' ? A.batBot.hand.y : -A.batBot.hand.y);
 }
 
 function stepBats(world: World): void {
@@ -411,7 +423,8 @@ function stepBats(world: World): void {
 function stopBat(world: World, b: Bat): void {
   b.state = 'stopped';
   const lvl = A.batBot.levels[b.level - 1];
-  if (lvl.explosionRadius > 0) {
+  if (lvl.explosionRadius > 0 && !b.exploded) {
+    b.exploded = true;
     world.addExplosion({
       x: b.x, y: b.y, sprite: 'spr_bullet2_explosion', radius: lvl.explosionRadius, damage: lvl.explosionDamage, healFromStep: -1,
       scale: (lvl.explosionRadius * 2) / world.sprite('spr_bullet2_explosion').w,
@@ -467,18 +480,34 @@ function flyBat(world: World, b: Bat): void {
   }
 }
 
-/** Batte rappelée : vole vers le BatBot en ignorant les murs et blesse les PNJ croisés. */
+/**
+ * Batte rappelée : elle vole vers la main du BatBot tant qu'aucun mur ne les sépare, et frappe ce qu'elle
+ * croise comme à l'aller (GD-030) : 3 dégâts par ennemi, ou son explosion si elle est explosive.
+ */
 function returnBat(world: World, b: Bat, h: Hero): void {
+  if (world.shotBlocked(b.x, b.y, h.x, h.y)) return; // elle attend que la voie soit libre
+  const lvl = A.batBot.levels[b.level - 1];
   const speed = h.def.bullet.speed;
-  b.angle = Math.atan2(h.y - b.y, h.x - b.x);
-  const nx = b.x + Math.cos(b.angle) * speed;
-  const ny = b.y + Math.sin(b.angle) * speed;
+  const hand = batHand(h, b.side);
+  b.angle = Math.atan2(hand.y - b.y, hand.x - b.x);
+  const step = Math.min(speed, Math.hypot(hand.x - b.x, hand.y - b.y));
+  const nx = b.x + Math.cos(b.angle) * step;
+  const ny = b.y + Math.sin(b.angle) * step;
   for (const npc of world.npcs) {
     if (b.hit.has(npc.id)) continue;
     if (segmentCircle(b.x, b.y, nx, ny, npc.x, npc.y, npc.def.radius + h.def.bullet.radius) < 0) continue;
     b.hit.add(npc.id);
-    if (!blockedByFrontShield(npc, b.x, b.y)) npc.hp -= h.def.bullet.damage;
     world.emit({ type: 'impact', x: npc.x, y: npc.y, angle: b.angle, surface: 'npc' });
+    if (lvl.explosionRadius > 0) {
+      if (b.exploded) continue;
+      b.exploded = true;
+      world.addExplosion({
+        x: npc.x, y: npc.y, sprite: 'spr_bullet2_explosion', radius: lvl.explosionRadius, damage: lvl.explosionDamage, healFromStep: -1,
+        scale: (lvl.explosionRadius * 2) / world.sprite('spr_bullet2_explosion').w,
+      });
+    } else if (!blockedByFrontShield(npc, b.x, b.y)) {
+      npc.hp -= h.def.bullet.damage;
+    }
   }
   b.x = nx;
   b.y = ny;

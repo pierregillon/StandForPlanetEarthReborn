@@ -239,6 +239,8 @@ export interface Bat {
   startY: number;
   hit: Set<number>;
   steps: number;
+  /** Une batte explosive n'explose qu'une fois par trajet (aller, puis retour). */
+  exploded: boolean;
 }
 
 export type NpcBehaviour = 'none' | 'surprised' | 'chase' | 'attack' | 'runaway';

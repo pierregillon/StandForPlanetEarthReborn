@@ -5,6 +5,7 @@ import { frameKey } from '../assets.ts';
 import type { FloorManifest } from '../assets.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { BLOCK_MOVE } from '../../sim/geom.ts';
+import { batHand } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
 import type { Bat, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
@@ -674,6 +675,17 @@ export class WorldView {
         if (i < level) g.fillStyle(color, 1).fillPoints(quad, true);
         else if (blink) g.fillStyle(0xff4040, 0.9).fillPoints(quad, true);
       }
+    }
+
+    // BatBot rappelle ses battes : une lueur magenta pulse sur la main qui attend chaque batte,
+    // comme les particules de scr_createReturningBatteParticules dans l'original
+    for (const bat of this.world.bats) {
+      if (bat.state !== 'returning') continue;
+      const hand = batHand(h, bat.side);
+      const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 70);
+      g.fillStyle(0xfe00d1, 0.25 + 0.2 * pulse).fillCircle(hand.x, hand.y, 16 + 8 * pulse);
+      g.fillStyle(0xfe00d1, 0.95).fillCircle(hand.x, hand.y, 7 + 3 * pulse);
+      g.lineStyle(2, 0xfe00d1, 0.25).lineBetween(hand.x, hand.y, bat.x, bat.y);
     }
 
     // surcharge d'énergie : des étincelles courent autour du robot, de plus en plus nombreuses ; halo à 12
