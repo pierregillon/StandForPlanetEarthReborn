@@ -20,6 +20,19 @@ const FOG_COLOR = 0x313131;
 const LIGHTING = { ambient: 0.5, strength: 2, heroRadius: 420, heroStrength: 0.75, chargingDim: 0.22 };
 const CARD_COLORS: Record<string, number> = { green: 0x35d05a, purple: 0xb04cff };
 const MAX_REMAINS = 900;
+/**
+ * Position de la tête de BadaBot sur chaque image, dans la toile de ses sprites (tables de obj_plasmaBawl,
+ * projet de 2019) : ordonnée pendant la marche (22 images), abscisse bouclier levé (4 images).
+ */
+const ORB_WALK_Y = [137, 137, 137, 138, 138, 139, 139, 139, 139, 136, 136, 129, 129, 129, 128, 128, 127, 127, 127, 127, 129, 129];
+const ORB_SHIELD_X = [141, 158, 158, 147];
+/** Décalage de l'orbe par rapport au robot, dans son repère (x vers l'avant, y vers sa droite). */
+function orbOffset(bodySprite: string, frame: number): { x: number; y: number } {
+  const i = Math.max(0, Math.floor(frame));
+  if (bodySprite === 'spr_BadaBot_move') return { x: 0, y: ORB_WALK_Y[i % ORB_WALK_Y.length] - 137 };
+  if (bodySprite === 'spr_BadaBot_fire2') return { x: ORB_SHIELD_X[Math.min(i, ORB_SHIELD_X.length - 1)] - 141, y: 0 };
+  return { x: 0, y: 0 };
+}
 /** Logement de la munition sur l'arme de chaque robot, dans le repère de son sprite. */
 const RELOAD_SLOT: Record<string, { x: number; y: number }> = {
   PetBot: { x: 52, y: 23 },
@@ -91,6 +104,7 @@ export class WorldView {
   private readonly alerts = new Map<number, { text: Phaser.GameObjects.Text; frames: number }>();
   private auras: Img[] = [];
   private checkpointImg: Img | null = null;
+  private readonly orbPos = { x: 0, y: 0 };
   private hasLamps = false;
   private cable!: Phaser.GameObjects.Graphics;
   private tracers!: Phaser.GameObjects.Graphics;
@@ -303,7 +317,7 @@ export class WorldView {
 
     const pose = this.heroPose(h);
     this.setFrame(body, pose.sprite, pose.frame);
-    this.syncPlasmaBall(h, pose.sprite);
+    this.syncPlasmaBall(h, pose.sprite, pose.frame);
 
     // invulnérabilité après un dégât : le héros clignote (effet « glitch » de l'original, simplifié)
     if (h.invuln > 0) body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
@@ -516,13 +530,19 @@ export class WorldView {
   }
 
   /** Boule de plasma de BadaBot : au repos, en charge, chargée, ou juste tirée. */
-  private syncPlasmaBall(h: Hero, bodySprite: string): void {
+  private syncPlasmaBall(h: Hero, bodySprite: string, bodyFrame: number): void {
     if (h.def.kind !== 'BadaBot') return;
     if (!this.plasmaBall) this.plasmaBall = this.image('spr_plasmaBawl_idle', 0, h.x, h.y, DEPTH.character + 1);
     const ball = this.plasmaBall;
     const now = this.scene.time.now / 1000;
     const full = CONFIG.abilities.badaBot.fullChargeSteps;
-    ball.setVisible(true).setPosition(h.x, h.y).setRotation(h.angle);
+    // la tête de BadaBot bouge d'une image à l'autre : l'orbe la suit (GD-033)
+    const local = orbOffset(bodySprite, bodyFrame);
+    const c = Math.cos(h.angle);
+    const s = Math.sin(h.angle);
+    this.orbPos.x = h.x + local.x * c - local.y * s;
+    this.orbPos.y = h.y + local.x * s + local.y * c;
+    ball.setVisible(true).setPosition(this.orbPos.x, this.orbPos.y).setRotation(h.angle);
     // rechargement de BadaBot : l'orbe se vide puis se reforme (GD-032)
     const reload = h.reloadTimer > 0 ? 1 - h.reloadTimer / Math.max(1, h.def.reloadSteps) : 1;
     ball.setScale(0.3 + 0.7 * reload).setAlpha(0.45 + 0.55 * reload);
@@ -531,10 +551,9 @@ export class WorldView {
     else if (h.charge > 0) this.setFrame(ball, 'spr_plasmaBawl_loading', (h.charge / full) * this.info('spr_plasmaBawl_loading').frames);
     else if (h.sinceShot < 15) this.setFrame(ball, 'spr_plasmaBawl_shot', h.sinceShot / 3);
     else this.setFrame(ball, 'spr_plasmaBawl_idle', (now * 20) % this.info('spr_plasmaBawl_idle').frames);
-    // l'orbe et le corps sont dessinés sur la même toile : on cale l'orbe sur l'origine du sprite du corps,
-    // qui change selon la posture, pour qu'elle ne se décale plus en marchant ou bouclier levé (GD-029)
-    const bodyInfo = this.info(bodySprite);
-    ball.setOrigin(bodyInfo.ox / bodyInfo.w, bodyInfo.oy / bodyInfo.h);
+    // l'orbe tourne et grossit autour de son propre centre
+    const own = this.info(ball.texture.key.split('/')[0]);
+    ball.setOrigin(own.ox / own.w, own.oy / own.h);
   }
 
   /** Synchronise un ensemble d'images avec une liste d'entités identifiées. */
@@ -882,6 +901,8 @@ export class WorldView {
 
   /** Endroit de l'arme où se loge la munition, dans le monde : la fiole de PetBot, le tambour d'EngiBot, l'orbe de BadaBot. */
   private weaponSlot(h: Hero): { x: number; y: number } {
+    // l'orbe de BadaBot : là où elle est réellement dessinée
+    if (h.def.kind === 'BadaBot' && this.plasmaBall) return { x: this.orbPos.x, y: this.orbPos.y };
     const local = RELOAD_SLOT[h.def.kind] ?? { x: 30, y: 0 };
     const c = Math.cos(h.angle);
     const s = Math.sin(h.angle);
@@ -948,23 +969,34 @@ export class WorldView {
       g.lineStyle(3, 0xc060ff, 0.5).strokeCircle(p.x, p.y, 10 + 22 * progress);
       return;
     }
-    // la munition neuve part du corps du robot et vient s'engager dans l'arme
+    if (kind === 'PetBot') {
+      // son autre bras passe par-dessus le corps, saisit l'arme, l'actionne, puis revient (GD-033)
+      const reach = progress < 0.3 ? progress / 0.3 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
+      const pump = progress >= 0.3 && progress <= 0.8 ? Math.sin(((progress - 0.3) / 0.5) * Math.PI * 4) * 7 : 0;
+      const shoulder = { x: 26, y: -44 };
+      const grip = { x: slot.x + pump, y: slot.y - 2 };
+      const hx = shoulder.x + (grip.x - shoulder.x) * reach;
+      const hy = shoulder.y + (grip.y - shoulder.y) * reach;
+      const a = at(shoulder.x, shoulder.y);
+      const b = at(hx, hy);
+      g.lineStyle(16, 0x1d3a26, 1).lineBetween(a.x, a.y, b.x, b.y);
+      g.lineStyle(10, 0x8fc79a, 1).lineBetween(a.x, a.y, b.x, b.y);
+      g.fillStyle(0x1d3a26, 1).fillCircle(a.x, a.y, 9).fillCircle(b.x, b.y, 11);
+      g.fillStyle(0xb7e6bf, 1).fillCircle(b.x, b.y, 8);
+      g.fillStyle(0xe03030, 1).fillCircle(b.x, b.y, 3);
+      return;
+    }
+    // EngiBot : le tambour neuf part du corps du robot et vient s'engager sur le canon
     const travel = Math.min(1, Math.max(0, (progress - 0.25) / 0.6));
     const from = { x: slot.x - 46, y: slot.y - 26 };
     const lx = from.x + (slot.x - from.x) * travel;
     const ly = from.y + (slot.y - from.y) * travel;
     if (progress < 0.25) return;
-    if (kind === 'EngiBot') {
-      const c = at(lx, ly);
-      const spin = progress * 14;
-      g.fillStyle(0x1c1c1c, 1).fillCircle(c.x, c.y, 12);
-      g.lineStyle(2, 0xff5a5a, 1).strokeCircle(c.x, c.y, 12);
-      for (let k = 0; k < 6; k++) g.fillStyle(0xffd23c, 1).fillCircle(c.x + Math.cos(spin + k * 1.047) * 7, c.y + Math.sin(spin + k * 1.047) * 7, 2.4);
-    } else {
-      g.fillStyle(0x1f4d2a, 1).fillPoints([at(lx - 14, ly - 6), at(lx + 14, ly - 6), at(lx + 14, ly + 6), at(lx - 14, ly + 6)], true);
-      g.fillStyle(0x7dff9a, 1).fillPoints([at(lx - 12, ly - 4), at(lx + 6, ly - 4), at(lx + 6, ly + 4), at(lx - 12, ly + 4)], true);
-      g.fillStyle(0xffffff, 1).fillPoints([at(lx + 7, ly - 5), at(lx + 13, ly - 5), at(lx + 13, ly + 5), at(lx + 7, ly + 5)], true);
-    }
+    const c = at(lx, ly);
+    const spin = progress * 14;
+    g.fillStyle(0x1c1c1c, 1).fillCircle(c.x, c.y, 12);
+    g.lineStyle(2, 0xff5a5a, 1).strokeCircle(c.x, c.y, 12);
+    for (let k = 0; k < 6; k++) g.fillStyle(0xffd23c, 1).fillCircle(c.x + Math.cos(spin + k * 1.047) * 7, c.y + Math.sin(spin + k * 1.047) * 7, 2.4);
   }
 
   /** Bouclier des robots à bouclier : un arc devant eux, un segment par coup encore encaissable (GD-029). */
@@ -1131,7 +1163,6 @@ export class WorldView {
         const boom = this.image('spr_explosion_robot', 0, x, y, DEPTH.fx).setRotation(Math.random() * Math.PI * 2).setScale(0.9);
         this.anims.push({ img: boom, sprite: 'spr_explosion_robot', frames: sp.frames, fps: spriteFps(sp), elapsed: 0, keepLast: false });
       }
-      this.keepRemains(scene.add.circle(x, y, 70, 0x000000).setAlpha(0.3).setDepth(DEPTH.remains - 2) as unknown as Img);
     }
     const puddle = robot ? 'spr_membreMortRobot_huile' : 'spr_membreMortHumain_sang';
     if (scene.textures.exists(frameKey(puddle, 0))) {

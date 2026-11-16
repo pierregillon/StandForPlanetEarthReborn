@@ -631,3 +631,24 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** Lisibilité et cohérence avec chaque robot ; et pouvoir travailler le combat de boss sans refaire le niveau.
 
 **Conséquences.** Les munitions animées (fiole, tambour) sont dessinées par le code, pas par un graphiste : ce ne sont pas des sprites dans le style d'origine. Si de vraies animations sont dessinées, elles remplaceront `drawReload` et `clipTexture` dans `src/client/view/WorldView.ts`. Le départ direct au boss saute l'animation de déploiement.
+
+---
+
+## GD-033 — Orbe de BadaBot calée sur sa tête ; ajustements du rechargement et des débris
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (retours d'essai)
+
+**Contexte.** L'orbe de BadaBot restait décalée : la tête du robot oscille en marchant et avance bouclier levé, alors que l'orbe restait fixe ; l'animation de rechargement n'était pas centrée sur elle. La correction de GD-029 (caler l'orbe sur l'origine du sprite du corps) était fausse. L'utilisateur trouve aussi étrange la fiole neuve qui voyage vers l'arme de PetBot, à peine audible le bruitage de rechargement, et inutile le cercle sombre sous les robots détruits.
+
+**Décision.**
+
+- **Orbe** : le projet d'origine place l'orbe image par image, avec deux tables de coordonnées de la tête (`obj_plasmaBawl` : `plasmaYcoordinatesWalking` pour les 22 images de marche, `plasmaXcoordinatesFire2` pour les 4 images du bouclier). Ces tables sont reprises telles quelles ; l'orbe tourne et grossit autour de son propre centre. Le rechargement de BadaBot se dessine à la position réelle de l'orbe.
+- **Rechargement de PetBot** : la fiole usée tombe toujours au sol ; à la place de la fiole neuve, son autre bras passe par-dessus le corps, saisit l'arme, l'actionne deux fois et revient.
+- **Bruitages de rechargement** : volume multiplié par 2,6.
+- **Robots détruits** : le cercle sombre sous les flaques d'huile est retiré ; débris et flaques inchangés.
+
+**Pourquoi.** Fidélité à l'original pour l'orbe, dont les tables existaient déjà ; lisibilité pour le reste.
+
+**Conséquences.** Leçon pour la suite : avant de corriger un alignement de sprite, chercher dans le code d'origine une table de coordonnées par image (il en existe aussi pour le viseur laser et le compteur de munitions : `scr_setCoordinatesOfLaser`, `scr_setCoordinatesOfAmmoIndicator`). Le bras de PetBot est dessiné par le code, comme les autres animations de rechargement (GD-032).

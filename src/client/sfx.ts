@@ -2,10 +2,15 @@
 // point de sauvegarde (GD-031). Produits par WebAudio, sans fichier.
 import Phaser from 'phaser';
 
+/** Les bruitages de rechargement étaient à peine audibles : ils sont amplifiés (GD-033). */
+const RELOAD_BOOST = 2.6;
+
 export class Synth {
   private readonly ctx: AudioContext | null;
   private chargeOsc: OscillatorNode | null = null;
   private chargeGain: GainNode | null = null;
+  /** Multiplicateur de volume appliqué aux sons en cours de création. */
+  private boost = 1;
 
   constructor(scene: Phaser.Scene) {
     const manager = scene.sound as unknown as { context?: AudioContext };
@@ -21,7 +26,7 @@ export class Synth {
     osc.type = type;
     osc.frequency.setValueAtTime(from, t0);
     osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), t0 + duration);
-    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.setValueAtTime(Math.min(0.6, volume * this.boost), t0);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
     osc.connect(gain).connect(ctx.destination);
     osc.start(t0);
@@ -36,6 +41,7 @@ export class Synth {
 
   /** Début de rechargement, propre à chaque robot (GD-032). `seconds` = durée du rechargement. */
   reloadStart(kind: string, seconds: number): void {
+    this.boost = RELOAD_BOOST;
     if (kind === 'PetBot') {
       // la fiole usée est éjectée : déclic puis chuintement
       this.tone('square', 340, 170, 0.06, 0.12);
@@ -48,10 +54,12 @@ export class Synth {
       this.tone('sine', 110, 640, seconds, 0.09);
       this.tone('triangle', 220, 1280, seconds, 0.03);
     }
+    this.boost = 1;
   }
 
   /** Fin de rechargement : l'arme est verrouillée. */
   reloadEnd(kind: string): void {
+    this.boost = RELOAD_BOOST;
     if (kind === 'PetBot') {
       this.tone('triangle', 620, 1150, 0.08, 0.13);
       this.tone('square', 200, 120, 0.04, 0.1, 0.07);
@@ -61,6 +69,7 @@ export class Synth {
     } else if (kind === 'BadaBot') {
       this.tone('sine', 700, 330, 0.28, 0.15);
     }
+    this.boost = 1;
   }
 
   /** Point de sauvegarde : trois notes montantes. */

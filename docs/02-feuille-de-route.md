@@ -147,3 +147,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 | 2026-11-16 | BatBot : R rappelle les battes, dégâts au retour, lueur sur les mains libres (GD-030). |
 | 2026-11-16 | Deuxième série de retours (GD-031) : point de sauvegarde devant le boss, vitesse et bonus d'énergie, dash intouchable, vitres traversées par le regard et les tirs, chaises à roulettes, boutons animés, déploiement, marqueur d'alerte, effets et sons de synthèse. 35 tests. |
 | 2026-11-16 | Rechargement animé et sonorisé par robot, jauge masquée à plein, écran de choix du point de départ dont le boss (GD-032). |
+| 2026-11-16 | Orbe de BadaBot placée avec les tables de coordonnées d'origine, rechargement de PetBot avec son autre bras, bruitages plus forts, cercle sombre retiré (GD-033). |
