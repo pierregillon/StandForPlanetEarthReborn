@@ -41,7 +41,7 @@ Les tirs secondaires ont **4 stades de puissance**, par tranches de 3 points d'�
 | Fin du niveau | Rester 10 s sur une zone du rez-de-chaussée | **Enchaînement de 6 consignes, fin à la mort du boss** | `[GD-010]` |
 | Salle du boss | Reliée à rien, boss inachevé | **Reliée au niveau, boss terminé** | `[GD-009]` |
 | Bogues connus | Une quinzaine relevés | **Corrigés, pas reproduits** | `[GD-014]` |
-| Lumière | Lumières + ombres portées | **Brouillard de guerre + lumières simples, sans ombres portées** | `[GD-011]` |
+| Lumière | Lumières + ombres portées | **Brouillard de guerre + lumières d'origine avec ombres portées et couleurs** (ajoutées après le MVP) | `[GD-011]` `[GD-038]` |
 
 ### Ennemis et PNJ `[GD-008]`
 

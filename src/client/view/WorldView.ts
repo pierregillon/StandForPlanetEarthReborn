@@ -4,7 +4,8 @@ import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import type { FloorManifest } from '../assets.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
-import { BLOCK_MOVE } from '../../sim/geom.ts';
+import { BLOCK_MOVE, BLOCK_SIGHT } from '../../sim/geom.ts';
+import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
 import type { Bat, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
@@ -17,7 +18,46 @@ const DEPTH = {
 /** Brouillard de guerre : gris foncé de l'original ($313131). */
 const FOG_COLOR = 0x313131;
 /** Éclairage simplifié. L'original assombrit à 60 % ; 50 % ici pour garder les combats lisibles (GD-028). */
-const LIGHTING = { ambient: 0.5, strength: 2, heroRadius: 420, heroStrength: 0.75, chargingDim: 0.22 };
+const LIGHTING = {
+  /** Noir posé sur tout l'écran dans les salles éclairées (0.6 dans l'original). */
+  ambient: 0.5,
+  /** Part du noir retirée au centre d'une lampe : son intensité d'origine multipliée par cette valeur. */
+  strength: 2,
+  /** Lueur que le héros porte sur lui, pour rester lisible loin des lampes. */
+  heroRadius: 460,
+  heroStrength: 0.75,
+  /** La lueur du héros est recalculée dès qu'il s'est déplacé de cette distance. */
+  heroRebakeDistance: 3,
+  chargingDim: 0.22,
+  /** Les lampes sont pré-dessinées à cette fraction de leur taille : assez pour un dégradé, léger pour la carte graphique. */
+  bakeScale: 0.35,
+  /** La lueur du héros, redessinée à chaque déplacement, l'est en plus petit encore. */
+  heroBakeScale: 0.25,
+  /** La lumière entre de quelques pixels dans le mur qu'elle touche, pour en éclairer la face. */
+  wallReach: 26,
+  /** Force de la teinte des lampes colorées, ajoutée par-dessus le décor. */
+  colorStrength: 1.4,
+  /** Au plus ce nombre de lampes recalculées par image quand des portes bougent. */
+  maxBakesPerFrame: 2,
+};
+
+/** Source de lumière, avec sa zone éclairée pré-dessinée dans une texture (ombres portées comprises). */
+interface Lamp {
+  x: number;
+  y: number;
+  radius: number;
+  /** Part du noir retirée au centre de la lampe. */
+  strength: number;
+  key: string;
+  /** Fraction de la taille réelle à laquelle la texture est dessinée. */
+  scale: number;
+  stamp: Img;
+  /** Portes qui peuvent couper ou laisser passer sa lumière. */
+  doors: Door[];
+  /** Ouverture de ces portes au dernier calcul : si elle change, la zone éclairée est recalculée. */
+  doorState: number;
+}
+
 const CARD_COLORS: Record<string, number> = { green: 0x35d05a, purple: 0xb04cff };
 const MAX_REMAINS = 900;
 /** Nombre d'images de la fin du déploiement de PetBot utilisées pour son rechargement. */
@@ -84,8 +124,8 @@ export class WorldView {
   private readonly drillParts = new Map<number, { contours: Img | null; beam: Img | null }>();
   private drillBars!: Phaser.GameObjects.Graphics;
   private darkness: Phaser.GameObjects.RenderTexture | null = null;
-  private lightStamp: Img | null = null;
-  private lights: { x: number; y: number; radius: number; intensity: number }[] = [];
+  private heroLamp: Lamp | null = null;
+  private lights: Lamp[] = [];
   private plasmaBall: Img | null = null;
   private readonly doorImgs = new Map<number, Img>();
   private readonly windowImgs = new Map<number, Img>();
@@ -1082,22 +1122,84 @@ export class WorldView {
   /** Lumières simples (GD-011) : un voile sombre sur la vue, percé d'un halo par lumière, sans ombres portées. */
   private buildLights(): void {
     const scene = this.scene;
-    const placed = this.world.level.instances.filter((i) => i.object === 'obj_lumiere');
+    const world = this.world;
+    const placed = world.level.instances.filter((i) => i.object === 'obj_lumiere');
     this.hasLamps = placed.length > 0;
-    this.lights = placed.map((i) => ({
-      x: i.x, y: i.y,
-      radius: Number(i.props.radius ?? 256 * Math.abs(i.scaleX)),
-      intensity: Number(i.props.lightIntensity ?? 0.5),
-    }));
-    this.ensureHalo();
-    this.lightStamp = scene.make.image({ key: 'lightHalo', add: false });
     this.darkness = scene.add.renderTexture(0, 0, VIEW.width, VIEW.height).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.darkness);
+    this.lights = [];
+    placed.forEach((inst, index) => {
+      const radius = Number(inst.props.radius ?? 256 * Math.abs(inst.scaleX));
+      const intensity = Number(inst.props.lightIntensity ?? 0.5);
+      const doors = world.doors.filter((d) => Math.hypot(d.x - inst.x, d.y - inst.y) <= radius + d.halfLength);
+      const lamp = this.makeLamp(`lamp:${index}`, inst.x, inst.y, radius, intensity * LIGHTING.strength, LIGHTING.bakeScale, doors);
+      if (!lamp) return;
+      this.lights.push(lamp);
+      // lampe colorée (teinte et saturation de l'original, sur 255) : sa couleur s'ajoute au décor, dans la
+      // même zone éclairée que sa lumière, et sous le brouillard pour ne pas trahir une salle encore cachée
+      const sat = Number(inst.props.sat ?? 0) / 255;
+      if (sat <= 0.05) return;
+      const color = Phaser.Display.Color.HSVToRGB(Number(inst.props.hue ?? 0) / 255, 1, 1) as Phaser.Types.Display.ColorObject;
+      scene.add.image(lamp.x, lamp.y, lamp.key).setScale(1 / LIGHTING.bakeScale).setBlendMode(Phaser.BlendModes.ADD)
+        .setTint(color.color).setAlpha(Math.min(1, intensity * sat * LIGHTING.colorStrength)).setDepth(DEPTH.fog - 1);
+    });
+    const h = world.hero;
+    this.heroLamp = this.makeLamp('lamp:hero', h.x, h.y, LIGHTING.heroRadius, LIGHTING.heroStrength, LIGHTING.heroBakeScale, world.doors);
+  }
+
+  private makeLamp(key: string, x: number, y: number, radius: number, strength: number, scale: number, doors: Door[]): Lamp | null {
+    const scene = this.scene;
+    const size = Math.ceil(radius * 2 * scale) + 2;
+    if (scene.textures.exists(key)) scene.textures.remove(key);
+    if (!scene.textures.createCanvas(key, size, size)) return null;
+    const stamp = scene.make.image({ key, add: false }).setScale(1 / scale);
+    const lamp: Lamp = { x, y, radius, strength, key, scale, stamp, doors, doorState: -1 };
+    this.bakeLamp(lamp);
+    return lamp;
+  }
+
+  /**
+   * Dessine la zone éclairée d'une lampe dans sa texture : un dégradé du centre vers le bord, découpé par le
+   * polygone de ce que la lampe « voit ». Murs et portes font donc de l'ombre (GD-038).
+   */
+  private bakeLamp(lamp: Lamp): void {
+    const texture = this.scene.textures.get(lamp.key) as Phaser.Textures.CanvasTexture;
+    const ctx = texture.context;
+    const s = lamp.scale;
+    const size = texture.width;
+    const mid = size / 2;
+    const polygon = visibilityPolygon(this.world.collision, lamp.x, lamp.y, lamp.radius, BLOCK_SIGHT, LIGHTING.wallReach);
+    ctx.clearRect(0, 0, size, size);
+    ctx.save();
+    ctx.beginPath();
+    polygon.forEach((p, i) => {
+      const px = mid + (p.x - lamp.x) * s;
+      const py = mid + (p.y - lamp.y) * s;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+    ctx.clip();
+    // dégradé linéaire du centre au bord, comme le shader sha_light de l'original
+    const gradient = ctx.createRadialGradient(mid, mid, 0, mid, mid, lamp.radius * s);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+    ctx.restore();
+    texture.refresh();
+    lamp.doorState = this.doorState(lamp.doors);
+  }
+
+  /** Résume l'ouverture d'un groupe de portes en un nombre : s'il change, la lumière qui passe a changé. */
+  private doorState(doors: Door[]): number {
+    let state = 0;
+    for (let i = 0; i < doors.length; i++) state += doors[i].progress * (i + 1);
+    return state;
   }
 
   private syncLights(): void {
     const rt = this.darkness;
-    const stamp = this.lightStamp;
-    if (!rt || !stamp) return;
+    if (!rt) return;
     const cam = this.scene.cameras.main;
     const h = this.world.hero;
     // pendant une recharge, la lumière baisse et tremble autour du robot (idée de l'utilisateur, GD-029)
@@ -1105,18 +1207,35 @@ export class WorldView {
     const ambient = (this.hasLamps ? LIGHTING.ambient : 0) + (h.charging ? LIGHTING.chargingDim * (0.6 + Math.random() * 0.6) : 0);
     rt.setVisible(ambient > 0);
     if (ambient <= 0) return;
+
+    // une porte qui bouge près d'une lampe change ce qu'elle éclaire : on ne recalcule que ces lampes-là
+    let bakes = 0;
+    for (const lamp of this.lights) {
+      if (bakes >= LIGHTING.maxBakesPerFrame) break;
+      if (this.doorState(lamp.doors) === lamp.doorState) continue;
+      this.bakeLamp(lamp);
+      bakes++;
+    }
+    // la lueur du héros le suit : elle est recalculée quand il se déplace ou qu'une porte bouge
+    const own = this.heroLamp;
+    if (own && (Math.hypot(h.x - own.x, h.y - own.y) > LIGHTING.heroRebakeDistance || this.doorState(own.doors) !== own.doorState)) {
+      own.x = h.x;
+      own.y = h.y;
+      this.bakeLamp(own);
+    }
+
     rt.clear();
     rt.fill(0x000000, Math.min(0.85, ambient));
-    const halo = (x: number, y: number, radius: number, strength: number): void => {
-      const sx = x - cam.scrollX;
-      const sy = y - cam.scrollY;
-      if (sx < -radius || sy < -radius || sx > VIEW.width + radius || sy > VIEW.height + radius) return;
-      stamp.setScale((radius * 2) / 256).setAlpha(Math.min(1, strength));
-      rt.erase(stamp, sx, sy);
+    const erase = (lamp: Lamp, alpha: number): void => {
+      const sx = lamp.x - cam.scrollX;
+      const sy = lamp.y - cam.scrollY;
+      const r = lamp.radius;
+      if (sx < -r || sy < -r || sx > VIEW.width + r || sy > VIEW.height + r) return;
+      lamp.stamp.setAlpha(Math.min(1, alpha));
+      rt.erase(lamp.stamp, sx, sy);
     };
-    for (const light of this.lights) halo(light.x, light.y, light.radius, light.intensity * LIGHTING.strength * flicker);
-    // le héros porte sa propre lueur, pour rester lisible loin des lampes
-    halo(h.x, h.y, LIGHTING.heroRadius * (h.charging ? 0.8 + Math.random() * 0.25 : 1), LIGHTING.heroStrength);
+    for (const lamp of this.lights) erase(lamp, lamp.strength * flicker);
+    if (own) erase(own, own.strength * (h.charging ? 0.7 + Math.random() * 0.3 : 1));
   }
 
   private syncDoor(door: Door): void {

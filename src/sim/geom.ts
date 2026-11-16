@@ -253,6 +253,11 @@ export class CollisionWorld {
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) fn(this.cells[r * this.cols + c]);
   }
 
+  /** Copie de la liste des obstacles actifs qui touchent la zone et ont un des drapeaux demandés. */
+  obstaclesIn(minX: number, minY: number, maxX: number, maxY: number, mask: number): Obstacle[] {
+    return this.query(minX, minY, maxX, maxY, mask).slice();
+  }
+
   /** Obstacles actifs dont la boîte englobante touche la zone et qui ont un des drapeaux demandés. */
   private query(minX: number, minY: number, maxX: number, maxY: number, mask: number): Obstacle[] {
     const out = this.found;

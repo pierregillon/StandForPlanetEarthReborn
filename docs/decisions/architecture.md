@@ -206,3 +206,22 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 **Pourquoi.** Simple, sans outil de traitement d'image supplémentaire, et le dépôt reste raisonnable à pousser sur une connexion limitée.
 
 **Conséquences.** Le chargement prend une dizaine de secondes en local et serait lent sur un hébergement distant : il faudra regrouper les images en planches de sprites avant toute mise en ligne. Les sprites des héros de l'étape 2 et du boss sont à retirer des exclusions le moment venu, puis relancer `npm run extract-assets`.
+
+## ADR-013 — Lumières : zone éclairée pré-dessinée par lampe, recalculée quand une porte bouge
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : choix par défaut (contrainte de l'utilisateur : code simple, performances intactes)
+
+**Contexte.** GD-038 demande des ombres portées par les murs et les portes. L'original projette des triangles d'ombre dans une surface par lampe, avec un shader. Les pistes écartées : le pipeline de lumières de Phaser (`Light2D`), qui demande des cartes de normales et ne fait pas d'ombres portées ; un shader d'ombres écrit à la main, plus de code et plus fragile.
+
+**Décision.**
+
+- `src/sim/visibility.ts` calcule le polygone visible depuis un point : un rayon vers chaque coin d'obstacle du voisinage (plus un de chaque côté) et 48 rayons réguliers, lancés avec le `raycast` de collision existant sur les obstacles qui arrêtent le regard (`BLOCK_SIGHT`). Aucune dépendance au navigateur.
+- Chaque lampe a une petite texture canevas (35 % de sa taille réelle) où son dégradé est dessiné, découpé par ce polygone. Elle n'est redessinée que si l'ouverture d'une porte de son rayon a changé, et au plus deux lampes par image.
+- À chaque image, le calque noir (`RenderTexture` de la taille de l'écran, déjà en place depuis l'étape 4) est rempli, puis chaque texture de lampe visible y est « gommée ». Les lampes colorées ont en plus une image du monde, en mélange additif, qui réutilise la même texture.
+- La lueur du héros est une lampe comme les autres, à 25 % de sa taille, redessinée quand il s'est déplacé de plus de 3 px.
+
+**Pourquoi.** Les murs sont peu nombreux et déjà rangés dans la grille de collision ; un polygone coûte environ 0,1 ms. Dessiner le résultat dans une texture ramène le coût par image à un tampon par lampe, comme avec les anciens halos. Tout tient en une centaine de lignes, sans shader.
+
+**Conséquences.** Mesures sur la machine de l'utilisateur, panneau du navigateur affiché : 60 images par seconde à l'arrêt, en déplacement et pendant qu'une porte éclairée par deux lampes s'ouvre et se ferme ; le travail par image en déplacement passe d'environ 6 ms à 6,5 ms (budget : 16,6 ms). Limites connues : les ombres ont un bord net adouci seulement par la faible résolution des textures ; un obstacle qui bougerait sans être une porte ne mettrait pas à jour les lampes fixes.

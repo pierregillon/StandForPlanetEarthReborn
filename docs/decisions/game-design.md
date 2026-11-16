@@ -196,7 +196,7 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 ## GD-011 — Brouillard de guerre et lumières simples, sans ombres portées
 
 - **Date** : 2026-11-15
-- **Statut** : Acceptée
+- **Statut** : Acceptée pour le brouillard ; pour les lumières, remplacée par GD-038 (ombres portées et couleurs)
 - **Décidée par** : l'utilisateur, au-delà de la recommandation (brouillard seul)
 
 **Contexte.** Le code masque les pièces tant que leur porte n'a pas été ouverte (brouillard de guerre) et calcule lumières et ombres portées par les murs et les objets. Le GDD liste la « gestion de la lumière » parmi les mécaniques.
@@ -730,3 +730,37 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Un départ en cours de niveau doit laisser le monde dans l'état où un joueur l'aurait mis en y arrivant.
 
 **Conséquences.** Mécanisme général : `session.preOpened` liste, par salle, les portes à bouton et à carte à ouvrir d'office. Il servira à tout nouveau point de départ. Le départ au boss n'en a pas besoin : la zone de forage n'a ni porte ni retour.
+
+## GD-038 — Lumières avec ombres portées et couleurs, comme dans l'original
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur pour l'objectif (retrouver les jeux de lumière de GameMaker, code simple, performances intactes, jouabilité d'abord) ; choix par défaut pour les arbitrages listés plus bas
+
+**Contexte.** L'utilisateur demande de retrouver le travail de lumière du jeu d'origine : ombres portées, lumière qui passe quand une porte s'ouvre, couleurs, positions précises. GD-011 s'était limité à des halos ronds sans ombre.
+
+**Ce que fait l'original** (`obj_lumiere`, `obj_ambientShadow`, `scr_calculShadowForStaticInstance`, shader `sha_light`) :
+
+- `obj_ambientShadow` pose un noir à 60 % sur toute la vue.
+- Chaque lampe a une position, un rayon, une teinte, une saturation et une intensité réglés dans la salle (11 lampes au rez-de-chaussée, dont 5 colorées ; aucune à l'étage ni dans la zone de forage).
+- Chaque lampe dessine sa lumière dans une surface à elle : un dégradé linéaire du centre vers le bord (shader `sha_light`), d'où sont retirés des triangles d'ombre projetés depuis les murs (`obj_mur_parent`, `obj_shadowMaker`), calculés une fois, et depuis les portes (`obj_door_parent`), recalculés à chaque pas. La surface est ajoutée à l'image, teintée de la couleur de la lampe.
+- Meubles et personnages ne font pas d'ombre.
+
+**Décision.** Reproduire ces quatre points :
+
+1. Les lampes gardent leurs position, rayon, teinte, saturation et intensité d'origine, lues dans la salle convertie.
+2. Murs et portes arrêtent la lumière. La zone éclairée d'une lampe est le polygone de ce qu'elle « voit » ; une porte qui s'ouvre laisse passer un pinceau de lumière qui s'élargit avec elle. Les vitres laissent passer la lumière, meubles et personnages ne font pas d'ombre.
+3. Dégradé linéaire du centre au bord, comme le shader d'origine.
+4. Les lampes colorées ajoutent leur teinte au décor, dans la même zone éclairée : la couleur ne traverse pas les murs non plus.
+
+**Arbitrages (choix par défaut).**
+
+- **Noir ambiant à 50 %** au lieu de 60 % : on doit toujours distinguer les ennemis hors des lampes (jouabilité d'abord).
+- **La lueur du héros est conservée** (elle n'existe pas dans l'original, voir GD-028), et elle reçoit elle aussi des ombres portées : elle n'éclaire plus l'autre côté des murs et dessine un pinceau de lumière quand le héros passe une porte.
+- **La lumière blanche retire du noir au lieu de s'ajouter à l'image.** Une lampe ne brûle donc jamais les couleurs du décor, et le rendu reste lisible là où plusieurs lampes se recouvrent. La teinte des lampes colorées, elle, s'ajoute comme dans l'original, avec une force réglable (`colorStrength`).
+- **La teinte colorée est dessinée sous le brouillard de guerre**, pour ne pas trahir la couleur d'une salle encore cachée.
+- **La lumière entre de 26 px dans le mur qu'elle touche**, pour que la face du mur soit éclairée plutôt que coupée net.
+
+**Pourquoi.** C'est le rendu demandé, pour un coût mesuré négligeable (voir ADR-013) : le calcul d'une zone éclairée prend environ 0,1 ms, et il n'est refait que pour les lampes dont une porte voisine bouge.
+
+**Conséquences.** Réglages dans `LIGHTING` (`src/client/view/WorldView.ts`) : noir ambiant, force des lampes, rayon et force de la lueur du héros, force des couleurs. Le calcul géométrique est dans `src/sim/visibility.ts`, testé sans navigateur (4 tests, dont l'ouverture d'une vraie porte du niveau). Les salles sans lampe (étage, zone de forage) restent sans assombrissement, comme avant. Non vérifié à l'écran : le tremblement de la lumière pendant une recharge avec le nouveau rendu.

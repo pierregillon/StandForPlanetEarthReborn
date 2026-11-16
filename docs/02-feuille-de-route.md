@@ -150,3 +150,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 | 2026-11-16 | Orbe de BadaBot placée avec les tables de coordonnées d'origine, rechargement de PetBot avec son autre bras, bruitages plus forts, cercle sombre retiré (GD-033). |
 | 2026-11-16 | Rechargement de PetBot avec ses sprites de déploiement (GD-034). Arrivée par le véhicule de largage d'origine au début du niveau (GD-035). 36 tests. |
 | 2026-11-16 | Les soldats vont voir d'où vient le bruit ; le « ! » ne s'affiche plus sous le brouillard (GD-036). 37 tests. |
+| 2026-11-16 | Départ à l'étage : portes déjà franchies ouvertes (GD-037). Lumières avec ombres portées par les murs et les portes, lampes colorées, lueur du héros ombrée (GD-038, ADR-013) ; 60 images par seconde conservées. 42 tests. |
