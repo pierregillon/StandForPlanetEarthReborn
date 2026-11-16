@@ -5,7 +5,7 @@
 import { CONFIG, STEPS_PER_SECOND } from './config.ts';
 import { BLOCK_MOVE, DEG, distanceToRect, rotateToward } from './geom.ts';
 import type { Point } from './nav.ts';
-import type { Npc } from './types.ts';
+import type { Hero, Npc } from './types.ts';
 import type { World } from './world.ts';
 
 const B = CONFIG.boss;
@@ -63,9 +63,14 @@ export function guardBoss(b: BossState): void {
   if (b.invulnerable && b.npc.hp < b.guardedHp) b.npc.hp = b.guardedHp;
 }
 
+/** Proie du boss : le héros debout le plus proche (à défaut, le premier de l'équipe, à terre). */
+function prey(world: World, npc: Npc): Hero {
+  return world.nearestHero(npc.x, npc.y) ?? world.heroes[0];
+}
+
 export function stepBoss(world: World, b: BossState): void {
   const npc = b.npc;
-  const h = world.hero;
+  const h = prey(world, npc);
   const dx = h.x - npc.x;
   const dy = h.y - npc.y;
   const edge = Math.hypot(dx, dy) - npc.def.radius - h.def.radius;
@@ -102,9 +107,11 @@ export function stepBoss(world: World, b: BossState): void {
       npc.angle = rotateToward(npc.angle, toHero, turn);
       const attack = b.phase === 1 ? B.combo[b.combo] : B.attack2;
       const t = b.anim / b.animSteps;
-      if (!b.hitDone && t >= B.hitWindow[0] && t <= B.hitWindow[1] && heroInBox(world, npc, attack.box)) {
+      // le coup touche tous les héros pris dans sa zone
+      const struck = !b.hitDone && t >= B.hitWindow[0] && t <= B.hitWindow[1] ? heroesInBox(world, npc, attack.box) : [];
+      if (struck.length > 0) {
         b.hitDone = true;
-        world.damageHero(attack.damage);
+        for (const victim of struck) world.damageHero(victim, attack.damage);
       }
       if (b.phase === 2) b.fatigue++;
       if (b.anim >= b.animSteps) {
@@ -121,7 +128,7 @@ export function stepBoss(world: World, b: BossState): void {
         const touching = edge <= 4;
         if (touching && !b.hitDone) {
           b.hitDone = true;
-          world.damageHero(B.chargeDamage);
+          world.damageHero(h, B.chargeDamage);
         }
         const nx = npc.x + Math.cos(npc.angle) * B.chargeSpeed;
         const ny = npc.y + Math.sin(npc.angle) * B.chargeSpeed;
@@ -149,20 +156,20 @@ function finish(b: BossState): void {
   b.guardedHp = b.npc.hp;
 }
 
-function heroInBox(world: World, npc: Npc, box: { x0: number; y0: number; x1: number; y1: number }): boolean {
-  const h = world.hero;
-  if (h.state === 'dead') return false;
+function heroesInBox(world: World, npc: Npc, box: { x0: number; y0: number; x1: number; y1: number }): Hero[] {
   const c = Math.cos(npc.angle);
   const s = Math.sin(npc.angle);
-  const dx = h.x - npc.x;
-  const dy = h.y - npc.y;
-  return distanceToRect(dx * c + dy * s, -dx * s + dy * c, box.x0, box.y0, box.x1, box.y1) <= h.def.radius;
+  return world.living().filter((h) => {
+    const dx = h.x - npc.x;
+    const dy = h.y - npc.y;
+    return distanceToRect(dx * c + dy * s, -dx * s + dy * c, box.x0, box.y0, box.x1, box.y1) <= h.def.radius;
+  });
 }
 
 /** Choisit l'action suivante quand le boss est libre de ses mouvements. */
 function decide(world: World, b: BossState, edge: number, wasAttacking: boolean): void {
   const standing = b.phase === 1 ? B.sprites.stand1 : B.sprites.stand2;
-  if (world.hero.state === 'dead') {
+  if (world.living().length === 0) {
     if (b.action !== 'idle') start(world, b, 'idle', standing);
     return;
   }
@@ -188,13 +195,14 @@ function decide(world: World, b: BossState, edge: number, wasAttacking: boolean)
     start(world, b, 'charge', b.phase === 1 ? B.sprites.charge1 : B.sprites.charge2);
     return;
   }
-  b.path = world.nav.findPath(b.npc.x, b.npc.y, world.hero.x, world.hero.y);
+  const target = prey(world, b.npc);
+  b.path = world.nav.findPath(b.npc.x, b.npc.y, target.x, target.y);
   b.pathIdx = 0;
 }
 
 function walk(world: World, b: BossState, toHero: number): void {
   const npc = b.npc;
-  let target: Point = world.hero;
+  let target: Point = prey(world, npc);
   if (b.path && b.pathIdx < b.path.length) {
     target = b.path[b.pathIdx];
     if (Math.hypot(target.x - npc.x, target.y - npc.y) <= B.speed * 2) {

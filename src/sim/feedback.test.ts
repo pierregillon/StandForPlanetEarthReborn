@@ -55,11 +55,11 @@ test('le dash rend intouchable', () => {
   w.step(move);
   w.step({ ...move, dashPressed: true });
   assert.ok(h.dashing);
-  assert.equal(w.damageHero(3), false);
+  assert.equal(w.damageHero(w.hero, 3), false);
   assert.equal(h.hp, h.def.maxHealth);
   for (let i = 0; i < 40; i++) w.step(NO_INPUT);
   assert.ok(!h.dashing);
-  assert.equal(w.damageHero(3), true);
+  assert.equal(w.damageHero(w.hero, 3), true);
 });
 
 test('une vitre laisse voir et tirer, mais pas passer', () => {
@@ -124,7 +124,7 @@ test('arrivée par le véhicule : le robot attend d\'être posé, puis se déplo
   for (let i = 0; i < total - 1; i++) w.step({ ...NO_INPUT, moveY: -1, aimX: h.x, aimY: h.y - 300 });
   assert.equal(h.y, y0);
   assert.equal(h.deploySteps, h.deployTotal, 'le déploiement n\'a pas commencé');
-  assert.equal(w.damageHero(1), false);
+  assert.equal(w.damageHero(w.hero, 1), false);
   w.step(NO_INPUT);
   assert.ok(w.drainEvents().some((e) => e.type === 'deploy'), 'le déploiement commence au départ du véhicule');
   for (let i = 0; i < h.deployTotal + 2; i++) w.step(NO_INPUT);
@@ -142,7 +142,7 @@ test('déploiement : le robot est immobile et intouchable, puis jouable', () => 
   w.step({ ...NO_INPUT, moveY: -1, fire1: true, aimX: h.x, aimY: h.y - 300 });
   assert.equal(h.y, y0);
   assert.equal(w.bullets.length, 0);
-  assert.equal(w.damageHero(1), false);
+  assert.equal(w.damageHero(w.hero, 1), false);
   for (let i = 0; i < CONFIG.hero.maxDeploySteps; i++) w.step(NO_INPUT);
   w.step({ ...NO_INPUT, moveY: -1, aimX: h.x, aimY: h.y - 300 });
   assert.ok(h.y < y0);

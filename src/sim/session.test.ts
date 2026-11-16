@@ -42,7 +42,7 @@ test('les consignes s\'enchaînent : étage, carte violette, retour, sortie', ()
   session.spawnNumber = up.spawn;
   const u = new World(upper, sprites, 'PetBot', 4, session);
   session.rooms.set(UPPER_FLOOR, u);
-  u.enter(g.hero, up.spawn);
+  u.enter(g.heroes, up.spawn);
   assert.equal(u.hero.hp, 7, 'le héros garde ses points de vie');
   assert.ok(session.stats.totalSoldier > totalGround, 'les soldats de l\'étage sont comptés');
   u.step(NO_INPUT);
@@ -63,7 +63,7 @@ test('les consignes s\'enchaînent : étage, carte violette, retour, sortie', ()
   u.hero.y = down.y;
   const back = stepUntil(u, 'changeRoom', 3);
   assert.ok(back && back.type === 'changeRoom' && back.room === GROUND_FLOOR && back.spawn === 2);
-  g.enter(u.hero, back.spawn);
+  g.enter(u.heroes, back.spawn);
   g.step(NO_INPUT);
   assert.equal(g.objective, 'Exit to the drilling area');
   assert.ok(Math.hypot(g.hero.x - stairs.x, g.hero.y - stairs.y) > stairs.radius, 'le héros arrive à côté de l\'escalier, pas dessus');
@@ -99,7 +99,7 @@ test('départ à l\'étage : en redescendant, les portes déjà franchies sont o
   assert.equal(greenDoor.phase, 'open');
   assert.equal(purpleDoor.phase, 'closed', 'la porte violette reste à ouvrir');
   // le héros arrive par l'escalier (second jeu de points d'apparition) et peut rejoindre le reste du bâtiment
-  g.enter(g.hero, 2);
+  g.enter(g.heroes, 2);
   for (let i = 0; i < 300; i++) g.step(NO_INPUT);
   assert.equal(stairDoor.phase, 'open', 'elle reste ouverte');
   assert.ok(g.nav.findPath(g.hero.x, g.hero.y, greenDoor.x, greenDoor.y + 300) !== null || g.nav.findPath(g.hero.x, g.hero.y, greenDoor.x, greenDoor.y - 300) !== null,
@@ -126,7 +126,7 @@ test('une salle garde son état quand on y revient', () => {
   assert.ok(door);
   g.openDoor(door);
   for (let i = 0; i < 200; i++) g.step(NO_INPUT);
-  g.enter(g.hero, 2);
+  g.enter(g.heroes, 2);
   assert.equal(g.npcs.length, soldiers - 1);
   assert.equal(door.phase, 'open');
 });

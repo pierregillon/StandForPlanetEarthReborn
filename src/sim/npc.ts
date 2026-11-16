@@ -7,7 +7,7 @@ import { guardBoss, stepBoss } from './boss.ts';
 import type { NpcDef, SoldierDef } from './config.ts';
 import { BLOCK_MOVE, BLOCK_SIGHT, DEG, TAU, gmAngleToRad, localToWorld, rotateToward } from './geom.ts';
 import type { Point } from './nav.ts';
-import type { LevelInstance, Npc } from './types.ts';
+import type { Hero, LevelInstance, Npc } from './types.ts';
 import type { World } from './world.ts';
 
 const N = CONFIG.npc;
@@ -41,11 +41,11 @@ export function createNpc(world: World, id: number, inst: LevelInstance, def: Np
 }
 
 export function stepNpcs(world: World): void {
-  const hero = world.hero;
+  const team = world.present();
   // parcours d'une copie : un PNJ peut mourir pendant la boucle
   for (const npc of world.npcs.slice()) {
     if (!npc.active) {
-      if (Math.hypot(npc.x - hero.x, npc.y - hero.y) > N.activationRange) continue;
+      if (!team.some((hero) => Math.hypot(npc.x - hero.x, npc.y - hero.y) <= N.activationRange)) continue;
       npc.active = true;
     }
     const boss = npc.def.kind === 'boss' ? world.boss : null;
@@ -77,19 +77,28 @@ export function stepNpcs(world: World): void {
 
 // ---------- Soldats ----------
 
-function heroVisible(world: World, npc: Npc, range: number): boolean {
-  const h = world.hero;
-  if (h.state === 'dead') return false;
-  if (Math.hypot(h.x - npc.x, h.y - npc.y) > range) return false;
-  return !world.sightBlocked(npc.x, npc.y, h.x, h.y);
+/** Le héros en vue le plus proche du PNJ, s'il y en a un. */
+function visibleHero(world: World, npc: Npc, range: number): Hero | null {
+  let best: Hero | null = null;
+  let bestD = range;
+  for (const h of world.living()) {
+    const d = Math.hypot(h.x - npc.x, h.y - npc.y);
+    if (d <= bestD && !world.sightBlocked(npc.x, npc.y, h.x, h.y)) {
+      bestD = d;
+      best = h;
+    }
+  }
+  return best;
 }
 
 /** Un héros est entendu s'il tire à portée d'ouïe sans mur épais entre les deux. */
-function heroHeard(world: World, x: number, y: number): boolean {
-  const h = world.hero;
-  if (h.state !== 'firing1' && h.state !== 'firing2') return false;
-  if (Math.hypot(h.x - x, h.y - y) > N.hearRange) return false;
-  return !world.soundBlocked(x, y, h.x, h.y);
+function heardHero(world: World, x: number, y: number): Hero | null {
+  for (const h of world.living()) {
+    if (h.state !== 'firing1' && h.state !== 'firing2') continue;
+    if (Math.hypot(h.x - x, h.y - y) > N.hearRange) continue;
+    if (!world.soundBlocked(x, y, h.x, h.y)) return h;
+  }
+  return null;
 }
 
 /** Le soldat retient où se trouve le héros (vu ou entendu) ; la première fois, il marque un temps de surprise. */
@@ -104,13 +113,14 @@ function alertSoldier(npc: Npc, x: number, y: number): void {
 }
 
 function stepSoldier(world: World, npc: Npc, def: SoldierDef): void {
-  const hero = world.hero;
-  // une fois le héros repéré, le soldat le suit des yeux deux fois plus loin
-  const visible = heroVisible(world, npc, npc.spotted ? N.viewRangeAlerted : N.viewRange);
+  // une fois un héros repéré, le soldat le suit des yeux deux fois plus loin ; à plusieurs, il vise le plus proche
+  const hero = visibleHero(world, npc, npc.spotted ? N.viewRangeAlerted : N.viewRange);
+  const visible = hero !== null;
   npc.spotted = visible;
   npc.viewRange = visible ? N.viewRangeAlerted : N.viewRange;
-  if (!visible) {
-    if (heroHeard(world, npc.x, npc.y)) alertSoldier(npc, hero.x, hero.y);
+  if (!hero) {
+    const heard = heardHero(world, npc.x, npc.y);
+    if (heard) alertSoldier(npc, heard.x, heard.y);
     investigate(world, npc, def);
     return;
   }
@@ -238,8 +248,10 @@ function processFire(world: World, npc: Npc, def: SoldierDef): void {
 
 /** Coup de bouclier : 1 dégât et le héros est repoussé (GD-017). */
 function shieldBash(world: World, npc: Npc, def: SoldierDef): void {
-  const h = world.hero;
-  if (h.state === 'dead') return;
+  for (const h of world.living()) bashHero(world, npc, def, h);
+}
+
+function bashHero(world: World, npc: Npc, def: SoldierDef, h: Hero): void {
   // position du héros dans le repère du robot
   const dx = h.x - npc.x;
   const dy = h.y - npc.y;
@@ -253,7 +265,7 @@ function shieldBash(world: World, npc: Npc, def: SoldierDef): void {
   const qx = Math.max(x0, Math.min(lx, x1));
   const qy = Math.max(box.y0, Math.min(ly, box.y1));
   if (Math.hypot(lx - qx, ly - qy) > h.def.radius) return;
-  world.damageHero(1, true);
+  world.damageHero(h, 1, true);
   if (h.hp <= 0 || h.bump) return;
   const aheadX = h.x + c * CONFIG.hero.bumpSpeed;
   const aheadY = h.y + s * CONFIG.hero.bumpSpeed;
@@ -307,7 +319,7 @@ function stepCivil(world: World, npc: Npc): void {
 }
 
 function fearSource(world: World, npc: Npc): boolean {
-  if (heroHeard(world, npc.x, npc.y)) return true;
+  if (heardHero(world, npc.x, npc.y)) return true;
   for (const other of world.npcs) {
     if (other === npc) continue;
     const d = Math.hypot(other.x - npc.x, other.y - npc.y);
@@ -321,7 +333,8 @@ function fearSource(world: World, npc: Npc): boolean {
 }
 
 function nearestThreat(world: World, npc: Npc): Point | null {
-  if (world.hero.state !== 'dead') return world.hero;
+  const hero = world.nearestHero(npc.x, npc.y);
+  if (hero) return hero;
   let best: Npc | null = null;
   let bestD = Infinity;
   for (const other of world.npcs) {
@@ -468,16 +481,16 @@ function separateNpcs(world: World): void {
       }
     }
   }
-  const h = world.hero;
-  if (h.state === 'dead') return;
-  for (const npc of npcs) {
-    if (npc.state !== 'walking' && npc.state !== 'chasing' && npc.state !== 'running') continue;
-    const min = h.def.radius + npc.def.radius * 0.8;
-    const dx = npc.x - h.x;
-    const dy = npc.y - h.y;
-    const d = Math.hypot(dx, dy);
-    if (d >= min || d < 0.001) continue;
-    npc.x += (dx / d) * (min - d);
-    npc.y += (dy / d) * (min - d);
+  for (const h of world.living()) {
+    for (const npc of npcs) {
+      if (npc.state !== 'walking' && npc.state !== 'chasing' && npc.state !== 'running') continue;
+      const min = h.def.radius + npc.def.radius * 0.8;
+      const dx = npc.x - h.x;
+      const dy = npc.y - h.y;
+      const d = Math.hypot(dx, dy);
+      if (d >= min || d < 0.001) continue;
+      npc.x += (dx / d) * (min - d);
+      npc.y += (dy / d) * (min - d);
+    }
   }
 }

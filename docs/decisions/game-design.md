@@ -764,3 +764,31 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** C'est le rendu demandé, pour un coût mesuré négligeable (voir ADR-013) : le calcul d'une zone éclairée prend environ 0,1 ms, et il n'est refait que pour les lampes dont une porte voisine bouge.
 
 **Conséquences.** Réglages dans `LIGHTING` (`src/client/view/WorldView.ts`) : noir ambiant, force des lampes, rayon et force de la lueur du héros, force des couleurs. Le calcul géométrique est dans `src/sim/visibility.ts`, testé sans navigateur (4 tests, dont l'ouverture d'une vraie porte du niveau). Les salles sans lampe (étage, zone de forage) restent sans assombrissement, comme avant. Non vérifié à l'écran : le tremblement de la lumière pendant une recharge avec le nouveau rendu.
+
+## GD-039 — Règles du jeu à plusieurs héros (jusqu'à 4)
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur pour le cadre (multijoueur jusqu'à 4, un robot ne peut être pris qu'une fois, résurrection d'origine, chacun sa caméra, link remis à plus tard) ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** L'utilisateur lance le multijoueur (GD-002 le remettait à plus tard). Le jeu d'origine est un coop local à 4 ; ses règles à plusieurs existent dans le code, mais la mort y est désactivée (`canDie = False`). La simulation ne connaissait qu'un héros.
+
+**Décision.**
+
+- **Équipe** : 1 à 4 héros, chaque robot au plus une fois. Chacun a son point d'apparition (`obj_spawn1` à `obj_spawn4` de l'original, déjà présents dans les salles converties).
+- **Ennemis** : un soldat vise le héros en vue le plus proche ; un PNJ s'éveille à l'approche de n'importe quel héros ; le boss poursuit le héros debout le plus proche et ses coups touchent tous ceux pris dans la zone du coup.
+- **Mort et résurrection** (décision de l'utilisateur, `scr_resurectAllie`) : un robot à 0 PV reste à terre. Un coéquipier le relève en maintenant E à moins de 100 px pendant 3 s, pour 3 énergies dépensées par tiers ; il ne bouge pas et ne tire pas pendant ce temps ; relâcher annule et l'énergie dépensée est perdue. Le robot relevé revient avec 3 PV et 0 énergie. La partie est perdue quand toute l'équipe est à terre.
+  - *Par défaut* : 1,5 s d'invulnérabilité au réveil (sinon il retombe aussitôt sous le feu) ; un seul sauveteur par robot à terre.
+- **Changement de salle** (`obj_changeRoom_parent`) : toute l'équipe sur le passage, on part aussitôt ; au moins la moitié, un compte à rebours de 10 s démarre ; moins, il s'annule. Seul, le passage reste donc immédiat. La sortie vers la zone de forage demande de même la moitié de l'équipe pendant 10 s.
+  - *Par défaut* : un robot à terre est relevé à l'arrivée dans la nouvelle salle, avec 3 PV. Le code d'origine ne dit rien de ce cas.
+- **Point de sauvegarde** (*par défaut*) : il remet en état toute l'équipe, robots à terre compris.
+- **Cartes d'accès** (*par défaut*) : communes à l'équipe ; une carte ramassée par l'un sert à tous.
+- **Balles de PetBot** (`obj_bullet_PetBot`) : elles rendent 1 PV au coéquipier blessé qu'elles touchent, et s'arrêtent sur un coéquipier dans tous les cas, comme dans l'original. Les explosions de ses drones soignent tous les héros à portée.
+- **Bouclier de BadaBot** : il arrête aussi les balles destinées aux coéquipiers placés derrière lui.
+- **Bornes de recharge** : plusieurs héros peuvent se relier à la même borne ; chacun puise dans sa réserve.
+- **Pas de tir ami** en dehors des balles de PetBot, et les héros ne se bloquent pas entre eux.
+- **Link entre héros** : pas encore ; l'utilisateur veut en discuter après ce premier multijoueur.
+
+**Pourquoi.** Reprendre d'abord ce que le code d'origine prévoyait, et ne trancher que les cas qu'il laisse ouverts, du côté le plus indulgent : à plusieurs, attendre à terre sans rien faire est ce qu'il y a de moins amusant.
+
+**Conséquences.** La simulation tient une liste `world.heroes` ; `world.step` reçoit une entrée par héros. Le solo est une équipe d'un seul et passe par le même code (ses 42 tests n'ont pas changé). Réglages : `revive` dans `src/sim/config.ts`. 8 nouveaux tests dans `src/sim/team.test.ts`. **À confirmer en jeu** : les balles de PetBot arrêtées par les coéquipiers (fidèle, mais peut gêner en mêlée) ; la difficulté n'est pas ajustée au nombre de joueurs.

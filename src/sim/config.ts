@@ -296,6 +296,8 @@ export const CONFIG = {
   },
 
   /** Remake (GD-006) : prises de courant. */
+  /** Résurrection d'un coéquipier à terre (scr_resurectAllie de l'original ; l'invulnérabilité au réveil est ajoutée). */
+  revive: { range: 100, steps: s(3), energyCost: 3, hp: 3, invulnSteps: s(1.5) },
   outlet: {
     range: 280, // 110 à l'étape 1 : jugé trop court par l'utilisateur (GD-022)
     // GD-029 : une recharge complète (0 à 12) prend 3 secondes

@@ -11,7 +11,8 @@ import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { clamp } from '../../sim/geom.ts';
 import { NO_INPUT } from '../../sim/types.ts';
 import type { Hero, Input, LevelData, SpriteManifest } from '../../sim/types.ts';
-import { World } from '../../sim/world.ts';
+import type { World } from '../../sim/world.ts';
+import { isFreshStart, openRoom } from '../../sim/match.ts';
 import { createSession } from '../../sim/session.ts';
 import type { Session } from '../../sim/session.ts';
 
@@ -99,25 +100,17 @@ export class GameScene extends Phaser.Scene {
     const floors = (this.cache.json.get('floors') ?? {}) as FloorManifest;
     // la partie (cartes, consigne, salles visitées) survit aux changements de salle
     let session = this.registry.get('session') as Session | null | undefined;
-    if (!session || session.heroName !== this.heroName()) {
+    if (!session || session.heroNames[0] !== this.heroName()) {
       session = createSession(this.heroName());
       this.registry.set('session', session);
     }
     this.session = session;
-    const arriving = (this.registry.get('arrivingHero') ?? null) as Hero | null;
+    const arriving = (this.registry.get('arrivingHero') ?? null) as Hero[] | null;
     this.registry.set('arrivingHero', null);
     // début d'une partie : le robot se déploie (GD-031)
-    const fresh = session.rooms.size === 0 && !arriving && !session.checkpoint;
-    let world = session.rooms.get(session.room);
-    if (!world) {
-      const level = this.cache.json.get(`level:${session.room}`) as LevelData;
-      world = new World(level, sprites, session.heroName, (Date.now() & 0xffff) + 1, session);
-      session.rooms.set(session.room, world);
-      if (arriving) world.enter(arriving, session.spawnNumber);
-    } else if (arriving) {
-      world.enter(arriving, session.spawnNumber);
-    }
-    world.drainEvents();
+    const fresh = isFreshStart(session, arriving);
+    const level = this.cache.json.get(`level:${session.room}`) as LevelData;
+    const world = openRoom(session, level, sprites, arriving, (Date.now() & 0xffff) + 1);
     // au rez-de-chaussée, le véhicule de largage amène le robot (GD-035)
     if (fresh) world.deployHero(session.room === 'rm_world2');
     this.world = world;
@@ -273,7 +266,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.session.room = room;
       this.session.spawnNumber = spawn;
-      this.registry.set('arrivingHero', this.world.hero);
+      this.registry.set('arrivingHero', this.world.heroes);
       this.scene.restart();
     });
   }

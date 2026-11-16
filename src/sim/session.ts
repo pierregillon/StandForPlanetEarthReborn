@@ -18,7 +18,8 @@ export const UPPER_FLOOR = 'rm_world2_1';
 export const DRILL_AREA = 'rm_world2_2';
 
 export interface Session {
-  heroName: string;
+  /** Robots de l'équipe, dans l'ordre des joueurs (un seul en solo). */
+  heroNames: string[];
   /** Couleurs des cartes ramassées. */
   carried: Set<string>;
   /** Indice de la consigne en cours dans OBJECTIVES. */
@@ -42,8 +43,8 @@ export interface Session {
  * Partie commencée ailleurs qu'au début du niveau (menu de choix du départ, GD-032) : le héros a déjà ce
  * qu'il aurait en arrivant là en jouant. Dans la zone de forage, il part du point de sauvegarde.
  */
-export function createSessionAt(heroName: string, room: string): Session {
-  const session = createSession(heroName, room);
+export function createSessionAt(heroNames: string | string[], room: string): Session {
+  const session = createSession(heroNames, room);
   if (room === UPPER_FLOOR) {
     session.carried.add('green');
     // pour monter, le héros a ouvert la porte verte et la porte à bouton de l'escalier : en redescendant,
@@ -57,9 +58,9 @@ export function createSessionAt(heroName: string, room: string): Session {
   return session;
 }
 
-export function createSession(heroName: string, room = GROUND_FLOOR): Session {
+export function createSession(heroNames: string | string[], room = GROUND_FLOOR): Session {
   return {
-    heroName,
+    heroNames: Array.isArray(heroNames) ? heroNames : [heroNames],
     carried: new Set(),
     objective: 0,
     stats: { totalCivil: 0, totalSoldier: 0, civilKilled: 0, soldierKilled: 0, damageTaken: 0, healed: 0, ammoUsed: 0, energyUsed: 0 },

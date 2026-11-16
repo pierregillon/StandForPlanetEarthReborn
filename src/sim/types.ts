@@ -119,6 +119,10 @@ export const NO_INPUT: Input = {
 export type HeroState = 'standing' | 'walking' | 'firing1' | 'firing2' | 'dead';
 
 export interface Hero {
+  /** Rang du héros dans l'équipe (0 à 3) : son joueur, son point d'apparition. */
+  id: number;
+  /** Son joueur a quitté la partie : le robot n'existe plus pour le jeu. */
+  gone: boolean;
   def: HeroDef;
   x: number;
   y: number;
@@ -161,6 +165,9 @@ export interface Hero {
   /** Steps restants de l'arrivée par le véhicule de largage, avant le déploiement. */
   arrivalSteps: number;
   arrivalTotal: number;
+  /** Résurrection en cours : rang du coéquipier relevé (-1 si aucune) et steps écoulés. */
+  reviving: number;
+  reviveSteps: number;
   /** Soin fractionnaire accumulé (percentOfOneHp d'origine) : +1 PV quand il atteint 1. */
   healPool: number;
   // --- tir secondaire ---
@@ -307,6 +314,8 @@ export interface Bullet {
   id: number;
   def: BulletDef;
   owner: 'hero' | 'enemy';
+  /** Rang du héros qui a tiré, -1 pour un ennemi ou une tourelle. */
+  ownerId: number;
   x: number;
   y: number;
   angle: number;
@@ -453,6 +462,10 @@ export interface Zone {
   radius: number;
   sprite: string;
   active: boolean;
+  /** Steps restants avant le départ quand une partie seulement de l'équipe attend, -1 sinon. */
+  countdown: number;
+  /** Le départ a été demandé : on ne le redemande pas tant que la zone n'a pas été quittée. */
+  departed: boolean;
   /** Salle d'arrivée et jeu de points d'apparition à y utiliser. */
   targetRoom: string;
   targetSpawn: number;
@@ -494,13 +507,14 @@ export type SimEvent =
   | { type: 'windowBroken'; id: number; x: number; y: number; angle: number }
   | { type: 'buttonPressed'; x: number; y: number }
   | { type: 'checkpoint'; x: number; y: number }
-  | { type: 'deploy'; sound: string }
+  | { type: 'deploy'; sound: string; hero: number }
   | { type: 'vehicleArrives'; seconds: number }
   | { type: 'heroHit'; x: number; y: number }
   | { type: 'heroDead'; x: number; y: number }
-  | { type: 'reloadStart' }
-  | { type: 'reloadEnd' }
-  | { type: 'emptyClick' }
+  | { type: 'reloadStart'; hero: number }
+  | { type: 'reloadEnd'; hero: number }
+  | { type: 'emptyClick'; hero: number }
+  | { type: 'revived'; x: number; y: number }
   | { type: 'outletTick'; x: number; y: number }
   | { type: 'notify'; text: string }
   | { type: 'changeRoom'; room: string; spawn: number }

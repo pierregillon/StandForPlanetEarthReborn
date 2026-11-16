@@ -17,8 +17,7 @@ export function deploySound(h: Hero): string {
   return `snd_${name}_deploiement`;
 }
 
-export function stepHero(world: World, input: Input): void {
-  const h = world.hero;
+export function stepHero(world: World, h: Hero, input: Input): void {
   h.sinceShot++;
   if (h.state === 'dead') {
     h.deadSteps++;
@@ -28,7 +27,7 @@ export function stepHero(world: World, input: Input): void {
   if (h.arrivalSteps > 0) {
     // le véhicule de largage amène le robot, encore replié
     h.moving = false;
-    if (--h.arrivalSteps === 0) world.emit({ type: 'deploy', sound: deploySound(h) });
+    if (--h.arrivalSteps === 0) world.emit({ type: 'deploy', sound: deploySound(h), hero: h.id });
     return;
   }
   if (h.deploySteps > 0) {
@@ -39,7 +38,82 @@ export function stepHero(world: World, input: Input): void {
   }
   if (h.invuln > 0) h.invuln--;
 
+  if (stepRevive(world, h, input)) {
+    // le sauveteur ne bouge pas, ne tire pas et lâche la borne
+    h.moving = false;
+    h.dashing = false;
+    h.charging = false;
+    h.linkedOutlet = -1;
+    h.state = 'standing';
+    return;
+  }
   stepOutlet(world, h, input);
+  steerHero(world, h, input);
+
+  // --- récupération du dash : +1 charge toutes les 2 s tant qu'il en manque ---
+  if (h.dashCharges < CONFIG.hero.dashCharges && h.dashRechargeTimer > 0 && --h.dashRechargeTimer === 0) {
+    h.dashCharges++;
+    if (h.dashCharges < CONFIG.hero.dashCharges) h.dashRechargeTimer = CONFIG.hero.dashRechargeSteps;
+  }
+
+  stepEnergy(h);
+  stepWeapons(world, h, input);
+
+  // soin fractionnaire : +1 PV chaque fois qu'un point entier est accumulé
+  if (h.healPool >= 1) {
+    h.healPool = 0;
+    if (h.hp < h.def.maxHealth) {
+      h.hp++;
+      world.stats.healed++;
+      world.emit({ type: 'heal', x: h.x, y: h.y });
+    }
+  }
+
+  if (h.state !== 'firing1' && h.state !== 'firing2') h.state = h.moving ? 'walking' : 'standing';
+}
+
+/**
+ * Résurrection d'un coéquipier (scr_resurectAllie) : « utiliser » maintenu près d'un robot à terre, 3 énergies
+ * dépensées par tiers du compte à rebours. Relâcher annule ; l'énergie déjà dépensée est perdue.
+ * Retourne true tant que le héros est occupé à relever quelqu'un.
+ */
+function stepRevive(world: World, h: Hero, input: Input): boolean {
+  const cfg = CONFIG.revive;
+  const reachable = (a: Hero): boolean => !a.gone && a.state === 'dead'
+    && Math.hypot(a.x - h.x, a.y - h.y) <= cfg.range + h.def.radius + a.def.radius;
+  let ally = h.reviving >= 0 ? world.heroes[h.reviving] ?? null : null;
+  if (ally && (!input.use || h.bump || !reachable(ally))) ally = null;
+  if (!ally && h.reviving < 0 && input.use && !h.bump && !h.dashing && h.energy >= cfg.energyCost) {
+    // un seul sauveteur par robot à terre
+    ally = world.heroes.find((a) => a !== h && reachable(a) && !world.heroes.some((o) => o !== h && o.reviving === a.id)) ?? null;
+  }
+  if (!ally) {
+    h.reviving = -1;
+    h.reviveSteps = 0;
+    return false;
+  }
+  h.reviving = ally.id;
+  h.reviveSteps++;
+  h.energyPause = CONFIG.hero.energyPauseSteps;
+  h.angle = rotateToward(h.angle, Math.atan2(ally.y - h.y, ally.x - h.x), h.def.rotateSpeedDeg * DEG);
+  if (h.reviveSteps % Math.round(cfg.steps / cfg.energyCost) === 0 && h.energy > 0) {
+    h.energy--;
+    world.stats.energyUsed++;
+  }
+  if (h.reviveSteps >= cfg.steps) {
+    world.raiseHero(ally, cfg.hp);
+    world.emit({ type: 'revived', x: ally.x, y: ally.y });
+    h.reviving = -1;
+    h.reviveSteps = 0;
+  }
+  return true;
+}
+
+/**
+ * Dash, visée et déplacement d'un step. Ne dépend que du héros, de son entrée et des collisions : le client
+ * d'une partie en réseau l'utilise pour prédire son propre robot sans attendre le serveur (ADR-014).
+ */
+export function steerHero(world: World, h: Hero, input: Input): void {
   // GD-031 : aucun tir n'immobilise le robot ; le surplus d'énergie le rend plus rapide
   const canMove = !h.bump;
   const boost = 1 + CONFIG.hero.overchargeSpeedBonus * Math.max(0, h.energy - CONFIG.hero.naturalEnergy);
@@ -97,27 +171,6 @@ export function stepHero(world: World, input: Input): void {
     h.dashing = false;
     h.bump = false;
   }
-
-  // --- récupération du dash : +1 charge toutes les 2 s tant qu'il en manque ---
-  if (h.dashCharges < CONFIG.hero.dashCharges && h.dashRechargeTimer > 0 && --h.dashRechargeTimer === 0) {
-    h.dashCharges++;
-    if (h.dashCharges < CONFIG.hero.dashCharges) h.dashRechargeTimer = CONFIG.hero.dashRechargeSteps;
-  }
-
-  stepEnergy(h);
-  stepWeapons(world, h, input);
-
-  // soin fractionnaire : +1 PV chaque fois qu'un point entier est accumulé
-  if (h.healPool >= 1) {
-    h.healPool = 0;
-    if (h.hp < h.def.maxHealth) {
-      h.hp++;
-      world.stats.healed++;
-      world.emit({ type: 'heal', x: h.x, y: h.y });
-    }
-  }
-
-  if (h.state !== 'firing1' && h.state !== 'firing2') h.state = h.moving ? 'walking' : 'standing';
 }
 
 /** Déplace le héros en glissant le long des obstacles. Retourne true s'il a heurté le décor. */
@@ -184,7 +237,6 @@ function stepEnergy(h: Hero): void {
  */
 function stepOutlet(world: World, h: Hero, input: Input): void {
   const cfg = CONFIG.outlet;
-  for (const o of world.outlets) o.inUse = false;
   let outlet = world.outlets.find((o) => o.id === h.linkedOutlet) ?? null;
   const useful = (o: typeof outlet): boolean => !!o
     && ((o.energyLeft > 0 && h.energy < CONFIG.hero.maxEnergy) || (o.repairLeft > 0 && h.hp < h.def.maxHealth));
@@ -194,7 +246,7 @@ function stepOutlet(world: World, h: Hero, input: Input): void {
     const far = Math.hypot(outlet.x - h.x, outlet.y - h.y) > cfg.range || world.sightBlocked(outlet.x, outlet.y, h.x, h.y);
     if (far || h.bump || !useful(outlet) || input.usePressed) outlet = null;
   } else if (input.usePressed && !h.bump) {
-    const near = world.nearestOutlet(cfg.range);
+    const near = world.nearestOutlet(cfg.range, h);
     if (useful(near)) outlet = near;
   }
 

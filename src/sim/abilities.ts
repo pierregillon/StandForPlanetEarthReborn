@@ -44,11 +44,11 @@ export function stepWeapons(world: World, h: Hero, input: Input): void {
     if (h.reloadTimer > 0) {
       if (--h.reloadTimer === 0) {
         h.ammo = h.def.magazine;
-        world.emit({ type: 'reloadEnd' });
+        world.emit({ type: 'reloadEnd', hero: h.id });
       }
     } else if (input.reloadPressed && h.ammo < h.def.magazine && h.charge === 0) {
       h.reloadTimer = h.def.reloadSteps;
-      world.emit({ type: 'reloadStart' });
+      world.emit({ type: 'reloadStart', hero: h.id });
     }
   }
   if (h.fireTimer > 0) h.fireTimer--;
@@ -81,7 +81,7 @@ function shoot(world: World, h: Hero, count: number, precisionDeg: number): void
   const m = muzzle(h);
   for (let i = 0; i < count; i++) {
     const spread = world.rng.range(-precisionDeg, precisionDeg) * DEG;
-    world.fireBullet(h.def.bullet, 'hero', h.x, h.y, m.x, m.y, h.angle + spread);
+    world.fireBullet(h.def.bullet, 'hero', h.x, h.y, m.x, m.y, h.angle + spread, h.id);
   }
   playOneOf(world, h.def.sounds.fire1, h.x, h.y);
   h.ammo -= count;
@@ -91,7 +91,7 @@ function shoot(world: World, h: Hero, count: number, precisionDeg: number): void
 
 function emptyClick(world: World, h: Hero): void {
   h.fireTimer = Math.round(STEPS_PER_SECOND / h.def.shotsPerSecond);
-  world.emit({ type: 'emptyClick' });
+  world.emit({ type: 'emptyClick', hero: h.id });
 }
 
 /** Tir principal de PetBot et d'EngiBot : une balle par intervalle tant que le clic est maintenu. */
@@ -165,7 +165,6 @@ function spriteFps(info: { speed: number; speedType: number }): number {
 }
 
 function stepExplosions(world: World): void {
-  const hero = world.hero;
   for (let i = world.explosions.length - 1; i >= 0; i--) {
     const e = world.explosions[i];
     for (const npc of world.npcs) {
@@ -180,9 +179,10 @@ function stepExplosions(world: World): void {
       e.hit.add(-drill.id);
       world.damageDrill(drill, e.damage);
     }
-    if (e.healFromStep >= 0 && e.step >= e.healFromStep && hero.state !== 'dead' && hero.hp < hero.def.maxHealth
-      && Math.hypot(hero.x - e.x, hero.y - e.y) <= e.radius + hero.def.radius) {
-      hero.healPool += A.petBot.healPerStep;
+    if (e.healFromStep >= 0 && e.step >= e.healFromStep) {
+      for (const hero of world.living()) {
+        if (hero.hp < hero.def.maxHealth && Math.hypot(hero.x - e.x, hero.y - e.y) <= e.radius + hero.def.radius) hero.healPool += A.petBot.healPerStep;
+      }
     }
     if (++e.step >= e.totalSteps) world.explosions.splice(i, 1);
   }
@@ -404,7 +404,11 @@ export function batHand(h: Hero, side: 'd' | 'g'): { x: number; y: number } {
 }
 
 function stepBats(world: World): void {
-  const h = world.hero;
+  const h = world.heroOf('BatBot');
+  if (!h) {
+    world.bats.length = 0;
+    return;
+  }
   for (let i = world.bats.length - 1; i >= 0; i--) {
     const b = world.bats[i];
     b.steps++;
@@ -435,7 +439,7 @@ function stopBat(world: World, b: Bat): void {
 
 function flyBat(world: World, b: Bat): void {
   const lvl = A.batBot.levels[b.level - 1];
-  const speed = world.hero.def.bullet.speed;
+  const speed = CONFIG.heroes.BatBot.bullet.speed;
   const nx = b.x + Math.cos(b.angle) * speed;
   const ny = b.y + Math.sin(b.angle) * speed;
   breakWindows(world, b.x, b.y, nx, ny);
@@ -444,12 +448,12 @@ function flyBat(world: World, b: Bat): void {
   let target: Npc | null = null;
   for (const npc of world.npcs) {
     if (b.hit.has(npc.id)) continue;
-    const t = segmentCircle(b.x, b.y, nx, ny, npc.x, npc.y, npc.def.radius + world.hero.def.bullet.radius);
+    const t = segmentCircle(b.x, b.y, nx, ny, npc.x, npc.y, npc.def.radius + CONFIG.heroes.BatBot.bullet.radius);
     if (t >= 0 && t < limit) {
       if (lvl.pierce) {
         // batte perçante : traverse en blessant, explose seulement à l'arrêt (GD-023)
         b.hit.add(npc.id);
-        if (!blockedByFrontShield(npc, b.x, b.y)) npc.hp -= world.hero.def.bullet.damage;
+        if (!blockedByFrontShield(npc, b.x, b.y)) npc.hp -= CONFIG.heroes.BatBot.bullet.damage;
       } else {
         limit = t;
         target = npc;
@@ -462,19 +466,19 @@ function flyBat(world: World, b: Bat): void {
   if (target) {
     b.hit.add(target.id);
     // niveau 1 : dégât direct ; niveaux explosifs : seule l'explosion blesse
-    if (lvl.explosionRadius === 0 && !blockedByFrontShield(target, b.startX, b.startY)) target.hp -= world.hero.def.bullet.damage;
+    if (lvl.explosionRadius === 0 && !blockedByFrontShield(target, b.startX, b.startY)) target.hp -= CONFIG.heroes.BatBot.bullet.damage;
     world.emit({ type: 'impact', x: b.x, y: b.y, angle: b.angle, surface: 'npc' });
     stopBat(world, b);
   } else if (wall && limit <= 1) {
     const drill = wall.obstacle.owner as Drill | null;
-    if (drill && drill.tag === 'drill') world.damageDrill(drill, world.hero.def.bullet.damage);
+    if (drill && drill.tag === 'drill') world.damageDrill(drill, CONFIG.heroes.BatBot.bullet.damage);
     // recule un peu pour ne pas rester dans le mur
     b.x -= Math.cos(b.angle) * 24;
     b.y -= Math.sin(b.angle) * 24;
     world.emit({ type: 'sound', name: `snd_batBot_hitMur${world.rng.int(1, 2)}`, x: b.x, y: b.y });
     world.emit({ type: 'impact', x: b.x, y: b.y, angle: b.angle, surface: 'wall' });
     stopBat(world, b);
-  } else if (Math.hypot(b.x - b.startX, b.y - b.startY) >= world.hero.def.bullet.maxDistance
+  } else if (Math.hypot(b.x - b.startX, b.y - b.startY) >= CONFIG.heroes.BatBot.bullet.maxDistance
     || b.x < 70 || b.y < 70 || b.x > world.width - 70 || b.y > world.height - 70) {
     stopBat(world, b);
   }

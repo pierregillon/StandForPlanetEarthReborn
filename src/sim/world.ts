@@ -16,6 +16,7 @@ import type { BossState } from './boss.ts';
 import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, GROUND_FLOOR, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
 import type { Session } from './session.ts';
+import { NO_INPUT } from './types.ts';
 import type {
   Bat, Bullet, Button, Card, Chair, Checkpoint, DecorItem, Door, Drill, Drone, Explosion, Fog, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
   SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, WindowPane, Zone,
@@ -39,17 +40,23 @@ export class World {
   /** État partagé entre les salles de la partie (cartes, consigne, statistiques). */
   readonly session: Session;
   readonly stats: Stats;
-  private readonly spawns = new Map<number, { x: number; y: number }>();
+  /** Points d'apparition : par numéro de jeu, un point par rang de héros (obj_spawn1 à obj_spawn4). */
+  private readonly spawns = new Map<number, { x: number; y: number }[]>();
   /** Zone de sortie du niveau (obj_endLevel), active à partir de la consigne « Exit to the drilling area ». */
   private exitZone: Obstacle | null = null;
   /** Steps restants avant de quitter le niveau, -1 hors de la zone de sortie. */
   exitCountdown = -1;
+  /** Steps restants avant de changer de salle quand une partie de l'équipe attend sur un passage, -1 sinon. */
+  zoneCountdown = -1;
   private ended = false;
   /** Ce que cette salle a ajouté aux statistiques de la partie (retiré si la salle est rejouée). */
   private readonly counted = { civil: 0, soldier: 0, civilKilled: 0, soldierKilled: 0 };
 
   tick = 0;
-  hero: Hero;
+  /** L'équipe, dans l'ordre des joueurs. En solo, un seul héros. */
+  heroes: Hero[] = [];
+  /** Rang du héros que suit l'affichage (celui du joueur local). */
+  viewHero = 0;
   npcs: Npc[] = [];
   bullets: Bullet[] = [];
   drones: Drone[] = [];
@@ -110,7 +117,7 @@ export class World {
   readonly level: LevelData;
   readonly sprites: SpriteManifest;
 
-  constructor(level: LevelData, sprites: SpriteManifest, heroName: string, seed = 1, session: Session = createSession(heroName, level.name)) {
+  constructor(level: LevelData, sprites: SpriteManifest, heroNames: string | string[], seed = 1, session: Session = createSession(heroNames, level.name)) {
     this.session = session;
     this.stats = session.stats;
     this.level = level;
@@ -128,7 +135,13 @@ export class World {
     }
 
     for (const inst of level.instances) {
-      if (inst.object === 'obj_spawn1') this.spawns.set(Number(inst.props.spawnNumber ?? 1), { x: inst.x, y: inst.y });
+      const spawnSlot = /^obj_spawn([1-4])$/.exec(inst.object);
+      if (spawnSlot) {
+        const number = Number(inst.props.spawnNumber ?? 1);
+        const points = this.spawns.get(number) ?? [];
+        points[Number(spawnSlot[1]) - 1] = { x: inst.x, y: inst.y };
+        this.spawns.set(number, points);
+      }
       this.addInstance(inst);
     }
     const start = this.spawnPoint(session.spawnNumber);
@@ -140,8 +153,13 @@ export class World {
     const resumed = this.checkpoint?.active === true;
     const spawn = resumed && this.checkpoint ? { x: this.checkpoint.x + 110, y: this.checkpoint.y + 40 } : start;
     this.keepSpreadOutlets(CONFIG.outlet.keepPerRoom[level.name] ?? this.outlets.length, spawn);
-    this.hero = this.createHero(CONFIG.heroes[heroName], spawn.x, spawn.y);
-    if (resumed) this.restoreHero();
+    session.heroNames.forEach((name, slot) => {
+      // au point de sauvegarde, l'équipe reprend groupée ; sinon chacun a son point d'apparition
+      const at = resumed ? { x: spawn.x + (slot % 2) * 100, y: spawn.y + Math.floor(slot / 2) * 100 } : this.spawnPoint(session.spawnNumber, slot);
+      const h = this.createHero(CONFIG.heroes[name], at.x, at.y, slot);
+      if (resumed) this.restoreHero(h);
+      this.heroes.push(h);
+    });
     this.openPassedDoors();
   }
 
@@ -160,58 +178,66 @@ export class World {
     for (const button of this.buttons) if (passed.buttons.includes(button.doorId)) button.pressedSteps = 1000;
   }
 
-  private restoreHero(): void {
-    const h = this.hero;
+  private restoreHero(h: Hero): void {
     h.hp = h.def.maxHealth;
     h.energy = CONFIG.hero.maxEnergy;
     h.overchargeHold = CONFIG.hero.overchargeHoldSteps;
     h.ammo = h.def.magazine;
   }
 
-  /** Le héros se connecte au point de sauvegarde en s'en approchant : régénération complète, une fois par vie. */
+  /**
+   * Un héros se connecte au point de sauvegarde en s'en approchant : toute l'équipe est remise en état,
+   * robots à terre compris, une fois par vie.
+   */
   private stepCheckpoint(): void {
     const cp = this.checkpoint;
-    const h = this.hero;
-    if (!cp || cp.active || h.state === 'dead') return;
-    if (Math.hypot(h.x - cp.x, h.y - cp.y) > CONFIG.hero.checkpointRadius) return;
+    if (!cp || cp.active) return;
+    if (!this.living().some((h) => Math.hypot(h.x - cp.x, h.y - cp.y) <= CONFIG.hero.checkpointRadius)) return;
     cp.active = true;
     this.session.checkpoint = { room: this.level.name, x: cp.x, y: cp.y };
-    this.restoreHero();
+    for (const h of this.present()) {
+      if (h.state === 'dead') this.raiseHero(h, h.def.maxHealth);
+      this.restoreHero(h);
+    }
     this.emit({ type: 'checkpoint', x: cp.x, y: cp.y });
     this.emit({ type: 'notify', text: 'Checkpoint reached - systems fully restored' });
   }
 
   /** Animation de déploiement au début d'une partie (présente dans l'original, où elle était désactivée). */
   deployHero(withVehicle = false): void {
-    const h = this.hero;
-    const info = this.sprite(`spr_${h.def.name}_deploy`);
-    const fps = info.speedType === 0 ? info.speed : info.speed * STEPS_PER_SECOND;
-    h.deployTotal = Math.min(CONFIG.hero.maxDeploySteps, Math.max(30, Math.round((info.frames / fps) * STEPS_PER_SECOND)));
-    h.deploySteps = h.deployTotal;
-    if (withVehicle) {
-      // le véhicule de largage l'amène d'abord ; le déploiement commence après son départ
-      const a = CONFIG.arrival;
-      h.arrivalTotal = a.flyInSteps + a.descendSteps + a.holdSteps + a.ascendSteps + a.flyOutSteps;
-      h.arrivalSteps = h.arrivalTotal;
-      this.emit({ type: 'vehicleArrives', seconds: h.arrivalTotal / STEPS_PER_SECOND });
-      return;
+    const a = CONFIG.arrival;
+    const arrivalTotal = a.flyInSteps + a.descendSteps + a.holdSteps + a.ascendSteps + a.flyOutSteps;
+    for (const h of this.heroes) {
+      const info = this.sprite(`spr_${h.def.name}_deploy`);
+      const fps = info.speedType === 0 ? info.speed : info.speed * STEPS_PER_SECOND;
+      h.deployTotal = Math.min(CONFIG.hero.maxDeploySteps, Math.max(30, Math.round((info.frames / fps) * STEPS_PER_SECOND)));
+      h.deploySteps = h.deployTotal;
+      if (withVehicle) {
+        // le véhicule de largage amène d'abord l'équipe ; le déploiement commence après son départ
+        h.arrivalTotal = arrivalTotal;
+        h.arrivalSteps = arrivalTotal;
+      } else {
+        this.emit({ type: 'deploy', sound: deploySound(h), hero: h.id });
+      }
     }
-    this.emit({ type: 'deploy', sound: deploySound(h) });
+    if (withVehicle) this.emit({ type: 'vehicleArrives', seconds: arrivalTotal / STEPS_PER_SECOND });
   }
 
-  /** Chaises à roulettes : poussées par le héros, elles roulent puis ralentissent ; les murs les arrêtent. */
+  /** Chaises à roulettes : poussées par les héros, elles roulent puis ralentissent ; les murs les arrêtent. */
   private stepChairs(): void {
-    const h = this.hero;
     const cfg = CONFIG.chair;
+    const pushers = this.living().filter((h) => h.moving || h.dashing);
     for (const chair of this.chairs) {
       const o = chair.obstacle;
-      const dx = o.cx - h.x;
-      const dy = o.cy - h.y;
-      const d = Math.hypot(dx, dy);
-      if (h.state !== 'dead' && (h.moving || h.dashing) && d > 0.01 && d < h.def.radius + cfg.radius + 6) {
-        const speed = h.def.walkSpeed * (h.dashing ? 1.6 : cfg.push);
-        chair.vx = (dx / d) * speed;
-        chair.vy = (dy / d) * speed;
+      for (const h of pushers) {
+        const dx = o.cx - h.x;
+        const dy = o.cy - h.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 0.01 && d < h.def.radius + cfg.radius + 6) {
+          const speed = h.def.walkSpeed * (h.dashing ? 1.6 : cfg.push);
+          chair.vx = (dx / d) * speed;
+          chair.vy = (dy / d) * speed;
+        }
       }
       const v = Math.hypot(chair.vx, chair.vy);
       if (v < 0.25) {
@@ -242,18 +268,92 @@ export class World {
     return OBJECTIVES[this.session.objective] ?? '';
   }
 
-  private spawnPoint(spawnNumber: number): { x: number; y: number } {
-    return this.spawns.get(spawnNumber) ?? this.spawns.get(1) ?? { x: this.width / 2, y: this.height / 2 };
+  private spawnPoint(spawnNumber: number, slot = 0): { x: number; y: number } {
+    const points = this.spawns.get(spawnNumber) ?? this.spawns.get(1) ?? [];
+    const first = points[0] ?? { x: this.width / 2, y: this.height / 2 };
+    return points[slot] ?? { x: first.x + slot * 100, y: first.y };
+  }
+
+  // ---------- Équipe ----------
+
+  /** Héros suivi par l'affichage : le seul en solo, celui du joueur local en partie à plusieurs. */
+  get hero(): Hero {
+    return this.heroes[this.viewHero] ?? this.heroes[0];
+  }
+
+  /** Héros dont le joueur est toujours là, vivants ou à terre. */
+  present(): Hero[] {
+    return this.heroes.filter((h) => !h.gone);
+  }
+
+  /** Héros en état de jouer. */
+  living(): Hero[] {
+    return this.heroes.filter((h) => !h.gone && h.state !== 'dead');
+  }
+
+  /** Le héros de ce type, s'il fait partie de l'équipe (chaque robot n'y figure qu'une fois). */
+  heroOf(kind: string): Hero | null {
+    return this.heroes.find((h) => h.def.kind === kind && !h.gone) ?? null;
+  }
+
+  nearestHero(x: number, y: number): Hero | null {
+    let best: Hero | null = null;
+    let bestD = Infinity;
+    for (const h of this.heroes) {
+      if (h.gone || h.state === 'dead') continue;
+      const d = Math.hypot(h.x - x, h.y - y);
+      if (d < bestD) {
+        bestD = d;
+        best = h;
+      }
+    }
+    return best;
+  }
+
+  /** Relève un héros à terre (résurrection, point de sauvegarde, arrivée dans une nouvelle salle). */
+  raiseHero(h: Hero, hp: number): void {
+    h.state = 'standing';
+    h.hp = hp;
+    h.deadSteps = 0;
+    h.invuln = CONFIG.revive.invulnSteps;
+  }
+
+  /** Le joueur de ce héros a quitté la partie : son robot disparaît, ce qu'il avait lancé aussi. */
+  removeHero(id: number): void {
+    const h = this.heroes[id];
+    if (!h || h.gone) return;
+    h.gone = true;
+    h.charging = false;
+    h.reviving = -1;
+    if (h.def.kind === 'BatBot') this.bats.length = 0;
+    if (h.def.kind === 'EngiBot') this.turret = null;
   }
 
   /**
-   * Le héros entre dans cette salle en venant d'une autre : il garde ses points de vie, son énergie et son
-   * chargeur. Les battes laissées dans l'autre salle lui sont rendues (GD-026).
+   * L'équipe entre dans cette salle en venant d'une autre : chacun garde ses points de vie, son énergie et son
+   * chargeur. Les battes laissées dans l'autre salle sont rendues (GD-026). Un robot à terre est relevé à
+   * l'arrivée, avec les points de vie d'une résurrection (GD-039).
    */
-  enter(previous: Hero | null, spawnNumber: number): void {
-    const spawn = this.spawnPoint(spawnNumber);
-    const h = this.createHero(this.hero.def, spawn.x, spawn.y);
+  enter(previousTeam: Hero[] | null, spawnNumber: number): void {
+    this.heroes = this.heroes.map((old, slot) => this.enterHero(old, previousTeam?.[slot] ?? null, spawnNumber));
+    // ce que l'équipe avait laissé derrière elle dans cette salle ne l'attend pas
+    this.bats.length = 0;
+    this.drones.length = 0;
+    this.bullets.length = 0;
+    this.exitCountdown = -1;
+    for (const z of this.zones) {
+      z.active = false;
+      z.countdown = -1;
+      z.departed = false;
+    }
+  }
+
+  private enterHero(old: Hero, previous: Hero | null, spawnNumber: number): Hero {
+    const spawn = this.spawnPoint(spawnNumber, old.id);
+    const h = this.createHero(old.def, spawn.x, spawn.y, old.id);
+    h.gone = old.gone;
     if (previous) {
+      h.gone = previous.gone;
       h.hp = previous.hp;
       h.energy = previous.energy;
       h.energyTimer = previous.energyTimer;
@@ -264,14 +364,12 @@ export class World {
       h.healPool = previous.healPool;
       h.angle = previous.angle;
       h.moveAngle = previous.moveAngle;
+      if (previous.state === 'dead') {
+        h.hp = CONFIG.revive.hp;
+        h.energy = 0;
+      }
     }
-    this.hero = h;
-    // ce que le héros avait laissé derrière lui dans cette salle ne l'attend pas
-    this.bats.length = 0;
-    this.drones.length = 0;
-    this.bullets.length = 0;
-    this.exitCountdown = -1;
-    for (const z of this.zones) z.active = false;
+    return h;
   }
 
   sprite(name: string | null | undefined): SpriteInfo {
@@ -344,7 +442,7 @@ export class World {
       });
     } else if (inst.object === 'obj_nextRoom' || inst.object === 'obj_previousRoom') {
       this.zones.push({
-        kind: 'stairs', x: inst.x, y: inst.y, radius: 160, sprite: spriteName ?? 'spr_teleporteur_waiting', active: false,
+        kind: 'stairs', x: inst.x, y: inst.y, radius: 160, sprite: spriteName ?? 'spr_teleporteur_waiting', active: false, countdown: -1, departed: false,
         targetRoom: String(inst.props.nextRoom ?? ''), targetSpawn: Number(inst.props.spawnNumberOfNextRoom ?? 1),
       });
     } else if (inst.object === 'obj_foreuse') {
@@ -416,8 +514,9 @@ export class World {
     this.doors.push(door);
   }
 
-  private createHero(def: HeroDef, x: number, y: number): Hero {
+  private createHero(def: HeroDef, x: number, y: number, id: number): Hero {
     return {
+      id, gone: false, reviving: -1, reviveSteps: 0,
       def, x, y, angle: -Math.PI / 2, moveAngle: -Math.PI / 2, moving: false, state: 'standing',
       hp: def.maxHealth, energy: CONFIG.hero.naturalEnergy, energyTimer: 0, energyPause: 0,
       ammo: def.magazine, reloadTimer: 0, fireTimer: 0, sinceShot: 9999,
@@ -440,17 +539,27 @@ export class World {
     return this.events.splice(0, this.events.length);
   }
 
+  /** Toute l'équipe est à terre (GD-007) : en solo, le héros ; à plusieurs, plus personne pour relever les autres. */
   get gameOver(): boolean {
-    return this.hero.state === 'dead' && this.hero.deadSteps >= CONFIG.hero.deathMenuDelaySteps;
+    const team = this.present();
+    return team.length > 0 && team.every((h) => h.state === 'dead' && h.deadSteps >= CONFIG.hero.deathMenuDelaySteps);
   }
 
-  step(input: Input): void {
+  /** Avance d'un step. `inputs` : l'entrée du joueur en solo, ou une entrée par héros, dans l'ordre de l'équipe. */
+  step(inputs: Input | Input[]): void {
     this.tick++;
+    const list = Array.isArray(inputs) ? inputs : [inputs];
     this.stepChairs();
-    stepHero(this, input);
+    for (const o of this.outlets) o.inUse = false;
+    for (const button of this.buttons) if (button.pressedSteps >= 0) button.pressedSteps++;
+    for (const h of this.heroes) {
+      if (h.gone) continue;
+      const input = list[h.id] ?? NO_INPUT;
+      stepHero(this, h, input);
+      this.stepButtons(h, input);
+      this.stepCards(h, input);
+    }
     this.stepCheckpoint();
-    this.stepButtons(input);
-    this.stepCards(input);
     stepNpcs(this);
     this.stepDoors();
     this.stepBullets();
@@ -463,9 +572,8 @@ export class World {
   // ---------- Dégâts ----------
 
   /** Dégât infligé au héros. `ignoreInvuln` : le coup de bouclier passe outre l'invulnérabilité. */
-  damageHero(amount: number, ignoreInvuln = false): boolean {
-    const h = this.hero;
-    if (h.hp <= 0 || h.state === 'dead') return false;
+  damageHero(h: Hero, amount: number, ignoreInvuln = false): boolean {
+    if (h.gone || h.hp <= 0 || h.state === 'dead') return false;
     // intouchable pendant un dash (GD-031) et pendant le déploiement
     if (h.dashing || h.deploySteps > 0) return false;
     if (h.invuln > 0 && !ignoreInvuln) return false;
@@ -487,8 +595,9 @@ export class World {
       h.placingTurret = 0;
       h.speedFactor = 1;
       h.deadSteps = 0;
+      h.reviving = -1;
       // les battes lancées sont perdues à la mort du BatBot, comme dans l'original
-      this.bats.length = 0;
+      if (h.def.kind === 'BatBot') this.bats.length = 0;
       this.emit({ type: 'heroDead', x: h.x, y: h.y });
     }
     return true;
@@ -515,17 +624,17 @@ export class World {
    * Tire une balle depuis le bout du canon d'un personnage placé en (fromX, fromY).
    * Si un mur sépare le personnage de son canon, la balle s'écrase dessus (GD-019).
    */
-  fireBullet(def: BulletDef, owner: 'hero' | 'enemy', fromX: number, fromY: number, x: number, y: number, angle: number): void {
+  fireBullet(def: BulletDef, owner: 'hero' | 'enemy', fromX: number, fromY: number, x: number, y: number, angle: number, ownerId = -1): void {
     const hit = this.collision.raycast(fromX, fromY, x, y, BLOCK_BULLET);
     if (hit) {
       this.emit({ type: 'impact', x: fromX + (x - fromX) * hit.t, y: fromY + (y - fromY) * hit.t, angle, surface: 'wall' });
       return;
     }
-    this.spawnBullet(def, owner, x, y, angle);
+    this.spawnBullet(def, owner, x, y, angle, ownerId);
   }
 
-  spawnBullet(def: BulletDef, owner: 'hero' | 'enemy', x: number, y: number, angle: number): void {
-    this.bullets.push({ id: this.nextId++, def, owner, x, y, angle, startX: x, startY: y, speed: def.speed, lastHit: -1, steps: 0 });
+  spawnBullet(def: BulletDef, owner: 'hero' | 'enemy', x: number, y: number, angle: number, ownerId = -1): void {
+    this.bullets.push({ id: this.nextId++, def, owner, ownerId, x, y, angle, startX: x, startY: y, speed: def.speed, lastHit: -1, steps: 0 });
   }
 
   newId(): number {
@@ -572,8 +681,10 @@ export class World {
 
     // personnage (ou bouclier de BadaBot) touché avant le décor ?
     let target: Npc | null = null;
-    let heroHit = false;
-    let shieldHit = false;
+    let heroHit: Hero | null = null;
+    let shieldHit: Hero | null = null;
+    /** Coéquipier touché par une balle de PetBot : elle le soigne et s'arrête sur lui (obj_bullet_PetBot). */
+    let healed: Hero | null = null;
     if (b.owner === 'hero') {
       for (const npc of this.npcs) {
         if (npc.id === b.lastHit) continue;
@@ -583,17 +694,32 @@ export class World {
           target = npc;
         }
       }
-    } else if (this.hero.state !== 'dead') {
-      const t = segmentCircle(b.x, b.y, nx, ny, this.hero.x, this.hero.y, this.hero.def.radius + b.def.radius);
-      if (t >= 0 && t < limit) {
-        limit = t;
-        heroHit = true;
+      if (b.def === CONFIG.heroes.PetBot.bullet) {
+        for (const h of this.living()) {
+          if (h.id === b.ownerId) continue;
+          const t = segmentCircle(b.x, b.y, nx, ny, h.x, h.y, h.def.radius + b.def.radius);
+          if (t >= 0 && t < limit) {
+            limit = t;
+            target = null;
+            healed = h;
+          }
+        }
       }
-      const ts = shieldIntercept(this.hero, b.x, b.y, nx, ny);
-      if (ts >= 0 && ts <= limit) {
-        limit = ts;
-        heroHit = false;
-        shieldHit = true;
+    } else {
+      for (const h of this.living()) {
+        const t = segmentCircle(b.x, b.y, nx, ny, h.x, h.y, h.def.radius + b.def.radius);
+        if (t >= 0 && t < limit) {
+          limit = t;
+          heroHit = h;
+          shieldHit = null;
+        }
+        // le bouclier de BadaBot protège aussi ceux qui se tiennent derrière lui
+        const ts = shieldIntercept(h, b.x, b.y, nx, ny);
+        if (ts >= 0 && ts <= limit) {
+          limit = ts;
+          heroHit = null;
+          shieldHit = h;
+        }
       }
     }
 
@@ -605,8 +731,16 @@ export class World {
     if (glass) this.breakWindow(glass.obstacle.owner as WindowPane, b.angle);
 
     if (shieldHit) {
-      shieldTank(this, this.hero);
+      shieldTank(this, shieldHit);
       this.emit({ type: 'impact', x: hx, y: hy, angle: b.angle, surface: 'shield' });
+      return true;
+    }
+    if (healed) {
+      if (healed.hp < healed.def.maxHealth) {
+        healed.hp++;
+        this.stats.healed++;
+        this.emit({ type: 'heal', x: healed.x, y: healed.y });
+      }
       return true;
     }
     if (target) {
@@ -628,7 +762,7 @@ export class World {
       return false;
     }
     if (heroHit) {
-      this.damageHero(b.def.damage);
+      this.damageHero(heroHit, b.def.damage);
       return true;
     }
     if (wall) {
@@ -668,8 +802,9 @@ export class World {
   // ---------- Portes et boutons ----------
 
   private someoneNear(x: number, y: number, range: number): boolean {
-    const h = this.hero;
-    if (h.state !== 'dead' && Math.hypot(h.x - x, h.y - y) <= range + h.def.radius) return true;
+    for (const h of this.heroes) {
+      if (!h.gone && h.state !== 'dead' && Math.hypot(h.x - x, h.y - y) <= range + h.def.radius) return true;
+    }
     for (const npc of this.npcs) {
       if (npc.active && Math.hypot(npc.x - x, npc.y - y) <= range + npc.def.radius) return true;
     }
@@ -700,21 +835,20 @@ export class World {
   }
 
   private stepFogs(): void {
-    const h = this.hero;
+    const team = this.present();
     for (let i = this.fogs.length - 1; i >= 0; i--) {
       const fog = this.fogs[i];
       // garde-fou du remake : un héros ne reste jamais sous un brouillard (GD-028)
-      if (!fog.enabled && h.x >= fog.x && h.x <= fog.x + fog.w && h.y >= fog.y && h.y <= fog.y + fog.h) this.enableFog(fog);
+      if (!fog.enabled && team.some((h) => h.x >= fog.x && h.x <= fog.x + fog.w && h.y >= fog.y && h.y <= fog.y + fog.h)) this.enableFog(fog);
       if (!fog.enabled) continue;
       fog.alpha -= fog.fadePerStep;
       if (fog.alpha <= 0) this.fogs.splice(i, 1);
     }
   }
 
-  /** Une porte ouverte à fond devant le héros lève le brouillard des pièces qu'elle touche. */
+  /** Une porte ouverte à fond devant un héros lève le brouillard des pièces qu'elle touche. */
   private revealThroughDoor(door: Door): void {
-    const h = this.hero;
-    if (h.state === 'dead' || Math.hypot(h.x - door.x, h.y - door.y) > door.detectionRange + h.def.radius) return;
+    if (!this.living().some((h) => Math.hypot(h.x - door.x, h.y - door.y) <= door.detectionRange + h.def.radius)) return;
     const box = makeBox(door.x, door.y, door.halfLength, door.halfThickness + 8, door.angle, 0);
     for (const fog of this.fogs) {
       if (fog.enabled) continue;
@@ -758,7 +892,7 @@ export class World {
   }
 
   /** Le battant coulisse vers une extrémité : sa boîte raccourcit avec l'ouverture. */
-  private updateDoorObstacle(door: Door): void {
+  updateDoorObstacle(door: Door): void {
     const table = CONFIG.door.panelLength[door.sprite] ?? CONFIG.door.panelLength.spr_door;
     const frame = Math.round(door.progress * (table.length - 1));
     const length = Math.min(door.halfLength * 2, table[frame] * Math.abs(door.scaleX));
@@ -772,9 +906,7 @@ export class World {
     });
   }
 
-  private stepButtons(input: Input): void {
-    for (const button of this.buttons) if (button.pressedSteps >= 0) button.pressedSteps++;
-    const h = this.hero;
+  private stepButtons(h: Hero, input: Input): void {
     if (!input.usePressed || h.state === 'dead') return;
     for (const button of this.buttons) {
       if (button.doorId < 0) continue;
@@ -798,8 +930,7 @@ export class World {
   }
 
   /** Porte à carte fermée à portée du héros (100 px), s'il y en a une. */
-  nearCardDoor(): Door | null {
-    const h = this.hero;
+  nearCardDoor(h: Hero = this.hero): Door | null {
     if (h.state === 'dead') return null;
     for (const door of this.doors) {
       if (door.kind !== 'card' || door.phase !== 'closed') continue;
@@ -808,8 +939,7 @@ export class World {
     return null;
   }
 
-  private stepCards(input: Input): void {
-    const h = this.hero;
+  private stepCards(h: Hero, input: Input): void {
     if (h.state === 'dead') return;
     for (const card of this.cards) {
       if (!card.carried && Math.hypot(h.x - card.x, h.y - card.y) <= h.def.radius + 30) {
@@ -819,13 +949,12 @@ export class World {
       }
     }
     if (!input.usePressed) return;
-    const door = this.nearCardDoor();
+    const door = this.nearCardDoor(h);
     if (door && this.hasCard(door.card)) this.openDoor(door);
   }
 
   /** Bouton utilisable par le héros en ce moment (pour l'aide à l'écran). */
-  usableButton(): Button | null {
-    const h = this.hero;
+  usableButton(h: Hero = this.hero): Button | null {
     for (const button of this.buttons) {
       if (button.doorId < 0) continue;
       if (Math.hypot(h.x - button.x, h.y - button.y) > CONFIG.hero.useRange + h.def.radius) continue;
@@ -836,13 +965,13 @@ export class World {
     return null;
   }
 
-  nearestOutlet(maxDist: number): Outlet | null {
+  nearestOutlet(maxDist: number, h: Hero = this.hero): Outlet | null {
     let best: Outlet | null = null;
     let bestD = maxDist;
     for (const o of this.outlets) {
-      const d = Math.hypot(o.x - this.hero.x, o.y - this.hero.y);
+      const d = Math.hypot(o.x - h.x, o.y - h.y);
       // pas de recharge à travers un mur
-      if (d <= bestD && !this.sightBlocked(o.x, o.y, this.hero.x, this.hero.y)) {
+      if (d <= bestD && !this.sightBlocked(o.x, o.y, h.x, h.y)) {
         bestD = d;
         best = o;
       }
@@ -850,13 +979,33 @@ export class World {
     return best;
   }
 
+  /**
+   * Passages vers une autre salle (obj_changeRoom_parent) : toute l'équipe dessus, on part aussitôt ; au moins
+   * la moitié, un compte à rebours démarre ; moins, il s'annule. Seul, le passage est donc immédiat.
+   */
   private stepZones(): void {
-    const h = this.hero;
+    const team = this.present();
+    this.zoneCountdown = -1;
     for (const z of this.zones) {
-      const inside = h.state !== 'dead' && Math.hypot(h.x - z.x, h.y - z.y) <= z.radius;
-      // seul, le joueur représente « tous les héros » : le passage est immédiat, sans compte à rebours
-      if (inside && !z.active && z.targetRoom) this.emit({ type: 'changeRoom', room: z.targetRoom, spawn: z.targetSpawn });
-      z.active = inside;
+      let ready = 0;
+      for (const h of team) if (h.state !== 'dead' && Math.hypot(h.x - z.x, h.y - z.y) <= z.radius) ready++;
+      z.active = ready > 0;
+      if (ready === 0) z.departed = false;
+      if (!z.targetRoom || ready === 0 || ready * 2 < team.length) {
+        z.countdown = -1;
+        continue;
+      }
+      if (z.departed) continue;
+      if (ready === team.length) z.countdown = 0;
+      else if (z.countdown < 0) z.countdown = CONFIG.hero.exitCountdownSteps;
+      else z.countdown--;
+      if (z.countdown > 0) {
+        this.zoneCountdown = z.countdown;
+        continue;
+      }
+      z.departed = true;
+      z.countdown = -1;
+      this.emit({ type: 'changeRoom', room: z.targetRoom, spawn: z.targetSpawn });
     }
   }
 
@@ -866,8 +1015,11 @@ export class World {
     if (s.objective === 0 && this.level.name === UPPER_FLOOR) s.objective = 1;
     if (s.objective === 1 && s.carried.has('purple')) s.objective = 2;
     if (s.objective === 2 && this.level.name === GROUND_FLOOR) s.objective = 3;
-    const h = this.hero;
-    const inExit = s.objective >= 3 && this.exitZone !== null && h.state !== 'dead' && distanceToBox(this.exitZone, h.x, h.y) <= 0;
+    // sortie du niveau : il faut au moins la moitié de l'équipe dans la zone
+    const team = this.present();
+    const zone = s.objective >= 3 ? this.exitZone : null;
+    const waiting = zone ? team.filter((h) => h.state !== 'dead' && distanceToBox(zone, h.x, h.y) <= 0).length : 0;
+    const inExit = waiting > 0 && waiting * 2 >= team.length;
     // zone de forage : détruire les foreuses, puis tuer le boss ; l'ordre réel importe peu
     if (this.level.name === DRILL_AREA) {
       if (s.objective === 3) s.objective = 4;
