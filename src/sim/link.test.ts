@@ -220,12 +220,19 @@ test('ulti de PetBot : un essaim le suit et soigne les allies autour de lui', ()
   run(w, 30, [{ ...NO_INPUT, moveY: 1, aimX: pet.x, aimY: pet.y + 300 }]);
   assert.equal(w.effects[0].x, pet.x);
   assert.equal(w.effects[0].y, pet.y);
+  // ses mini-bots tournent autour de lui : pas de salve tant que l'essaim dure (GD-047)
+  pet.energy = 6;
+  w.step([{ ...NO_INPUT, fire2: true, aimX: pet.x, aimY: pet.y + 300 }]);
+  assert.equal(w.drones.length, 0, 'pas de salve pendant l\'ulti');
+  assert.equal(pet.energy, 6);
   run(w, 240);
   assert.ok(near.hp >= 8, `allie proche soigne (${near.hp})`);
   assert.ok(pet.hp >= 10, 'PetBot aussi');
   assert.equal(far.hp, 4, 'hors du rayon : rien');
   run(w, CONFIG.ulti.petBot.steps);
   assert.equal(w.effects.length, 0, 'l\'essaim se disperse');
+  w.step([{ ...NO_INPUT, fire2: true, aimX: pet.x, aimY: pet.y + 300 }]);
+  assert.equal(w.drones.length, 3, 'la salve repart une fois l\'essaim disperse');
 });
 
 test('ulti de BadaBot : un mur arrete deplacements et balles, pas le regard, puis disparait', () => {

@@ -994,3 +994,26 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Des compagnons bien visibles, qui sortent d'un coffre et volent au-dessus du robot, se lisent comme des personnages et non comme des projectiles.
 
 **Conséquences.** Tout est dans l'affichage (`PETS` et `syncPets` dans `WorldView.ts`) : rien ne change pour la simulation ni pour le réseau. Leur place autour de PetBot (`petOffsets`) n'a pas bougé : deux fois plus gros, ils débordent maintenant sur ses épaules, ce qui va avec « au-dessus de l'épaule ».
+
+## GD-047 — Ulti de PetBot : ses mini-bots tournent autour de lui
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (les trois cercles, leurs sens) ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** L'ulti de PetBot (GD-044) était un essaim de nanomachines sans lien avec ses mini-bots (GD-045, GD-046). L'utilisateur veut que l'ulti s'appuie sur eux, pour garder la cohérence du personnage, et laisse juger du sort de l'animation de nanomachines.
+
+**Décision.**
+
+- Pendant l'ulti, les trois mini-bots quittent leur place et tournent autour de PetBot sur trois cercles concentriques : le proche dans le sens des aiguilles d'une montre, l'intermédiaire dans le sens inverse, le lointain dans le sens des aiguilles. **Le cercle lointain est le bord de la zone de soin.**
+- Le soin lui-même ne change pas : même zone (420 px), même durée (8 s), même débit, et la zone suit toujours PetBot.
+- *Par défaut* :
+  - rayons à 34 %, 67 % et 100 % du rayon de soin (143, 281 et 420 px) ; un tour en 1,15 s, 1,7 s et 2,3 s ;
+  - chaque mini-bot laisse une traînée lumineuse verte derrière lui, et son cercle entier est tracé en filigrane (plus marqué pour le bord de la zone) : avec un seul mini-bot par cercle, c'est ce qui rend les cercles lisibles ;
+  - **l'animation de nanomachines est gardée, en retrait** : un nuage clairsemé qui remplit toute la zone, à 60 % d'opacité. Ses deux filets circulaires sont retirés du sprite, puisque ce sont maintenant les mini-bots qui dessinent les cercles. Elle montre ce que les mini-bots répandent ;
+  - pendant les 2 s de lancement, les mini-bots se rassemblent en une ronde serrée autour de PetBot et prennent de la vitesse, puis partent en spirale vers leur cercle ; à la fin, ils resserrent leur ronde et regagnent leur place ;
+  - **pas de tir secondaire tant que l'ulti dure** : les mini-bots sont en orbite, ils ne peuvent pas partir en salve. L'énergie n'est pas dépensée ; la salve repart dès que l'essaim s'est dispersé.
+
+**Pourquoi.** Les mini-bots sont l'identité de PetBot : ce sont eux qui soignent, pas un effet anonyme. Trois cercles aux sens alternés se lisent d'un coup d'œil et montrent exactement où l'on est soigné.
+
+**Conséquences.** La ronde n'est que de l'affichage (`PETS.orbit` et `syncPets` dans `WorldView.ts`) : la place des mini-bots se déduit de l'âge de l'essaim, donc tous les joueurs les voient au même endroit sans rien de plus sur le réseau. Seul changement de règle : le tir secondaire de PetBot est bloqué pendant son ulti (`petBotFire2`, test dans `link.test.ts`). Sprite `spr_PetBot_ulti_nanos` régénéré (`tools/make-sprites.ts`). Vu à l'écran en solo : la ronde du lancement, les trois cercles et les traînées, le retour ; mouvement régulier mesuré image par image. Pas essayé en réseau.

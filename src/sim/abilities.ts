@@ -8,6 +8,7 @@ import {
   rotateToward, segmentCircle,
 } from './geom.ts';
 import type { Bat, Drill, Drone, Explosion, Hero, Input, Npc, Turret, WindowPane } from './types.ts';
+import { petSwarm } from './ulti.ts';
 import type { World } from './world.ts';
 
 const A = CONFIG.abilities;
@@ -117,6 +118,8 @@ export function petAnchors(h: Hero): { x: number; y: number }[] {
 
 function petBotFire2(world: World, h: Hero, input: Input, busy: boolean): void {
   if (!input.fire2 || busy || h.energy < A.petBot.energyCost) return;
+  // pendant son ulti, ses mini-bots tournent autour de lui : ils ne peuvent pas partir en salve (GD-047)
+  if (petSwarm(world, h)) return;
   // toujours le niveau 1 : la surcharge ne renforce plus le tir secondaire, elle sert à l'ulti (GD-043)
   const level = 1;
   const anchors = petAnchors(h);

@@ -433,24 +433,23 @@ function batBotCrater(): Made {
 // ---------- PetBot : l'essaim de nanomachines ----------
 
 /**
- * Essaim : des dizaines de nanomachines en orbite sur une couronne, dans les deux sens, suivies d'une courte
- * traînée. 24 images qui bouclent (chaque machine fait un nombre entier de tours). Blanc, teinté en vert par le jeu.
+ * Essaim : des dizaines de nanomachines en orbite dans toute la zone de soin, dans les deux sens, suivies d'une
+ * courte traînée. 24 images qui bouclent (chaque machine fait un nombre entier de tours). Blanc, teinté en vert
+ * par le jeu. Pas de cercle dessiné : ce sont les mini-bots de PetBot qui tracent les leurs (GD-047).
  */
 function petBotNanos(): Made {
   const size = 512;
   const mid = size / 2;
   const count = 24;
   const rand = random(5);
-  const bots = Array.from({ length: 64 }, () => ({
-    angle: rand() * TAU, radius: 150 + rand() * 92, turns: (rand() < 0.5 ? 1 : -1) * (rand() < 0.3 ? 2 : 1), size: 2.2 + rand() * 2.6, bright: 0.55 + rand() * 0.45,
+  const bots = Array.from({ length: 84 }, () => ({
+    // répartis à surface égale entre le pied de PetBot et le bord de la zone
+    angle: rand() * TAU, radius: Math.sqrt(64 ** 2 + rand() * (240 ** 2 - 64 ** 2)), turns: (rand() < 0.5 ? 1 : -1) * (rand() < 0.3 ? 2 : 1), size: 2.2 + rand() * 2.6, bright: 0.55 + rand() * 0.45,
   }));
   const frames: Image[] = [];
   for (let i = 0; i < count; i++) {
     const p = i / count;
     const img = canvas(size, size);
-    // deux filets continus marquent le bord de la zone de soin
-    for (let k = 0; k < 6; k++) crescent(img, mid, mid, 246, 2.2, p * TAU + k * (TAU / 6), 0.8, WHITE, 0.5);
-    for (let k = 0; k < 4; k++) crescent(img, mid, mid, 148, 1.6, -p * TAU + k * (TAU / 4), 0.9, WHITE, 0.3);
     for (const bot of bots) {
       const angle = bot.angle + p * TAU * bot.turns;
       const wobble = bot.radius + 6 * Math.sin(p * TAU * 2 + bot.angle * 5);

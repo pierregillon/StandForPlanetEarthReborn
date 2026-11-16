@@ -1,7 +1,7 @@
 // Attaque ultime (GD-043, GD-044) : disponible à pleine surcharge, elle dépense toute l'énergie. Deux secondes
 // de lancement, immobile et vulnérable, puis le coup propre à chaque robot :
 //   BatBot  : il bondit dans la mêlée et son atterrissage explose autour de lui ;
-//   PetBot  : un essaim de nanomachines le suit et soigne les alliés autour de lui ;
+//   PetBot  : ses mini-bots tournent autour de lui et répandent un essaim de nanomachines qui soigne les alliés ;
 //   BadaBot : un mur d'énergie infranchissable se dresse devant lui ;
 //   EngiBot : une grenade électromagnétique désactive les robots ennemis, sans effet sur les humains.
 import { CONFIG } from './config.ts';
@@ -28,6 +28,11 @@ export function placeLeap(h: Hero): void {
   const t = Math.min(1, h.ultiSteps / U.batBot.leapSteps);
   h.x = h.ultiFromX + (h.ultiToX - h.ultiFromX) * t;
   h.y = h.ultiFromY + (h.ultiToY - h.ultiFromY) * t;
+}
+
+/** L'essaim de soin de ce PetBot, tant qu'il dure : ses mini-bots sont alors en orbite autour de lui (GD-047). */
+export function petSwarm(world: World, h: Hero): UltiEffect | undefined {
+  return world.effects.find((e) => e.kind === 'nanos' && e.owner === h.id);
 }
 
 /** Avance l'ulti du héros. Retourne true tant qu'il l'occupe : il ne fait alors rien d'autre. */

@@ -164,3 +164,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-16 | Les quatre ultis (GD-044) : postures de lancement stables, effets séparés des sprites de robot, essaim de PetBot, mur de BadaBot, grenade d'EngiBot ; lien deux fois plus rapide ; avatar « ulti prêt » ; animation à distance corrigée. 68 tests. |
 | 2026-11-17 | Les trois mini-bots de PetBot l'accompagnent en permanence et partent en salve au tir secondaire (GD-045). 69 tests. |
 | 2026-11-17 | Mini-bots de PetBot deux fois plus gros, sortis un par un de son coffre, ombre à leur taille dessinée sur PetBot (GD-046). |
+| 2026-11-17 | Ulti de PetBot : ses trois mini-bots tournent autour de lui sur trois cercles, le plus grand marquant la zone de soin ; pas de tir secondaire pendant l'ulti (GD-047). 69 tests. |

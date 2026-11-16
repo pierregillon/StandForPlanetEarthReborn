@@ -8,7 +8,7 @@ import { BLOCK_MOVE, BLOCK_SIGHT, angleDiff } from '../../sim/geom.ts';
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
-import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER } from '../../sim/ulti.ts';
+import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm } from '../../sim/ulti.ts';
 import type { Bat, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
@@ -137,6 +137,9 @@ interface HeroParts {
   pets: Pet[] | null;
   /** Secondes écoulées depuis que les mini-bots sont revenus (0 tant qu'ils sont partis en salve). */
   petsHome: number;
+  /** Ulti de PetBot (GD-047) : traînées des mini-bots en orbite, et horloge lissée de leur ronde. */
+  petTrails: Phaser.GameObjects.Graphics | null;
+  spinTime: number;
 }
 
 interface Pet {
@@ -146,6 +149,12 @@ interface Pet {
   x: number;
   y: number;
   angle: number;
+  /** Ce qu'il fait : il suit PetBot, il se rassemble pendant le lancement de l'ulti, ou il tourne sur son cercle. */
+  mode: 'follow' | 'gather' | 'ring';
+  /** Secondes passées dans ce mode, et écart à PetBot au moment où il y est entré. */
+  modeTime: number;
+  fromX: number;
+  fromY: number;
 }
 
 /** Mini-bots de PetBot (GD-045, GD-046). */
@@ -161,6 +170,20 @@ const PETS = {
   /** Ils sortent un par un : écart entre deux sorties, et durée du trajet de la trappe à leur place. */
   stagger: 0.28,
   emerge: 0.5,
+  /** Ulti (GD-047) : chaque mini-bot tourne sur son cercle autour de PetBot. */
+  orbit: {
+    /**
+     * Du plus proche au plus lointain : rayon en part du rayon de soin, durée d'un tour en secondes, et sens
+     * (1 = sens des aiguilles d'une montre). Le cercle extérieur est le bord de la zone de soin.
+     */
+    rings: [{ radius: 0.34, period: 1.15, dir: 1 }, { radius: 0.67, period: 1.7, dir: -1 }, { radius: 1, period: 2.3, dir: 1 }],
+    /** Secondes pour rejoindre son cercle. */
+    join: 0.6,
+    /** Pendant le lancement, ils se rassemblent sur un petit cercle autour de PetBot et prennent de la vitesse. */
+    gather: 92,
+    /** Longueur de la traînée lumineuse derrière chacun, en pixels. */
+    tail: 460,
+  },
 };
 
 /** Couleur de l'énergie de chaque robot quand il lance son ulti : teinte principale et reflet. */
@@ -431,7 +454,7 @@ export class WorldView {
       p = {
         legs: this.image(h.def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
         body: this.image(h.def.sprites.stand, 0, h.x, h.y, DEPTH.character),
-        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, chargeUnder: null, chargeTop: null, pets: null, petsHome: 0,
+        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, chargeUnder: null, chargeTop: null, pets: null, petsHome: 0, petTrails: null, spinTime: 0,
       };
       this.parts.set(h.id, p);
     }
@@ -547,6 +570,9 @@ export class WorldView {
    * tête. Ils sortent un par un de la trappe de son coffre dorsal, le suivent avec un léger retard, et montent
    * et descendent doucement à l'arrêt. Ils volent au-dessus de lui : leur ombre se dessine sur PetBot quand
    * ils le survolent. Quand il lance sa salve, ce sont eux qui partent ; d'autres ressortent ensuite du coffre.
+   *
+   * Ulti (GD-047) : pendant le lancement ils se rassemblent en une ronde serrée autour de lui, puis chacun
+   * part tourner sur son cercle tant que l'essaim soigne ; le cercle extérieur est le bord de la zone de soin.
    */
   private syncPets(h: Hero, p: HeroParts, dt: number, present: boolean): void {
     const anchors = petAnchors(h);
@@ -555,7 +581,7 @@ export class WorldView {
         // l'ombre est au-dessus du corps des robots et sous les mini-bots
         shadow: this.image('spr_PetDrone', 0, a.x, a.y, DEPTH.character + 2.5).setTintFill(0x000000),
         img: this.image('spr_PetDrone', 0, a.x, a.y, DEPTH.character + 3),
-        x: a.x, y: a.y, angle: h.angle,
+        x: a.x, y: a.y, angle: h.angle, mode: 'follow' as const, modeTime: 0, fromX: 0, fromY: 0,
       }));
     }
     // partis en salve : la simulation les fait voler comme des drones, on ne les dessine plus ici
@@ -567,13 +593,37 @@ export class WorldView {
     const s = Math.sin(h.angle);
     const local = (lx: number, ly: number): { x: number; y: number } => ({ x: h.x + lx * c - ly * s, y: h.y + lx * s + ly * c });
     const hatch = local(PETS.hatch.x, PETS.hatch.y);
+
+    const swarm = home ? petSwarm(this.world, h) : undefined;
+    const mode: Pet['mode'] = swarm ? 'ring' : home && h.ultiPhase === ULTI_CAST ? 'gather' : 'follow';
+    // l'horloge de la ronde est celle du jeu : tous les joueurs voient les mini-bots au même endroit. Elle est
+    // lissée, pour que des mini-bots aussi rapides ne saccadent pas entre deux pas de simulation.
+    const clock = (swarm ? swarm.steps : h.ultiSteps) / STEPS_PER_SECOND;
+    p.spinTime += dt;
+    if (Math.abs(clock - p.spinTime) > 0.2) p.spinTime = clock;
+    else p.spinTime += (clock - p.spinTime) * 0.1;
+    const spin = p.spinTime;
+    const orbit = PETS.orbit;
+    const colors = ULTI_COLORS.PetBot;
+    p.petTrails?.clear();
+    if (mode !== 'follow') p.petTrails ??= this.scene.add.graphics().setDepth(DEPTH.fx + 2).setBlendMode(Phaser.BlendModes.ADD);
+    // l'essaim s'efface dans sa dernière demi-seconde ; la ronde du lancement s'allume en prenant de la vitesse
+    const left = swarm ? Math.max(0, swarm.total / STEPS_PER_SECOND - spin) : 0;
+    const glow = swarm ? Math.min(1, left / 0.5) : Math.min(1, spin / 1.2);
+    // à la fin, les mini-bots resserrent leur ronde en spirale avant de regagner leur place
+    const closing = swarm ? 1 - Math.min(1, left / orbit.join) : 0;
+    const closed = closing * closing * (3 - 2 * closing);
+
     p.pets.forEach((pet, i) => {
       // sortie de la trappe, l'un après l'autre : 0 = encore dans le coffre, 1 = arrivé à sa place
       const out = Math.max(0, Math.min(1, (p.petsHome - i * PETS.stagger) / PETS.emerge));
       const visible = home && out > 0;
       pet.img.setVisible(visible);
       pet.shadow.setVisible(visible);
-      if (!visible) return;
+      if (!visible) {
+        pet.mode = 'follow';
+        return;
+      }
       let size = 1;
       if (out < 1) {
         // il jaillit de la trappe en passant au-dessus du crâne, puis rejoint sa place en grandissant
@@ -582,11 +632,42 @@ export class WorldView {
         pet.x = (1 - e) ** 2 * hatch.x + 2 * e * (1 - e) * skull.x + e * e * anchors[i].x;
         pet.y = (1 - e) ** 2 * hatch.y + 2 * e * (1 - e) * skull.y + e * e * anchors[i].y;
         pet.angle = h.angle;
+        pet.mode = 'follow';
         size = 0.25 + 0.75 * e;
       } else {
-        pet.x += (anchors[i].x - pet.x) * pull;
-        pet.y += (anchors[i].y - pet.y) * pull;
-        pet.angle += angleDiff(pet.angle, h.angle) * pull;
+        if (pet.mode !== mode) {
+          pet.mode = mode;
+          pet.modeTime = 0;
+          pet.fromX = pet.x - h.x;
+          pet.fromY = pet.y - h.y;
+        }
+        pet.modeTime += dt;
+        if (mode === 'follow') {
+          pet.x += (anchors[i].x - pet.x) * pull;
+          pet.y += (anchors[i].y - pet.y) * pull;
+          pet.angle += angleDiff(pet.angle, h.angle) * pull;
+        } else {
+          const ring = orbit.rings[i];
+          // lancement : tous dans le même sens, de plus en plus vite ; ensuite chacun son cercle et son sens
+          const dir = swarm ? ring.dir : 1;
+          const circle = swarm ? swarm.radius * ring.radius : orbit.gather;
+          const radius = circle + (orbit.gather - circle) * closed;
+          const turn = (i * Math.PI * 2) / 3 + (swarm ? (dir * Math.PI * 2 * spin) / ring.period : 2.4 * spin * spin);
+          // il quitte en spirale l'endroit où il se trouvait pour rejoindre son cercle
+          const t = Math.min(1, pet.modeTime / orbit.join);
+          const k = t * t * (3 - 2 * t);
+          pet.x = h.x + pet.fromX + (Math.cos(turn) * radius - pet.fromX) * k;
+          pet.y = h.y + pet.fromY + (Math.sin(turn) * radius - pet.fromY) * k;
+          // le nez dans le sens de la marche
+          pet.angle += angleDiff(pet.angle, turn + (dir * Math.PI) / 2) * (k < 1 ? pull : 1);
+          const strength = k * k * glow;
+          if (swarm) {
+            // son cercle entier, discret ; le plus grand, plus marqué, est le bord de la zone de soin
+            p.petTrails!.lineStyle(i === 2 ? 3 : 2, colors.main, (i === 2 ? 0.42 : 0.22) * strength);
+            p.petTrails!.strokeCircle(h.x, h.y, circle);
+          }
+          this.drawPetTrail(p.petTrails!, h.x, h.y, radius, turn, dir, strength, colors);
+        }
       }
       // flottement : chacun à son rythme, pour qu'ils ne paraissent jamais figés
       const lift = Math.sin(now * 2.4 + i * 2.1);
@@ -596,6 +677,25 @@ export class WorldView {
       pet.shadow.setPosition(pet.x + (9 + 3 * lift) * size, pet.y + (13 + 4 * lift) * size).setRotation(pet.angle)
         .setScale(PETS.scale * size).setAlpha(0.3 - 0.05 * lift);
     });
+  }
+
+  /** Sillage d'un mini-bot en orbite : une traînée lumineuse derrière lui, qui s'amincit et s'éteint. */
+  private drawPetTrail(
+    g: Phaser.GameObjects.Graphics, cx: number, cy: number, radius: number, turn: number, dir: number, strength: number,
+    colors: { main: number; light: number },
+  ): void {
+    if (strength <= 0.01) return;
+    const span = Math.min(2.6, PETS.orbit.tail / radius);
+    const pieces = 14;
+    for (let j = 0; j < pieces; j++) {
+      const a0 = turn - dir * span * (j / pieces);
+      const a1 = turn - dir * span * ((j + 1) / pieces);
+      const q = 1 - j / pieces;
+      g.lineStyle(1.5 + 6 * q, j < 3 ? colors.light : colors.main, 0.7 * q * q * strength);
+      g.beginPath();
+      g.arc(cx, cy, radius, Math.min(a0, a1), Math.max(a0, a1));
+      g.strokePath();
+    }
   }
 
   /** Nom du joueur au-dessus d'un coéquipier. */
@@ -908,7 +1008,7 @@ export class WorldView {
     this.syncEffects();
   }
 
-  /** Effets laissés par les ultis (GD-044) : essaim de PetBot, mur de BadaBot, grenade d'EngiBot. */
+  /** Effets laissés par les ultis (GD-044) : nuage de nanomachines de PetBot, mur de BadaBot, grenade d'EngiBot. */
   private syncEffects(): void {
     const scene = this.scene;
     const now = scene.time.now / 1000;
@@ -926,8 +1026,9 @@ export class WorldView {
         };
         const info = this.info('spr_PetBot_ulti_nanos');
         this.setFrame(parts.main, 'spr_PetBot_ulti_nanos', (now * info.speed) % info.frames);
-        // la couronne dessinée va jusqu'à 246 px du centre : on l'ajuste au rayon de soin
-        parts.main.setPosition(e.x, e.y).setScale(e.radius / 246).setAlpha(fade);
+        // le nuage dessiné va jusqu'à 246 px du centre : on l'ajuste au rayon de soin. Il reste en retrait :
+        // ce sont les mini-bots en orbite qui dessinent la zone (GD-047).
+        parts.main.setPosition(e.x, e.y).setScale(e.radius / 246).setAlpha(0.6 * fade);
         parts.extra?.setPosition(e.x, e.y).setAlpha(0.07 * fade + 0.02 * Math.sin(now * 5));
       } else if (e.kind === 'wall') {
         parts ??= { main: this.image('spr_BadaBot_ulti_wall', 0, e.x, e.y, DEPTH.door + 1).setRotation(e.angle), extra: null };
