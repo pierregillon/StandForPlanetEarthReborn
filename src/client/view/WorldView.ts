@@ -14,6 +14,13 @@ const DEPTH = {
   remains: -50, legs: -1, character: 0, laser: 4, bullet: 5, wallThin: 200, wallThick: 300, door: 500, fx: 600, worldText: 700,
 };
 const MAX_REMAINS = 500;
+/** Aspect des projectiles (GD-022) : traînée jaune pour le héros, orange pour les ennemis. */
+const BULLET_STYLE = {
+  heroScale: 1.2,
+  enemyScale: 2,
+  hero: { core: 0xfff27a, glow: 0xffc400, width: 5, length: 70 },
+  enemy: { core: 0xffb347, glow: 0xff5a1f, width: 5, length: 90 },
+};
 
 type Img = Phaser.GameObjects.Image;
 
@@ -53,6 +60,7 @@ export class WorldView {
   private heroLegs!: Img;
   private laser!: Phaser.GameObjects.Graphics;
   private cable!: Phaser.GameObjects.Graphics;
+  private tracers!: Phaser.GameObjects.Graphics;
   private legsTime = 0;
 
   constructor(scene: Phaser.Scene, world: World, floors: FloorManifest) {
@@ -152,6 +160,7 @@ export class WorldView {
     this.heroBody = this.image(def.sprites.stand, 0, world.hero.x, world.hero.y, DEPTH.character);
     this.laser = scene.add.graphics().setDepth(DEPTH.laser);
     this.cable = scene.add.graphics().setDepth(DEPTH.laser);
+    this.tracers = scene.add.graphics().setDepth(DEPTH.bullet + 1);
   }
 
   /** Remake (GD-006) : borne de recharge dessinée par le code, faute de sprite d'origine. */
@@ -240,14 +249,52 @@ export class WorldView {
     this.laser.lineStyle(2, def.laserColor, h.state === 'firing1' ? 0.7 : 0.4);
     this.laser.lineBetween(m.x, m.y, m.x + (ex - m.x) * t, m.y + (ey - m.y) * t);
 
-    if (h.charging) {
-      const outlet = this.world.outlets.find((o) => o.inUse);
-      if (outlet) {
-        const flicker = 0.6 + Math.random() * 0.4;
-        this.cable.lineStyle(5, 0x1b2030, 1).lineBetween(outlet.x, outlet.y, h.x, h.y);
-        this.cable.lineStyle(2, 0xffe36b, flicker).lineBetween(outlet.x, outlet.y, h.x, h.y);
+    // bornes de recharge : zone d'action visible à l'approche, arc électrique pendant la recharge (GD-022)
+    const range = CONFIG.outlet.range;
+    const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 300);
+    for (const outlet of this.world.outlets) {
+      const d = Math.hypot(outlet.x - h.x, outlet.y - h.y);
+      if (outlet.inUse) {
+        this.drawEnergyLink(outlet.x, outlet.y, h.x, h.y);
+        this.cable.lineStyle(3, 0x7fd9ff, 0.35 + 0.25 * pulse).strokeCircle(outlet.x, outlet.y, range);
+      } else if (d < range * 2.5 && h.energy < CONFIG.hero.maxEnergy) {
+        const inside = d <= range;
+        this.cable.lineStyle(inside ? 3 : 2, inside ? 0xffe36b : 0x7fd9ff, (inside ? 0.35 : 0.12) + 0.15 * pulse).strokeCircle(outlet.x, outlet.y, range);
       }
     }
+  }
+
+  /** Arc électrique entre deux points : plusieurs brins en zigzag, redessinés à chaque image. */
+  private drawEnergyLink(x1: number, y1: number, x2: number, y2: number): void {
+    const g = this.cable;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const segments = Math.max(4, Math.round(len / 28));
+    const strands = [
+      { width: 12, color: 0x2f8dff, alpha: 0.22, jitter: 10 },
+      { width: 6, color: 0x7fd9ff, alpha: 0.55, jitter: 16 },
+      { width: 2.5, color: 0xffffff, alpha: 0.95, jitter: 16 },
+      { width: 2, color: 0xffe36b, alpha: 0.8, jitter: 30 },
+    ];
+    for (const s of strands) {
+      g.lineStyle(s.width, s.color, s.alpha);
+      g.beginPath();
+      g.moveTo(x1, y1);
+      for (let i = 1; i < segments; i++) {
+        const t = i / segments;
+        // amplitude nulle aux extrémités, maximale au milieu
+        const off = (Math.random() - 0.5) * 2 * s.jitter * Math.sin(Math.PI * t);
+        g.lineTo(x1 + dx * t + nx * off, y1 + dy * t + ny * off);
+      }
+      g.lineTo(x2, y2);
+      g.strokePath();
+    }
+    const glow = 14 + Math.random() * 8;
+    g.fillStyle(0x7fd9ff, 0.35).fillCircle(x1, y1, glow + 8).fillCircle(x2, y2, glow + 14);
+    g.fillStyle(0xffffff, 0.8).fillCircle(x1, y1, glow * 0.4).fillCircle(x2, y2, glow * 0.5);
   }
 
   private npcFrame(npc: Npc): { sprite: string; frame: number } {
@@ -303,14 +350,25 @@ export class WorldView {
 
   private syncBullets(): void {
     const alive = new Set<number>();
+    const g = this.tracers;
+    g.clear();
     for (const b of this.world.bullets) {
       alive.add(b.id);
       let img = this.bulletImgs.get(b.id);
       if (!img) {
-        img = this.image(b.def.sprite, 0, b.x, b.y, DEPTH.bullet);
+        img = this.image(b.def.sprite, 0, b.x, b.y, DEPTH.bullet).setScale(b.owner === 'enemy' ? BULLET_STYLE.enemyScale : BULLET_STYLE.heroScale);
         this.bulletImgs.set(b.id, img);
       }
       img.setPosition(b.x, b.y).setRotation(b.angle);
+      // traînée lumineuse : les balles d'origine, petites et grises, se perdaient sur le sol (GD-022)
+      const style = b.owner === 'enemy' ? BULLET_STYLE.enemy : BULLET_STYLE.hero;
+      const travelled = Math.hypot(b.x - b.startX, b.y - b.startY);
+      const len = Math.min(style.length, travelled);
+      const tx = b.x - Math.cos(b.angle) * len;
+      const ty = b.y - Math.sin(b.angle) * len;
+      g.lineStyle(style.width * 2.4, style.glow, 0.3).lineBetween(tx, ty, b.x, b.y);
+      g.lineStyle(style.width, style.core, 0.95).lineBetween(b.x - Math.cos(b.angle) * len * 0.6, b.y - Math.sin(b.angle) * len * 0.6, b.x, b.y);
+      g.fillStyle(style.core, 1).fillCircle(b.x, b.y, style.width * 0.9);
     }
     for (const [id, img] of this.bulletImgs) {
       if (!alive.has(id)) {

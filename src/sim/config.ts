@@ -133,7 +133,7 @@ export const CONFIG = {
 
   /** Remake (GD-006) : prises de courant. */
   outlet: {
-    range: 110,
+    range: 280, // 110 à l'étape 1 : jugé trop court par l'utilisateur (GD-022)
     stepsPerEnergy: s(1),
     /** Les prises remplacent ces objets du niveau d'origine. */
     replacesObject: 'obj_bonus_ammo',

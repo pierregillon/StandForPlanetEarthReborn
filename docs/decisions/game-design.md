@@ -372,3 +372,22 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** L'utilisateur a choisi un rechargement manuel (GD-005). Les ajouts d'interface rendent lisibles des informations que l'original ne montrait que par le portrait qui rougit.
 
 **Conséquences.** Les trois autres héros recevront leur chargeur à l'étape 2.
+
+---
+
+## GD-022 — Projectiles plus visibles ; bornes utilisables de plus loin, avec un arc électrique
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (retours d'essai de l'étape 1)
+
+**Contexte.** Après avoir joué l'étape 1, l'utilisateur relève que les balles sont trop petites et de la couleur du sol : on ne les voit pas. Il trouve aussi qu'il faut être trop près d'une borne pour s'y brancher (110 px) et attendait « un beau lien, une sorte d'énergie » entre le robot et la borne.
+
+**Décision.**
+
+- Chaque projectile reçoit une traînée lumineuse : jaune pour le héros, orange pour les ennemis. Les sprites d'origine sont conservés et agrandis (×1,2 pour le héros, ×2 pour les ennemis). L'original dessinait un flou de mouvement de la longueur de la vitesse ; la traînée en tient lieu.
+- La portée des bornes passe de 110 à 280 px. Un cercle indique la zone quand le héros s'approche (bleu pâle, puis jaune quand il est à portée). Pendant la recharge, un arc électrique animé relie la borne au robot. La recharge ne passe pas à travers un mur.
+
+**Pourquoi.** Lisibilité : on doit voir d'où viennent les tirs pour les esquiver. Deux couleurs distinguent ses propres balles de celles des ennemis.
+
+**Conséquences.** Réglages : `BULLET_STYLE` dans `src/client/view/WorldView.ts` (aspect), `outlet.range` dans `src/sim/config.ts`. Les dégâts et la taille de collision des balles ne changent pas.

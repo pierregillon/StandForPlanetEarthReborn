@@ -22,6 +22,8 @@ export class GameScene extends Phaser.Scene {
   private acc = 0;
   private camX = 0;
   private camY = 0;
+  /** Entrées forcées depuis la console (sfpeDebug.hold), pour tester sans clavier. */
+  private debugHold: Partial<Input> = {};
   private panel: { objects: Phaser.GameObjects.GameObject[]; buttons: ButtonColumn; kind: 'pause' | 'lose' } | null = null;
   private music?: Phaser.Sound.BaseSound;
 
@@ -62,6 +64,10 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < n; i++) this.world.step({ ...NO_INPUT, aimX: this.world.hero.x, aimY: this.world.hero.y - 300, ...input });
         this.snapCamera();
       },
+      /** Maintient des entrées en continu, ex. hold({ use: true }) ; hold({}) pour relâcher. */
+      hold: (input: Partial<Input>) => {
+        this.debugHold = input;
+      },
       teleport: (x: number, y: number) => {
         this.world.hero.x = x;
         this.world.hero.y = y;
@@ -101,6 +107,7 @@ export class GameScene extends Phaser.Scene {
       use: Keys.isDown(...Bind.use),
       usePressed: first && Keys.wasPressed(...Bind.use),
       reloadPressed: first && Keys.wasPressed(...Bind.reload),
+      ...this.debugHold,
     };
   }
 

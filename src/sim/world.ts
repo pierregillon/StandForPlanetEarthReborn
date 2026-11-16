@@ -430,7 +430,8 @@ export class World {
     let bestD = maxDist;
     for (const o of this.outlets) {
       const d = Math.hypot(o.x - this.hero.x, o.y - this.hero.y);
-      if (d <= bestD) {
+      // pas de recharge à travers un mur
+      if (d <= bestD && !this.sightBlocked(o.x, o.y, this.hero.x, this.hero.y)) {
         bestD = d;
         best = o;
       }
