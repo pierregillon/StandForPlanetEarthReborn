@@ -243,6 +243,11 @@ export const CONFIG = {
       /** Coût de la salve de drones. Depuis GD-043, elle est toujours de niveau 1 : la surcharge sert à l'ulti. */
       energyCost: 3,
       droneRanges: [550, 700, 850],
+      /**
+       * Place des trois mini-bots qui accompagnent PetBot (GD-045), dans son repère (x vers l'avant) :
+       * épaule gauche, épaule droite, tête. Ce sont eux qui partent quand il lance sa salve.
+       */
+      petOffsets: [{ x: -8, y: -68 }, { x: -8, y: 68 }, { x: -62, y: 0 }],
       droneMaxSpeed: 15,
       droneAcceleration: 0.5,
       droneSpreadDeg: 10,

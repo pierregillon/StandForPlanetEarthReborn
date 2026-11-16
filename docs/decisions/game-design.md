@@ -948,3 +948,27 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Une pose tenue se lit mieux qu'un geste, et laisse la vedette à l'énergie qui monte. Les trois nouveaux ultis donnent à chaque robot un rôle d'équipe : frapper, soigner, protéger, neutraliser.
 
 **Conséquences.** Réglages : `ulti` et `link` dans `src/sim/config.ts` ; couleurs dans `ULTI_COLORS` (`WorldView.ts`). 4 Mo de sprites fabriqués. 3 tests de plus (68). Vu à l'écran en solo : l'avatar « ulti prêt », l'essaim de PetBot et son soin, le mur de BadaBot, la grenade d'EngiBot et les robots désactivés, le début de l'atterrissage de BatBot. **Pas vu en mouvement** (le navigateur de contrôle tournait au ralenti) : la dissipation du nuage de poussière et la fluidité des animations. **À éprouver** : la durée des effets, le soin de l'essaim (jusqu'à 12 PV en 8 s), le mur qui bloque aussi les alliés, la désactivation du boss.
+
+## GD-045 — Les mini-bots de PetBot l'accompagnent en permanence
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** PetBot est censé avoir des mini-bots, ses « pets ». Jusqu'ici ils n'apparaissaient qu'au moment du tir secondaire, comme des projectiles sortis de son corps.
+
+**Décision.**
+
+- Trois mini-bots flottent en permanence près de PetBot : un à l'épaule gauche, un à l'épaule droite, un derrière la tête.
+- Ils le suivent avec un léger retard et regagnent leur place en une demi-seconde. Ils n'ont aucune collision.
+- À l'arrêt, ils montent et descendent doucement, chacun à son rythme, avec une ombre au sol : ils ne paraissent jamais figés.
+- Au tir secondaire, ce sont eux qui partent. Chacun décolle de sa place et converge vers la même destination qu'avant (dans l'axe de la visée de PetBot, à 550, 700 et 850 px). Vol, explosion, dégâts et soin sont inchangés.
+- *Par défaut* :
+  - pendant que la salve vole, PetBot n'a plus ses mini-bots ; de nouveaux se reforment à leur place dès que la salve a explosé, que l'énergie permette ou non de relancer ;
+  - ils sont placés un peu à l'écart du corps (68 px de côté, 62 px derrière) plutôt qu'exactement au-dessus des épaules : vus de dessus, vert sur vert, on ne les distinguait pas du robot ;
+  - collé à un mur, un mini-bot qui se trouverait de l'autre côté part de PetBot lui-même, pour ne pas traverser le mur ;
+  - ils sont masqués pendant le déploiement et quand PetBot est à terre.
+
+**Pourquoi.** Les mini-bots donnent son identité à PetBot et annoncent son tir secondaire : on voit d'où part la salve.
+
+**Conséquences.** Leur place est la même pour la simulation (point de départ des drones, `petAnchors`) et pour l'affichage ; leur retard et leur flottement ne sont que de l'affichage, donc sans effet sur le jeu ni sur le réseau. Réglages : `petOffsets` dans `src/sim/config.ts`, `PETS` dans `WorldView.ts`. Sprite d'origine `spr_PetDrone` (celui des drones en vol). Vu à l'écran en solo : à l'arrêt, en déplacement, au départ de la salve et au retour.

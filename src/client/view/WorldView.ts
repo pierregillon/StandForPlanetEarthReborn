@@ -4,9 +4,9 @@ import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import type { FloorManifest } from '../assets.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
-import { BLOCK_MOVE, BLOCK_SIGHT } from '../../sim/geom.ts';
+import { BLOCK_MOVE, BLOCK_SIGHT, angleDiff } from '../../sim/geom.ts';
 import { visibilityPolygon } from '../../sim/visibility.ts';
-import { batHand } from '../../sim/abilities.ts';
+import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER } from '../../sim/ulti.ts';
 import type { Bat, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
@@ -133,7 +133,22 @@ interface HeroParts {
   /** Énergie qui se concentre pendant le lancement : un calque sous le robot, un par-dessus. */
   chargeUnder: Img | null;
   chargeTop: Img | null;
+  /** Mini-bots de PetBot (GD-045) : ils flottent à leur place autour de lui. */
+  pets: Pet[] | null;
+  /** Les mini-bots sont à leur place (et non partis en salve) : de 0 à 1 pendant qu'ils réapparaissent. */
+  petsHome: number;
 }
+
+interface Pet {
+  img: Img;
+  shadow: Phaser.GameObjects.Ellipse;
+  x: number;
+  y: number;
+  angle: number;
+}
+
+/** Mini-bots de PetBot : temps de rattrapage, taille au repos et amplitude du flottement. */
+const PETS = { followSeconds: 0.5, scale: 0.92, bob: 0.06, returnSeconds: 0.35 };
 
 /** Couleur de l'énergie de chaque robot quand il lance son ulti : teinte principale et reflet. */
 const ULTI_COLORS: Record<string, { main: number; light: number }> = {
@@ -402,7 +417,7 @@ export class WorldView {
       p = {
         legs: this.image(h.def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
         body: this.image(h.def.sprites.stand, 0, h.x, h.y, DEPTH.character),
-        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, chargeUnder: null, chargeTop: null,
+        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, chargeUnder: null, chargeTop: null, pets: null, petsHome: 0,
       };
       this.parts.set(h.id, p);
     }
@@ -429,6 +444,7 @@ export class WorldView {
       p.chargeTop?.setVisible(false);
     }
     this.syncTag(h, p, shown && !local);
+    if (def.kind === 'PetBot') this.syncPets(h, p, dt, shown && !dead && h.deploySteps === 0);
     if (!shown) return;
     body.setPosition(h.x, h.y).setRotation(h.angle);
     legs.setPosition(h.x, h.y).setRotation(h.moveAngle);
@@ -510,6 +526,51 @@ export class WorldView {
       p.shadow?.setVisible(false);
       p.body.setScale(1).setDepth(DEPTH.character);
     }
+  }
+
+  /**
+   * Mini-bots de PetBot (GD-045) : trois petits drones flottent près de lui, épaule gauche, épaule droite et
+   * tête. Ils le suivent avec un léger retard et regagnent leur place en une demi-seconde ; à l'arrêt ils
+   * montent et descendent doucement. Quand PetBot lance sa salve, ce sont eux qui partent : ils disparaissent
+   * d'ici le temps du vol, puis de nouveaux se reforment à leur place.
+   */
+  private syncPets(h: Hero, p: HeroParts, dt: number, present: boolean): void {
+    const scene = this.scene;
+    const anchors = petAnchors(h);
+    if (!p.pets) {
+      p.pets = anchors.map((a) => ({
+        shadow: scene.add.ellipse(a.x, a.y, 30, 22, 0x000000).setDepth(DEPTH.legs - 0.2),
+        img: this.image('spr_PetDrone', 0, a.x, a.y, DEPTH.character + 3),
+        x: a.x, y: a.y, angle: h.angle,
+      }));
+    }
+    // partis en salve : la simulation les fait voler comme des drones, on ne les dessine plus ici
+    const home = present && this.world.drones.length === 0;
+    if (!home) p.petsHome = 0;
+    else p.petsHome = Math.min(1, p.petsHome + dt / PETS.returnSeconds);
+    const now = scene.time.now / 1000;
+    // rattrapage exponentiel : en `followSeconds`, il ne reste plus qu'un centième de l'écart.
+    // En pleine course, ils traînent d'une soixantaine de pixels derrière PetBot.
+    const pull = 1 - Math.exp((-5 * dt) / PETS.followSeconds);
+    p.pets.forEach((pet, i) => {
+      pet.img.setVisible(home);
+      pet.shadow.setVisible(home);
+      if (!home) {
+        // ils se reformeront à leur place, pas là où ils étaient
+        pet.x = anchors[i].x;
+        pet.y = anchors[i].y;
+        pet.angle = h.angle;
+        return;
+      }
+      pet.x += (anchors[i].x - pet.x) * pull;
+      pet.y += (anchors[i].y - pet.y) * pull;
+      pet.angle += angleDiff(pet.angle, h.angle) * pull;
+      // flottement : chacun à son rythme, pour qu'ils ne paraissent jamais figés
+      const lift = Math.sin(now * 2.4 + i * 2.1);
+      const scale = (PETS.scale + PETS.bob * lift) * p.petsHome;
+      pet.img.setPosition(pet.x, pet.y - 3 * lift).setRotation(pet.angle).setScale(scale).setAlpha(p.petsHome);
+      pet.shadow.setPosition(pet.x + 5 + 2 * lift, pet.y + 9 + 3 * lift).setScale(p.petsHome * (1 - 0.12 * lift)).setAlpha(0.26 - 0.06 * lift);
+    });
   }
 
   /** Nom du joueur au-dessus d'un coéquipier. */

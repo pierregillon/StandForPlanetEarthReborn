@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { World } from './world.ts';
+import { petAnchors } from './abilities.ts';
 import { NO_INPUT } from './types.ts';
 import type { Input, LevelData, Npc, SpriteManifest } from './types.ts';
 import { CONFIG } from './config.ts';
@@ -230,4 +231,25 @@ test('le robot bouclier meurt d\'une explosion dans son dos, pas de face', () =>
   w.addExplosion({ ...boom, x: npc.x + 80, y: npc.y });
   w.step(NO_INPUT);
   assert.ok(npc.hp <= 0, 'explosion de dos mortelle');
+});
+
+test('PetBot : ses trois mini-bots partent de leur place et convergent vers les mêmes points qu\'avant', () => {
+  const { w, aim } = arena('PetBot', 'obj_npc_human_pistol', 3000);
+  const h = w.hero;
+  w.npcs = [];
+  run(w, 30, aim);
+  const anchors = petAnchors(h);
+  assert.equal(anchors.length, 3);
+  for (const a of anchors) assert.ok(Math.hypot(a.x - h.x, a.y - h.y) > 40 && Math.hypot(a.x - h.x, a.y - h.y) < 80, 'tout près de PetBot');
+  w.step({ ...aim, fire2: true });
+  assert.equal(w.drones.length, 3);
+  w.drones.forEach((d, i) => {
+    assert.ok(Math.hypot(d.x - anchors[i].x, d.y - anchors[i].y) < 1, 'chaque drone part de la place de son mini-bot');
+    // sa destination : dans l'axe de la visée de PetBot, à la portée prévue
+    const destX = d.startX + Math.cos(d.angle) * d.range;
+    const destY = d.startY + Math.sin(d.angle) * d.range;
+    assert.ok(Math.abs(Math.hypot(destX - h.x, destY - h.y) - CONFIG.abilities.petBot.droneRanges[i]) < 1);
+    const off = Math.abs(Math.atan2(destY - h.y, destX - h.x) - h.angle);
+    assert.ok(off <= (CONFIG.abilities.petBot.droneSpreadDeg + 0.5) * Math.PI / 180, 'dans la dispersion habituelle');
+  });
 });

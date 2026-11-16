@@ -110,14 +110,28 @@ function standardFire1(world: World, h: Hero, input: Input, busy: boolean): void
 
 // ---------- PetBot : salve de drones ----------
 
+/** Places des trois mini-bots de PetBot dans le monde : épaule gauche, épaule droite, tête (GD-045). */
+export function petAnchors(h: Hero): { x: number; y: number }[] {
+  return A.petBot.petOffsets.map((o) => localToWorld(h.x, h.y, h.angle, o.x, o.y));
+}
+
 function petBotFire2(world: World, h: Hero, input: Input, busy: boolean): void {
   if (!input.fire2 || busy || h.energy < A.petBot.energyCost) return;
   // toujours le niveau 1 : la surcharge ne renforce plus le tir secondaire, elle sert à l'ulti (GD-043)
   const level = 1;
-  for (const range of A.petBot.droneRanges) {
-    const angle = h.angle + world.rng.int(-A.petBot.droneSpreadDeg, A.petBot.droneSpreadDeg) * DEG;
-    world.drones.push({ id: world.newId(), x: h.x, y: h.y, angle, speed: 0, range, level, startX: h.x, startY: h.y });
-  }
+  const anchors = petAnchors(h);
+  A.petBot.droneRanges.forEach((range, i) => {
+    // la destination est celle d'avant (visée depuis PetBot, à la portée du drone) ; le mini-bot part de sa
+    // place autour de PetBot et converge vers elle. Contre un mur, il part de PetBot lui-même.
+    const aim = h.angle + world.rng.int(-A.petBot.droneSpreadDeg, A.petBot.droneSpreadDeg) * DEG;
+    const destX = h.x + Math.cos(aim) * range;
+    const destY = h.y + Math.sin(aim) * range;
+    const from = world.shotBlocked(h.x, h.y, anchors[i].x, anchors[i].y) ? { x: h.x, y: h.y } : anchors[i];
+    world.drones.push({
+      id: world.newId(), x: from.x, y: from.y, angle: Math.atan2(destY - from.y, destX - from.x), speed: 0,
+      range: Math.hypot(destX - from.x, destY - from.y), level, startX: from.x, startY: from.y,
+    });
+  });
   spendEnergy(world, h, A.petBot.energyCost);
 }
 

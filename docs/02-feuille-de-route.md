@@ -162,3 +162,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-16 | Balles de PetBot sans soin ; HUD allégé (plus de chiffres ni d'indicateurs de dash), avatars des coéquipiers identiques au sien et collés à sa droite (GD-042). 57 tests. |
 | 2026-11-16 | Link entre héros (touche A), surcharge sans paliers, bornes partagées selon le nombre de joueurs, attaque ultime (touche F, 2 s de lancement) ; ulti de BatBot avec ses sprites fabriqués par `tools/make-sprites.ts` (GD-043, ADR-015). 65 tests. |
 | 2026-11-16 | Les quatre ultis (GD-044) : postures de lancement stables, effets séparés des sprites de robot, essaim de PetBot, mur de BadaBot, grenade d'EngiBot ; lien deux fois plus rapide ; avatar « ulti prêt » ; animation à distance corrigée. 68 tests. |
+| 2026-11-17 | Les trois mini-bots de PetBot l'accompagnent en permanence et partent en salve au tir secondaire (GD-045). 69 tests. |
