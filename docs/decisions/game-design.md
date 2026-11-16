@@ -651,4 +651,20 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 
 **Pourquoi.** Fidélité à l'original pour l'orbe, dont les tables existaient déjà ; lisibilité pour le reste.
 
-**Conséquences.** Leçon pour la suite : avant de corriger un alignement de sprite, chercher dans le code d'origine une table de coordonnées par image (il en existe aussi pour le viseur laser et le compteur de munitions : `scr_setCoordinatesOfLaser`, `scr_setCoordinatesOfAmmoIndicator`). Le bras de PetBot est dessiné par le code, comme les autres animations de rechargement (GD-032).
+**Conséquences.** Leçon pour la suite : avant de corriger un alignement de sprite, chercher dans le code d'origine une table de coordonnées par image (il en existe aussi pour le viseur laser et le compteur de munitions : `scr_setCoordinatesOfLaser`, `scr_setCoordinatesOfAmmoIndicator`). Le bras de PetBot dessiné par le code a été abandonné aussitôt (GD-034).
+
+---
+
+## GD-034 — Rechargement de PetBot joué avec ses propres sprites
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée (remplace le rechargement de PetBot de GD-032 et GD-033)
+- **Décidée par** : l'utilisateur (retour d'essai) ; solution proposée par défaut
+
+**Contexte.** Le bras dessiné par le code pour le rechargement de PetBot (GD-033) « n'est pas raccord avec le design » : il ne ressemble pas au vrai bras du robot.
+
+**Décision.** Le rechargement de PetBot utilise les 30 dernières images de son animation de déploiement d'origine (`spr_PetBot_deploy`, images 50 à 79), où l'arme se replie, son câble se rebranche et ses fioles réapparaissent. Elles sont jouées à l'envers pendant le premier quart du rechargement (l'arme se replie), puis à l'endroit (elle se réarme). La fiole usée tombe toujours au sol au début. Plus aucun élément dessiné par le code sur PetBot pendant le rechargement.
+
+**Pourquoi.** Ce sont les sprites du jeu : même trait, mêmes proportions, même origine que le reste du robot.
+
+**Conséquences.** Règle pour la suite : pour une animation manquante, chercher d'abord dans les sprites existants (les animations de déploiement des quatre robots sont longues et détaillées) avant de dessiner par le code. EngiBot et BadaBot gardent leurs animations de GD-032, que l'utilisateur n'a pas critiquées.

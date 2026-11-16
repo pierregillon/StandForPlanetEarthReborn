@@ -20,6 +20,8 @@ const FOG_COLOR = 0x313131;
 const LIGHTING = { ambient: 0.5, strength: 2, heroRadius: 420, heroStrength: 0.75, chargingDim: 0.22 };
 const CARD_COLORS: Record<string, number> = { green: 0x35d05a, purple: 0xb04cff };
 const MAX_REMAINS = 900;
+/** Nombre d'images de la fin du déploiement de PetBot utilisées pour son rechargement. */
+const PETBOT_RELOAD_FRAMES = 29;
 /**
  * Position de la tête de BadaBot sur chaque image, dans la toile de ses sprites (tables de obj_plasmaBawl,
  * projet de 2019) : ordonnée pendant la marche (22 images), abscisse bouclier levé (4 images).
@@ -516,6 +518,16 @@ export class WorldView {
       if (h.fire2Anim >= 0 && def.sprites.fire2) return { sprite: def.sprites.fire2, frame: Math.min(2, h.fire2Anim / 6) };
       return h.moving ? walkCycle(def.sprites.move) : { sprite: def.sprites.stand, frame: 0 };
     }
+    // rechargement de PetBot (GD-034) : les 30 dernières images de son déploiement montrent l'arme qui se
+    // rebranche et se réarme ; on les joue à l'envers (l'arme se replie) puis à l'endroit (elle se réarme)
+    if (def.kind === 'PetBot' && h.reloadTimer > 0 && this.scene.textures.exists(frameKey('spr_PetBot_deploy', 0))) {
+      const last = this.info('spr_PetBot_deploy').frames - 1;
+      const first = Math.max(0, last - PETBOT_RELOAD_FRAMES);
+      const p = 1 - h.reloadTimer / Math.max(1, def.reloadSteps);
+      const fold = 0.25;
+      const frame = p < fold ? last - (p / fold) * (last - first) : first + ((p - fold) / (1 - fold)) * (last - first);
+      return { sprite: 'spr_PetBot_deploy', frame };
+    }
     // rechargement d'EngiBot : son canon tourne à vide (animation « preShot » d'origine)
     if (def.kind === 'EngiBot' && h.reloadTimer > 0 && this.scene.textures.exists(frameKey('spr_EngiBot_preShot', 0))) {
       return { sprite: 'spr_EngiBot_preShot', frame: Math.floor(h.reloadTimer / 3) % this.info('spr_EngiBot_preShot').frames };
@@ -969,23 +981,7 @@ export class WorldView {
       g.lineStyle(3, 0xc060ff, 0.5).strokeCircle(p.x, p.y, 10 + 22 * progress);
       return;
     }
-    if (kind === 'PetBot') {
-      // son autre bras passe par-dessus le corps, saisit l'arme, l'actionne, puis revient (GD-033)
-      const reach = progress < 0.3 ? progress / 0.3 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
-      const pump = progress >= 0.3 && progress <= 0.8 ? Math.sin(((progress - 0.3) / 0.5) * Math.PI * 4) * 7 : 0;
-      const shoulder = { x: 26, y: -44 };
-      const grip = { x: slot.x + pump, y: slot.y - 2 };
-      const hx = shoulder.x + (grip.x - shoulder.x) * reach;
-      const hy = shoulder.y + (grip.y - shoulder.y) * reach;
-      const a = at(shoulder.x, shoulder.y);
-      const b = at(hx, hy);
-      g.lineStyle(16, 0x1d3a26, 1).lineBetween(a.x, a.y, b.x, b.y);
-      g.lineStyle(10, 0x8fc79a, 1).lineBetween(a.x, a.y, b.x, b.y);
-      g.fillStyle(0x1d3a26, 1).fillCircle(a.x, a.y, 9).fillCircle(b.x, b.y, 11);
-      g.fillStyle(0xb7e6bf, 1).fillCircle(b.x, b.y, 8);
-      g.fillStyle(0xe03030, 1).fillCircle(b.x, b.y, 3);
-      return;
-    }
+    if (kind === 'PetBot') return; // son rechargement est joué par ses sprites (voir heroPose)
     // EngiBot : le tambour neuf part du corps du robot et vient s'engager sur le canon
     const travel = Math.min(1, Math.max(0, (progress - 0.25) / 0.6));
     const from = { x: slot.x - 46, y: slot.y - 26 };
