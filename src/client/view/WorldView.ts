@@ -850,7 +850,8 @@ export class WorldView {
       });
     // marqueur « ! » au-dessus d'un ennemi qui vient de repérer le héros
     for (const npc of this.world.npcs) {
-      if (npc.behaviour !== 'surprised') continue;
+      // pas de marqueur pour un ennemi caché par le brouillard d'une pièce fermée (GD-036)
+      if (npc.behaviour !== 'surprised' || this.underFog(npc.x, npc.y)) continue;
       let alert = this.alerts.get(npc.id);
       if (!alert) {
         const text = this.scene.add.text(npc.x, npc.y, '!', { fontFamily: 'Aldo', fontSize: '64px', color: '#ffdd33', stroke: '#b00000', strokeThickness: 8 })
@@ -863,7 +864,7 @@ export class WorldView {
     }
     for (const [id, alert] of this.alerts) {
       const npc = this.world.npcs.find((n) => n.id === id);
-      if (!npc || --alert.frames <= 0) {
+      if (!npc || --alert.frames <= 0 || this.underFog(npc.x, npc.y)) {
         alert.text.destroy();
         this.alerts.delete(id);
         continue;
@@ -927,6 +928,11 @@ export class WorldView {
     const carried = t < t3;
     if (carried) this.heroBody.setPosition(x + a.claw.x * scale, landed.y + a.claw.y * scale).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
     else this.heroBody.setPosition(h.x, h.y).setScale(1).setDepth(DEPTH.character);
+  }
+
+  /** Ce point est-il masqué par un brouillard de guerre encore opaque ? */
+  private underFog(x: number, y: number): boolean {
+    return this.world.fogs.some((f) => f.alpha > 0.35 && x >= f.x && x <= f.x + f.w && y >= f.y && y <= f.y + f.h);
   }
 
   /** Point de sauvegarde devant le boss : une balise, ambre tant qu'elle attend, bleue une fois activée. */

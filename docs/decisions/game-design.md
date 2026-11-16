@@ -691,4 +691,26 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 
 **Pourquoi.** Demande de l'utilisateur, et mise en service d'un élément que les auteurs avaient dessiné et codé sans l'activer.
 
-**Conséquences.** La partie commence environ 4,5 secondes plus tard, plus le déploiement. La séquence ne joue pas en commençant à l'étage ou au boss (menu de départ), ni après un Retry au point de sauvegarde. Réglages : `arrival` dans `src/sim/config.ts`. Quand le multijoueur existera, les trois autres pinces porteront les autres robots (positions déjà dans le code d'origine).
+**Conséquences.** Voir aussi GD-036 pour le comportement des soldats. La partie commence environ 4,5 secondes plus tard, plus le déploiement. La séquence ne joue pas en commençant à l'étage ou au boss (menu de départ), ni après un Retry au point de sauvegarde. Réglages : `arrival` dans `src/sim/config.ts`. Quand le multijoueur existera, les trois autres pinces porteront les autres robots (positions déjà dans le code d'origine).
+
+---
+
+## GD-036 — Les soldats vont voir d'où vient le bruit ; le « ! » ne traverse pas le brouillard
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — durées à ajuster après essai
+- **Décidée par** : l'utilisateur (retour d'essai)
+
+**Contexte.** L'utilisateur aime le « ! » mais relève deux défauts. Il s'affiche au-dessus d'ennemis cachés par le brouillard d'une pièce fermée, ce qui trahit leur présence. Et des ennemis qui entendent des tirs depuis une pièce fermée affichent le « ! » sans en sortir : « ils ont entendu un bruit mais n'osent pas sortir, ce n'est pas réaliste ». Cause dans le code, héritée de l'original : un soldat qui entend sans voir perdait sa cible au step suivant, puis la réentendait, et recommençait indéfiniment son temps de surprise.
+
+**Décision.**
+
+- **Marqueur** : le « ! » n'est dessiné que si l'ennemi n'est pas sous un brouillard encore opaque.
+- **Aller voir** : un soldat qui entend le héros (tirs, coups de batte, bouclier levé, à 1000 px au plus et sans mur épais entre eux) marque son temps de surprise, puis se rend à l'endroit du bruit, plus vite qu'en ronde (1,6 fois sa vitesse normale) et en ouvrant les portes automatiques sur son chemin. Il fait de même vers le dernier endroit où il a vu le héros quand il le perd de vue. Il s'en souvient 12 secondes.
+- **En chemin**, s'il voit le héros, il passe à l'attaque sans nouveau temps de surprise.
+- **Sur place**, s'il ne trouve personne, il regarde autour de lui 2 secondes puis reprend sa ronde ; une prochaine alerte le surprendra de nouveau.
+- Un soldat enfermé derrière une porte à bouton ou à carte fermée ne peut pas sortir : il reste tourné vers le bruit.
+
+**Pourquoi.** Un ennemi qui réagit au bruit rend le jeu plus vivant et plus lisible ; le joueur peut aussi s'en servir pour attirer les soldats hors d'une pièce.
+
+**Conséquences.** Tirer attire désormais les soldats du voisinage : le niveau devient plus dangereux pour qui tire sans se couvrir. Les civils ne sont pas concernés (ils fuient, comme avant). Réglages : `npc.investigate*` dans `src/sim/config.ts`.

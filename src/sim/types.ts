@@ -249,7 +249,7 @@ export interface Bat {
   exploded: boolean;
 }
 
-export type NpcBehaviour = 'none' | 'surprised' | 'chase' | 'attack' | 'runaway';
+export type NpcBehaviour = 'none' | 'surprised' | 'investigate' | 'chase' | 'attack' | 'runaway';
 export type NpcState = 'standing' | 'walking' | 'chasing' | 'firing' | 'delay_firing' | 'reloading' | 'running';
 
 export interface Npc {
@@ -286,6 +286,12 @@ export interface Npc {
   surpriseTimer: number;
   spotted: boolean;
   viewRange: number;
+  /** Le soldat a déjà réagi à la présence du héros (il ne sera pas « surpris » une seconde fois). */
+  alerted: boolean;
+  /** Dernier endroit où il a vu ou entendu le héros, et steps pendant lesquels il s'en souvient. */
+  alertX: number;
+  alertY: number;
+  alertTimer: number;
   /** Coups que le bouclier frontal peut encore encaisser (robot bouclier). */
   shieldHp: number;
   shieldBroken: boolean;

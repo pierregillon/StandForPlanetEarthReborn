@@ -34,6 +34,7 @@ export function createNpc(world: World, id: number, inst: LevelInstance, def: Np
     attackRange: soldier ? world.rng.int(soldier.attackRangeMin, soldier.attackRangeMax) : 0,
     ammo: soldier ? soldier.magazine : 0,
     fireTimer: 0, reloadTimer: 0, repathTimer: 0, surpriseTimer: 0, spotted: false, viewRange: N.viewRange,
+    alerted: false, alertX: 0, alertY: 0, alertTimer: 0,
     shieldHp: soldier && soldier.frontShield ? N.shieldHits : 0, shieldBroken: false,
     fear: false, fearTimer: 0, stateSteps: 0, walkDist: 0,
   };
@@ -91,38 +92,34 @@ function heroHeard(world: World, x: number, y: number): boolean {
   return !world.soundBlocked(x, y, h.x, h.y);
 }
 
-function soldierHasTarget(world: World, npc: Npc): boolean {
-  if (npc.spotted) {
-    npc.viewRange = N.viewRangeAlerted;
-    if (heroVisible(world, npc, npc.viewRange)) return true;
-    npc.spotted = false;
-    npc.viewRange = N.viewRange;
-    return false;
+/** Le soldat retient où se trouve le héros (vu ou entendu) ; la première fois, il marque un temps de surprise. */
+function alertSoldier(npc: Npc, x: number, y: number): void {
+  if (!npc.alerted) {
+    npc.alerted = true;
+    npc.surpriseTimer = N.reactionSteps;
   }
-  const found = heroVisible(world, npc, npc.viewRange) || heroHeard(world, npc.x, npc.y);
-  npc.spotted = found;
-  if (!found) npc.viewRange = N.viewRange;
-  return found;
+  npc.alertX = x;
+  npc.alertY = y;
+  npc.alertTimer = N.investigateMemorySteps;
 }
 
 function stepSoldier(world: World, npc: Npc, def: SoldierDef): void {
   const hero = world.hero;
-  if (!soldierHasTarget(world, npc)) {
-    npc.behaviour = 'none';
-    npc.surpriseTimer = 0;
-    defaultBehaviour(world, npc);
+  // une fois le héros repéré, le soldat le suit des yeux deux fois plus loin
+  const visible = heroVisible(world, npc, npc.spotted ? N.viewRangeAlerted : N.viewRange);
+  npc.spotted = visible;
+  npc.viewRange = visible ? N.viewRangeAlerted : N.viewRange;
+  if (!visible) {
+    if (heroHeard(world, npc.x, npc.y)) alertSoldier(npc, hero.x, hero.y);
+    investigate(world, npc, def);
     return;
   }
+  alertSoldier(npc, hero.x, hero.y);
   const dist = Math.hypot(hero.x - npc.x, hero.y - npc.y);
   const prev = npc.behaviour;
   let next: 'surprised' | 'chase' | 'attack';
-  if (prev !== 'chase' && prev !== 'attack' && prev !== 'surprised') {
-    npc.surpriseTimer = N.reactionSteps;
+  if (npc.surpriseTimer > 0) {
     next = 'surprised';
-  } else if (npc.surpriseTimer > 0) {
-    next = 'surprised';
-  } else if (world.sightBlocked(npc.x, npc.y, hero.x, hero.y)) {
-    next = 'chase';
   } else if (prev === 'attack' && dist <= npc.attackRange) {
     next = 'attack';
   } else if (dist > Math.max(npc.attackRange - world.rng.int(100, 300), def.radius * 2 + hero.def.radius)) {
@@ -164,6 +161,51 @@ function stepSoldier(world: World, npc: Npc, def: SoldierDef): void {
     // le robot bouclier pivote lentement, même en attaque : on peut passer dans son dos
     if (!def.frontShield) npc.angle = toHero;
     processFire(world, npc, def);
+  }
+}
+
+/**
+ * Le héros n'est pas en vue (GD-036). Si le soldat l'a entendu ou vient de le perdre de vue, il va voir sur
+ * place, en ouvrant les portes automatiques sur son chemin ; sinon il reprend sa ronde.
+ */
+function investigate(world: World, npc: Npc, def: SoldierDef): void {
+  if (npc.alertTimer <= 0) {
+    npc.alerted = false;
+    npc.surpriseTimer = 0;
+    npc.behaviour = 'none';
+    defaultBehaviour(world, npc);
+    return;
+  }
+  npc.alertTimer--;
+  const toAlert = Math.atan2(npc.alertY - npc.y, npc.alertX - npc.x);
+  if (npc.surpriseTimer > 0) {
+    npc.surpriseTimer--;
+    npc.behaviour = 'surprised';
+    npc.dir = toAlert;
+    npc.state = 'standing';
+    return;
+  }
+  npc.behaviour = 'investigate';
+  if (Math.hypot(npc.alertX - npc.x, npc.alertY - npc.y) <= N.investigateArriveDistance) {
+    // sur place et personne : il regarde autour de lui, puis reprend sa ronde
+    npc.alertTimer = 0;
+    npc.path = null;
+    npc.pauseTimer = N.patrolPauseSteps;
+    npc.state = 'standing';
+    return;
+  }
+  if (npc.repathTimer === 0) {
+    const path = world.nav.findPath(npc.x, npc.y, npc.alertX, npc.alertY);
+    if (path) setPath(npc, path);
+    else npc.path = null;
+    npc.repathTimer = 45;
+  }
+  if (npc.path) {
+    followPath(world, npc, def.normalSpeed * N.investigateSpeedFactor);
+    npc.state = 'chasing';
+  } else {
+    npc.dir = toAlert;
+    npc.state = 'standing';
   }
 }
 

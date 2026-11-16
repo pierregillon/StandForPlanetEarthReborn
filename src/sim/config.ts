@@ -320,6 +320,10 @@ export const CONFIG = {
     patrolPauseExtraSteps: [0, s(0.5), s(1), s(1.5), s(2)],
     activationRange: 4000,
     reactionSteps: s(0.8),
+    // GD-036 : un soldat qui entend le héros, ou le perd de vue, va voir à l'endroit du bruit
+    investigateMemorySteps: s(12),
+    investigateSpeedFactor: 1.6,
+    investigateArriveDistance: 140,
     chaseRepathSteps: s(0.5),
     waypointTimeoutSteps: s(1),
     maxWaypointFailures: 2,
