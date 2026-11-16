@@ -26,7 +26,13 @@ const MIME: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
-function findFile(urlPath: string): string | null {
+interface FoundFile {
+  path: string;
+  mtimeMs: number;
+  size: number;
+}
+
+function findFile(urlPath: string): FoundFile | null {
   const clean = normalize(decodeURIComponent(urlPath)).replace(/^([/\\])+/, '');
   if (clean.split(/[/\\]/).includes('..')) return null;
   for (const dir of STATIC_DIRS) {
@@ -34,7 +40,7 @@ function findFile(urlPath: string): string | null {
     if (!file.startsWith(dir)) continue;
     try {
       const st = statSync(file);
-      if (st.isFile()) return file;
+      if (st.isFile()) return { path: file, mtimeMs: st.mtimeMs, size: st.size };
     } catch {
       // essai du dossier suivant
     }
@@ -51,11 +57,20 @@ export function startServer(port = Number(process.env.PORT ?? 3000)): Server {
       res.end('Not found');
       return;
     }
+    // le navigateur garde les fichiers et demande seulement s'ils ont changé (réponse 304, sans contenu)
+    const etag = `"${Math.round(file.mtimeMs).toString(36)}-${file.size.toString(36)}"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag, 'Cache-Control': 'no-cache' });
+      res.end();
+      return;
+    }
     res.writeHead(200, {
-      'Content-Type': MIME[extname(file).toLowerCase()] ?? 'application/octet-stream',
+      'Content-Type': MIME[extname(file.path).toLowerCase()] ?? 'application/octet-stream',
+      'Content-Length': file.size,
       'Cache-Control': 'no-cache',
+      ETag: etag,
     });
-    createReadStream(file).pipe(res);
+    createReadStream(file.path).pipe(res);
   });
   server.listen(port, () => {
     console.log(`Stand For Planet Earth : http://localhost:${port}`);
