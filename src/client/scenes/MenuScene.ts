@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import { Bind, Keys } from '../keys.ts';
+import { CONFIG } from '../../sim/config.ts';
 import { ButtonColumn } from '../view/ButtonColumn.ts';
 
 export class MenuScene extends Phaser.Scene {
@@ -22,14 +23,19 @@ export class MenuScene extends Phaser.Scene {
       this.add.text(width / 2, height * 0.3, 'STAND FOR PLANET EARTH', { fontFamily: 'Aldo', fontSize: '90px', color: '#ffffff' }).setOrigin(0.5);
     }
     this.buttons = new ButtonColumn(this, width * 0.2, height * 0.45, [
-      { label: 'Play', sprite: 'spr_btn_play', action: () => this.scene.start('Game') },
+      { label: 'Play', sprite: 'spr_btn_play', action: () => this.scene.start('HeroSelect') },
     ]);
     this.add.text(width / 2, height - 60,
-      'Move: WASD / ZQSD   Aim: mouse   Fire: left click   Reload: R   Dash: Space   Use / recharge: E   Pause: Esc',
+      'Move: WASD / ZQSD   Aim: mouse   Fire: left click   Special: right click   Reload: R   Dash: Space   Use / recharge: E   Pause: Esc',
       { fontFamily: 'Aldo', fontSize: '26px', color: '#cfd8ff' }).setOrigin(0.5).setAlpha(0.8);
     Keys.clearPressed();
     // raccourci de développement : http://localhost:3000/?play lance directement la partie
-    if (new URLSearchParams(window.location.search).has('play')) this.scene.start('Game');
+    // (?play=EngiBot choisit le héros)
+    const play = new URLSearchParams(window.location.search).get('play');
+    if (play !== null) {
+      if (CONFIG.heroes[play]) this.registry.set('hero', play);
+      this.scene.start('Game');
+    }
   }
 
   update(): void {

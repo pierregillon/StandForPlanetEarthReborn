@@ -20,6 +20,7 @@ export class Hud {
   private readonly notice: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
   private readonly dashPips: Phaser.GameObjects.Arc[] = [];
+  private readonly cardIcons = new Map<string, Phaser.GameObjects.Image>();
   private noticeUntil = 0;
 
   constructor(scene: Phaser.Scene, world: World) {
@@ -44,6 +45,12 @@ export class Hud {
     this.ammo = scene.add.text(x + 40, y + 30, '', { fontFamily: 'Aldo', fontSize: '30px', color: '#ffffff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
     for (let i = 0; i < CONFIG.hero.dashCharges; i++) {
       this.dashPips.push(scene.add.circle(x + 190 + i * 26, y + 48, 9, 0x7fd3ff).setStrokeStyle(2, 0x000000).setScrollFactor(0).setDepth(DEPTH + 3));
+    }
+    for (const [i, color] of ['green', 'purple'].entries()) {
+      const key = frameKey(`spr_doorKey_${color}`, 0);
+      if (scene.textures.exists(key)) {
+        this.cardIcons.set(color, scene.add.image(x + 260 + i * 44, y + 44, key).setScale(0.6).setScrollFactor(0).setDepth(DEPTH + 3).setVisible(false));
+      }
     }
     this.objective = scene.add.text(10, (height * 2) / 3, '', {
       fontFamily: 'Aldo', fontSize: '26px', color: '#ffffff', wordWrap: { width: 260 }, ...OUTLINE, strokeThickness: 4,
@@ -75,7 +82,10 @@ export class Hud {
     }
     this.hp.setText(h.state === 'dead' ? 'Dead' : `HP ${h.hp}/${h.def.maxHealth}`);
 
-    if (h.reloadTimer > 0) {
+    for (const [color, icon] of this.cardIcons) icon.setVisible(world.hasCard(color));
+    if (h.def.magazine === 0) {
+      this.ammo.setText(`BATS ${h.bats}/2`).setColor(h.bats === 0 ? '#ff3030' : '#ffffff');
+    } else if (h.reloadTimer > 0) {
       this.ammo.setText('RELOADING').setColor('#ffe36b');
     } else {
       // chargeur vide : clignote rouge / blanc toutes les 15 steps, comme le compteur d'origine
@@ -88,12 +98,20 @@ export class Hud {
     if (now > this.noticeUntil) this.notice.setAlpha(Math.max(0, this.notice.alpha - 0.02));
 
     let hint = '';
+    let hintColor = '#ffe400';
     if (h.state !== 'dead') {
       if (h.charging) hint = `Recharging... energy ${h.energy}/${CONFIG.hero.maxEnergy}`;
-      else if (h.reloadTimer === 0 && h.ammo === 0) hint = 'Press R to reload';
+      else if (h.def.magazine > 0 && h.reloadTimer === 0 && h.ammo === 0) hint = 'Press R to reload';
+      else if (world.nearCardDoor()) {
+        // messages des portes à carte de l'original
+        const door = world.nearCardDoor();
+        const name = door?.card === 'green' ? 'Green' : 'Purple';
+        hint = door && world.hasCard(door.card) ? 'Press Use (E)' : `${name} card needed`;
+        hintColor = door && world.hasCard(door.card) ? '#ffe400' : door?.card === 'green' ? '#55ff66' : '#c060ff';
+      }
       else if (world.usableButton()) hint = 'Press E';
       else if (h.energy < CONFIG.hero.maxEnergy && world.nearestOutlet(CONFIG.outlet.range)) hint = 'Hold E to recharge';
     }
-    this.hint.setText(hint);
+    this.hint.setText(hint).setColor(hintColor);
   }
 }

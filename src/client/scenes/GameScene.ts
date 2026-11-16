@@ -1,6 +1,7 @@
 // Scène de jeu : fait avancer la simulation à pas fixe (60 par seconde) et la dessine.
 import Phaser from 'phaser';
-import type { FloorManifest } from '../assets.ts';
+import { frameKey, heroSounds, heroSprites } from '../assets.ts';
+import type { FloorManifest, SoundManifest } from '../assets.ts';
 import { Bind, Keys } from '../keys.ts';
 import { ButtonColumn } from '../view/ButtonColumn.ts';
 import { Hud } from '../view/Hud.ts';
@@ -31,11 +32,34 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
+  /** Charge les sprites et les sons du héros choisi s'ils ne le sont pas déjà. */
+  preload(): void {
+    const hero = CONFIG.heroes[this.heroName()];
+    const sprites = this.cache.json.get('sprites') as SpriteManifest;
+    const sounds = (this.cache.json.get('sounds') ?? {}) as SoundManifest;
+    for (const name of heroSprites(hero.kind, sprites)) {
+      for (let i = 0; i < sprites[name].frames; i++) {
+        if (!this.textures.exists(frameKey(name, i))) this.load.image(frameKey(name, i), `assets/sprites/${name}/${i}.png`);
+      }
+    }
+    for (const name of heroSounds(hero.kind, sounds)) {
+      if (!this.cache.audio.exists(name)) this.load.audio(name, `assets/${sounds[name].file}`);
+    }
+    const { width, height } = this.scale;
+    const label = this.add.text(width / 2, height / 2, `Loading ${hero.name}...`, { fontFamily: 'Aldo', fontSize: '48px', color: '#cfd8ff' }).setOrigin(0.5).setScrollFactor(0);
+    this.load.once('complete', () => label.destroy());
+  }
+
+  private heroName(): string {
+    const name = this.registry.get('hero') as string | undefined;
+    return name && CONFIG.heroes[name] ? name : 'PetBot';
+  }
+
   create(): void {
     const level = this.cache.json.get(`level:${FIRST_LEVEL}`) as LevelData;
     const sprites = this.cache.json.get('sprites') as SpriteManifest;
     const floors = (this.cache.json.get('floors') ?? {}) as FloorManifest;
-    this.world = new World(level, sprites, 'PetBot', (Date.now() & 0xffff) + 1);
+    this.world = new World(level, sprites, this.heroName(), (Date.now() & 0xffff) + 1);
     this.view = new WorldView(this, this.world, floors);
     this.hud = new Hud(this, this.world);
     this.acc = 0;

@@ -113,6 +113,7 @@ export const CONFIG = {
     bumpDistance: 350,
     bumpSpeed: 15,
     useRange: 120,
+    cardDoorRange: 100,
     /** Marge par rapport aux bords de la salle. */
     roomMargin: 70,
     deathMenuDelaySteps: s(2.5),

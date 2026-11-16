@@ -2,7 +2,7 @@
 
 Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du dessus développé sous GameMaker entre 2016 et 2019. Une équipe de robots traverse des niveaux remplis de soldats, de robots ennemis et de civils.
 
-**État : étape 1 sur 4 livrée — le rez-de-chaussée du monde 2 est jouable avec PetBot.** Voir la [feuille de route](docs/02-feuille-de-route.md).
+**État : étape 2 sur 4 livrée — le rez-de-chaussée du monde 2 est jouable avec les quatre héros (PetBot, EngiBot, BatBot, BadaBot) et leurs tirs secondaires.** Voir la [feuille de route](docs/02-feuille-de-route.md).
 
 ## Documentation
 
@@ -27,7 +27,8 @@ Il faut Node 22.18 ou plus récent. Sur la machine de développement, une copie 
 |---|---|
 | Se déplacer | ZQSD sur clavier AZERTY, WASD sur QWERTY (mêmes touches physiques), ou les flèches |
 | Viser | souris |
-| Tirer | clic gauche |
+| Tirer (BadaBot : maintenir pour charger) | clic gauche |
+| Tir secondaire (coûte de l'énergie) | clic droit |
 | Recharger | R |
 | Dash (en marchant) | Espace ou Maj |
 | Utiliser un bouton ; se recharger sur une borne (maintenir) | E |
@@ -37,7 +38,7 @@ Il faut Node 22.18 ou plus récent. Sur la machine de développement, une copie 
 
 | Commande | Effet |
 |---|---|
-| `dev.cmd` ou `npm run dev` | Reconstruit le code à chaque modification et sert le jeu ; `http://localhost:3000/?play` saute le menu |
+| `dev.cmd` ou `npm run dev` | Reconstruit le code à chaque modification et sert le jeu ; `http://localhost:3000/?play` saute le menu, `?play=EngiBot` choisit le héros |
 | `npm test` | Tests de la simulation, sans navigateur |
 | `npm run typecheck` | Vérification des types |
 | `npm run convert-rooms` | Reconvertit les salles GameMaker en `public/levels/*.json` |

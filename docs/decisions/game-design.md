@@ -391,3 +391,44 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** Lisibilité : on doit voir d'où viennent les tirs pour les esquiver. Deux couleurs distinguent ses propres balles de celles des ennemis.
 
 **Conséquences.** Réglages : `BULLET_STYLE` dans `src/client/view/WorldView.ts` (aspect), `outlet.range` dans `src/sim/config.ts`. Les dégâts et la taille de collision des balles ne changent pas.
+
+---
+
+## GD-023 — Les quatre héros et leurs tirs secondaires : écarts avec le code d'origine
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — à ajuster après essai
+- **Décidée par** : choix par défaut (application de GD-003, GD-004, GD-005, GD-014)
+
+**Contexte.** L'étape 2 porte les tirs des quatre héros d'après le code de 2019 (voir `docs/reference/jeu-original/01-heros-et-joueur.md`, §2 et §6.3). Quelques points demandaient un arbitrage.
+
+**Décision.** Les valeurs et les règles sont celles du code, sauf :
+
+- **Chargeurs** (inventés, GD-005) : EngiBot 25 balles, rechargement 1,4 s ; BadaBot 25 boules, 1,5 s ; BatBot n'a pas de munitions. Point de départ : un quart de l'ancien stock.
+- **Tourelle d'EngiBot** : elle ne vise que les soldats. Dans le code, elle visait le PNJ le plus proche, civils compris.
+- **Batte perçante de BatBot (niveau 4)** : elle blesse chaque ennemi traversé une fois, puis explose une seule fois à l'arrêt. Dans le code, elle créait une explosion à chaque step de contact.
+- **Rappel des battes** : un appui long ne rappelle que s'il y a une batte au sol, et ne coûte de l'énergie que dans ce cas. Le rappel involontaire après un lancer impossible est supprimé.
+- **Batte au sol** : elle s'arrête au point d'impact, sans la glissade de l'original.
+- **Plasma de BadaBot** : même explosion (rayon 50, dégât 20) sur un meuble que sur un mur ; le tir chargé ne dépense jamais plus de boules qu'il n'en reste.
+- **Bouclier de BadaBot** : un arc lumineux montre la zone protégée (l'objet d'origine était invisible, la posture du sprite suffisait).
+- **Choix du héros** : un écran à un seul joueur, avec les quatre héros et un résumé de leurs capacités, au lieu des quatre cadres de l'original prévus pour quatre joueurs. Ordre de l'original : BatBot, PetBot, BadaBot, EngiBot.
+
+**Pourquoi.** Corriger les bogues relevés par l'analyse (GD-014) et éviter qu'une capacité tue des civils sans que le joueur l'ait voulu, ce qui fausserait le score.
+
+**Conséquences.** Les stades 2 à 4 des tirs secondaires (6, 9 et 12 points d'énergie) s'obtiennent en se rechargeant sur une borne (GD-006). Réglages dans `src/sim/config.ts` (`heroes`, `abilities`). Les animations de déploiement des héros ne sont pas jouées, comme dans l'original.
+
+---
+
+## GD-024 — Carte verte et portes à carte avancées à l'étape 2
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (remarque pendant l'étape 2 : « pour déverrouiller la porte il ne faut pas une carte normalement ? »)
+
+**Contexte.** Les cartes étaient prévues à l'étape 3. Sans elles, les portes verte et violette du rez-de-chaussée restent fermées et l'utilisateur ne peut pas explorer le niveau.
+
+**Décision.** La carte verte (au rez-de-chaussée) et le fonctionnement des portes à carte sont livrés dès l'étape 2, comme dans le code : la carte se ramasse au contact et ne peut pas être posée ; à moins de 100 px d'une porte à carte fermée, le jeu affiche « Green card needed » / « Purple card needed », ou « Press Use (E) » si le héros porte la bonne carte ; la porte ouverte le reste. L'icône de la carte s'affiche à côté du portrait.
+
+**Pourquoi.** Débloquer l'exploration du rez-de-chaussée sans attendre l'étage.
+
+**Conséquences.** Les deux portes violettes du rez-de-chaussée restent fermées jusqu'à l'étape 3 : la carte violette se trouve à l'étage.

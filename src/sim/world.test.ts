@@ -123,6 +123,36 @@ test('une balle brise une vitre sans être arrêtée', () => {
   assert.ok(w.bullets.includes(bullet), 'la balle continue');
 });
 
+test('la carte verte se ramasse et ouvre la porte verte, pas la violette', () => {
+  const w = makeWorld();
+  const h = w.hero;
+  const green = w.doors.find((d) => d.card === 'green');
+  const purple = w.doors.find((d) => d.card === 'purple');
+  const card = w.cards.find((c) => c.color === 'green');
+  assert.ok(green && purple && card);
+  // sans carte : la porte reste fermée
+  h.x = green.x;
+  h.y = green.y + 90;
+  w.step({ ...NO_INPUT, usePressed: true, use: true });
+  assert.equal(green.phase, 'closed');
+  assert.equal(w.nearCardDoor(), green);
+  // on ramasse la carte, puis on revient à la porte
+  h.x = card.x;
+  h.y = card.y;
+  w.step(NO_INPUT);
+  assert.ok(card.carried && w.hasCard('green'));
+  h.x = green.x;
+  h.y = green.y + 90;
+  w.step({ ...NO_INPUT, usePressed: true, use: true });
+  assert.equal(green.phase, 'opening');
+  for (let i = 0; i < 400; i++) w.step(NO_INPUT);
+  assert.equal(green.phase, 'open', 'une porte à carte ouverte le reste');
+  h.x = purple.x;
+  h.y = purple.y + 90;
+  w.step({ ...NO_INPUT, usePressed: true, use: true });
+  assert.equal(purple.phase, 'closed');
+});
+
 test('une balle ennemie blesse le héros, qui meurt à 0 PV', () => {
   const w = makeWorld();
   const h = w.hero;

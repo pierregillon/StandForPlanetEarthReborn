@@ -8,8 +8,8 @@ Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque éta
 
 ## État actuel
 
-**Étape 1 livrée le 2026-11-16 — en attente des essais de l'utilisateur.**
-Prochaine action : recueillir ses retours sur l'étape 1 (voir « À vérifier par l'utilisateur » ci-dessous), puis étape 2.
+**Étapes 1 et 2 livrées le 2026-11-16 — l'étape 2 attend les essais de l'utilisateur.**
+Prochaine action : recueillir ses retours sur l'étape 2 (voir « À vérifier par l'utilisateur » de l'étape 2), puis étape 3 (étage, carte violette, enchaînement des consignes).
 
 ## Prérequis (début de l'étape 1)
 
@@ -55,10 +55,31 @@ Connexion internet limitée : **annoncer la taille et attendre l'accord avant ch
 
 ## Étape 2 — Les 3 autres héros
 
-- [ ] Écran de choix du héros.
-- [ ] Tirs secondaires et leurs 4 stades : drones de PetBot, tourelle d'EngiBot, battes de BatBot, bouclier de BadaBot.
-- [ ] BadaBot, BatBot, EngiBot complets.
-- [ ] Sons des héros.
+Livrée le 2026-11-16, en attente des essais de l'utilisateur.
+
+- [x] Retours de l'étape 1 traités : projectiles visibles, bornes utilisables de plus loin avec un arc électrique (GD-022).
+- [x] Écran de choix du héros.
+- [x] Tirs secondaires et leurs 4 stades : drones de PetBot, tourelle d'EngiBot, battes de BatBot, bouclier de BadaBot (GD-023).
+- [x] BadaBot, BatBot, EngiBot complets (tirs principaux compris : plasma chargé, coups de batte, balles rebondissantes).
+- [x] Sons des héros (chargés avec le héros choisi).
+- [x] Carte verte et portes à carte, avancées de l'étape 3 (GD-024).
+
+### Ce qui a été vérifié, et comment
+
+- Par tests automatiques (`npm test`, 17 tests) : salve de drones (coût, dégâts, soin), tourelle (pose, niveau, tir, repli), rebond des balles d'EngiBot, coups de batte, lancer, explosion et rappel des battes, tir chargé et bouclier de BadaBot, robot bouclier vulnérable seulement de dos aux explosions.
+- À l'écran : écran de choix, EngiBot avec sa tourelle, BadaBot avec sa boule de plasma et son bouclier, BatBot et sa batte lancée, traînées des balles, arc électrique des bornes.
+
+### À vérifier par l'utilisateur
+
+- Sensations de chaque héros, et équilibre entre eux.
+- Drones de PetBot : logique testée, pas observés à l'écran.
+- Sons des quatre héros : chargés, pas écoutés.
+- Carte verte et porte verte : codées, pas parcourues à l'écran.
+- Robot bouclier en solo : il n'est vulnérable que de dos et se tourne vite vers le héros. Les tirs secondaires permettent de le battre (drone ou batte explosive qui éclate derrière lui, balle d'EngiBot qui rebondit, tourelle posée dans son dos). À juger en jouant : s'il reste trop dur seul, ralentir sa rotation.
+
+### Limites connues
+
+- Chargement plus long dans un panneau de navigateur masqué ; le dépôt contient maintenant 51 Mo d'assets, dont 16 Mo de sons au format WAV.
 
 ## Étape 3 — Étage, cartes, objectifs
 
@@ -86,3 +107,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 |---|---|
 | 2026-11-15 | Analyse du jeu d'origine (version 2019), cadrage du MVP avec l'utilisateur, création du dépôt et de la documentation. |
 | 2026-11-16 | Étape 1 : Node 22 portable, squelette du projet, outils d'extraction et de conversion, simulation (héros, ennemis, civils, portes, bornes), affichage, menus. Décisions GD-016 à GD-021 et ADR-009 à ADR-012. |
+| 2026-11-16 | Retours de l'utilisateur sur l'étape 1 (GD-022). Étape 2 : les quatre héros, leurs tirs principaux et secondaires, écran de choix, carte verte et portes à carte. Décisions GD-023 et GD-024. |

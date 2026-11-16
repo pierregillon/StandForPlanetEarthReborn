@@ -13,7 +13,7 @@ import type { NewExplosion } from './abilities.ts';
 import { stepHero } from './hero.ts';
 import { createNpc, stepNpcs } from './npc.ts';
 import type {
-  Bat, Bullet, Button, DecorItem, Door, Drone, Explosion, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
+  Bat, Bullet, Button, Card, DecorItem, Door, Drone, Explosion, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
   SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, WindowPane, Zone,
 } from './types.ts';
 
@@ -48,6 +48,7 @@ export class World {
   buttons: Button[] = [];
   windows: WindowPane[] = [];
   outlets: Outlet[] = [];
+  cards: Card[] = [];
   zones: Zone[] = [];
   decor: DecorItem[] = [];
   /** Consigne affichée au joueur (GD-010). */
@@ -132,6 +133,11 @@ export class World {
       else this.stats.totalSoldier++;
     } else if (inst.object === CONFIG.outlet.replacesObject) {
       this.outlets.push({ id: this.nextId++, x: inst.x, y: inst.y, inUse: false });
+    } else if (inst.object === 'obj_card_green' || inst.object === 'obj_card_purple') {
+      this.cards.push({
+        id: this.nextId++, color: inst.object === 'obj_card_green' ? 'green' : 'purple', sprite: spriteName ?? 'spr_doorKey_green',
+        x: inst.x, y: inst.y, carried: false,
+      });
     } else if (inst.object === 'obj_nextRoom') {
       this.zones.push({ kind: 'stairs', x: inst.x, y: inst.y, radius: 160, sprite: spriteName ?? 'spr_teleporteur_waiting', active: false });
     } else if (isA(level, inst.object, 'obj_decor_base')) {
@@ -204,6 +210,7 @@ export class World {
     this.tick++;
     stepHero(this, input);
     this.stepButtons(input);
+    this.stepCards(input);
     stepNpcs(this);
     this.stepDoors();
     this.stepBullets();
@@ -484,6 +491,37 @@ export class World {
         if (door.kind === 'button' && door.doorId === button.doorId && door.phase === 'closed') this.openDoor(door);
       }
     }
+  }
+
+  // ---------- Cartes et portes à carte ----------
+
+  hasCard(color: string | null): boolean {
+    return this.cards.some((c) => c.carried && c.color === color);
+  }
+
+  /** Porte à carte fermée à portée du héros (100 px), s'il y en a une. */
+  nearCardDoor(): Door | null {
+    const h = this.hero;
+    if (h.state === 'dead') return null;
+    for (const door of this.doors) {
+      if (door.kind !== 'card' || door.phase !== 'closed') continue;
+      if (Math.hypot(h.x - door.x, h.y - door.y) <= CONFIG.hero.cardDoorRange + h.def.radius) return door;
+    }
+    return null;
+  }
+
+  private stepCards(input: Input): void {
+    const h = this.hero;
+    if (h.state === 'dead') return;
+    for (const card of this.cards) {
+      if (!card.carried && Math.hypot(h.x - card.x, h.y - card.y) <= h.def.radius + 30) {
+        card.carried = true;
+        this.emit({ type: 'notify', text: `${card.color === 'green' ? 'Green' : 'Purple'} card found` });
+      }
+    }
+    if (!input.usePressed) return;
+    const door = this.nearCardDoor();
+    if (door && this.hasCard(door.card)) this.openDoor(door);
   }
 
   /** Bouton utilisable par le héros en ce moment (pour l'aide à l'écran). */

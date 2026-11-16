@@ -354,6 +354,16 @@ export interface Outlet {
   inUse: boolean;
 }
 
+export interface Card {
+  id: number;
+  color: 'green' | 'purple';
+  sprite: string;
+  x: number;
+  y: number;
+  /** Ramassée : elle suit le héros et ne peut pas être posée. */
+  carried: boolean;
+}
+
 export interface Zone {
   kind: 'stairs';
   x: number;

@@ -6,7 +6,7 @@ import type { FloorManifest } from '../assets.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { BLOCK_MOVE } from '../../sim/geom.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
-import type { Door, Npc, SimEvent, SpriteInfo, WindowPane } from '../../sim/types.ts';
+import type { Bat, Door, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
 const DEPTH = {
@@ -49,9 +49,15 @@ export class WorldView {
   private readonly world: World;
   private readonly npcImgs = new Map<number, Img>();
   private readonly bulletImgs = new Map<number, Img>();
+  private readonly droneImgs = new Map<number, Img>();
+  private readonly explosionImgs = new Map<number, Img>();
+  private readonly batImgs = new Map<number, Img>();
+  private turretImg: Img | null = null;
+  private plasmaBall: Img | null = null;
   private readonly doorImgs = new Map<number, Img>();
   private readonly windowImgs = new Map<number, Img>();
   private readonly outletImgs = new Map<number, Img>();
+  private readonly cardImgs = new Map<number, Img>();
   private readonly zoneImgs: Img[] = [];
   private readonly anims: PlayingAnim[] = [];
   private readonly debris: Debris[] = [];
@@ -152,6 +158,9 @@ export class WorldView {
     for (const outlet of world.outlets) {
       this.outletImgs.set(outlet.id, scene.add.image(outlet.x, outlet.y, 'outlet').setDepth(DEPTH.outlet));
     }
+    for (const card of world.cards) {
+      if (scene.textures.exists(frameKey(card.sprite, 0))) this.cardImgs.set(card.id, this.image(card.sprite, 0, card.x, card.y, DEPTH.outlet));
+    }
     for (const zone of world.zones) {
       this.zoneImgs.push(this.image(zone.sprite, 0, zone.x, zone.y, DEPTH.zone));
     }
@@ -186,6 +195,7 @@ export class WorldView {
     this.syncHero(dt);
     this.syncNpcs();
     this.syncBullets();
+    this.syncAbilityObjects();
     for (const door of this.world.doors) this.syncDoor(door);
     for (const outlet of this.world.outlets) {
       const img = this.outletImgs.get(outlet.id);
@@ -195,6 +205,10 @@ export class WorldView {
       const sprite = zone.active ? 'spr_teleporteur_active' : zone.sprite;
       if (this.scene.textures.exists(frameKey(sprite, 0))) this.setFrame(this.zoneImgs[i], sprite, 0);
     });
+    for (const card of this.world.cards) {
+      // une carte au sol oscille pour attirer l'œil ; ramassée, elle n'est plus dessinée dans la salle
+      this.cardImgs.get(card.id)?.setVisible(!card.carried).setScale(1 + 0.08 * Math.sin(this.scene.time.now / 250));
+    }
     this.stepAnims(dt);
     this.stepDebris(dt);
   }
@@ -210,10 +224,11 @@ export class WorldView {
     this.cable.clear();
 
     if (h.state === 'dead') {
-      const sp = this.info(def.sprites.dead);
-      this.setFrame(body, def.sprites.dead, (h.deadSteps / STEPS_PER_SECOND) * spriteFps(sp));
+      const dead = def.kind === 'BatBot' ? `spr_BatBot_mort_${h.bats}` : def.sprites.dead;
+      this.setFrame(body, dead, (h.deadSteps / STEPS_PER_SECOND) * spriteFps(this.info(dead)));
       body.setAlpha(1).clearTint();
       legs.setVisible(false);
+      this.plasmaBall?.setVisible(false);
       return;
     }
     legs.setVisible(true);
@@ -224,17 +239,9 @@ export class WorldView {
       this.setFrame(legs, def.sprites.legs, 0);
     }
 
-    const period = STEPS_PER_SECOND / def.shotsPerSecond;
-    if (h.state === 'firing1' && h.sinceShot < period) {
-      const frames = this.info(def.sprites.shot).frames;
-      this.setFrame(body, def.sprites.shot, (h.sinceShot / period) * frames);
-    } else if (h.moving) {
-      // un cycle d'animation tous les 256 px parcourus
-      const frames = this.info(def.sprites.move).frames;
-      this.setFrame(body, def.sprites.move, ((h.walkDist / 256) * frames) % frames);
-    } else {
-      this.setFrame(body, def.sprites.stand, 0);
-    }
+    const pose = this.heroPose(h);
+    this.setFrame(body, pose.sprite, pose.frame);
+    this.syncPlasmaBall(h);
 
     // invulnérabilité après un dégât : le héros clignote (effet « glitch » de l'original, simplifié)
     if (h.invuln > 0) body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
@@ -246,8 +253,11 @@ export class WorldView {
     const ey = m.y + Math.sin(h.angle) * 200;
     const hit = this.world.collision.raycast(m.x, m.y, ex, ey, BLOCK_MOVE);
     const t = hit ? hit.t : 1;
-    this.laser.lineStyle(2, def.laserColor, h.state === 'firing1' ? 0.7 : 0.4);
-    this.laser.lineBetween(m.x, m.y, m.x + (ex - m.x) * t, m.y + (ey - m.y) * t);
+    if (def.laserColor !== null) {
+      this.laser.lineStyle(2, def.laserColor, h.state === 'firing1' ? 0.7 : 0.4);
+      this.laser.lineBetween(m.x, m.y, m.x + (ex - m.x) * t, m.y + (ey - m.y) * t);
+    }
+    if (h.shieldUp) this.drawShield(h);
 
     // bornes de recharge : zone d'action visible à l'approche, arc électrique pendant la recharge (GD-022)
     const range = CONFIG.outlet.range;
@@ -356,10 +366,11 @@ export class WorldView {
       alive.add(b.id);
       let img = this.bulletImgs.get(b.id);
       if (!img) {
-        img = this.image(b.def.sprite, 0, b.x, b.y, DEPTH.bullet).setScale(b.owner === 'enemy' ? BULLET_STYLE.enemyScale : BULLET_STYLE.heroScale);
+        img = this.image(b.def.sprite, 0, b.x, b.y, DEPTH.bullet).setScale(b.def.scale ?? (b.owner === 'enemy' ? BULLET_STYLE.enemyScale : BULLET_STYLE.heroScale));
         this.bulletImgs.set(b.id, img);
       }
       img.setPosition(b.x, b.y).setRotation(b.angle);
+      if (b.def.kind === 'bounce') this.setFrame(img, b.def.sprite, (b.steps / 7) % this.info(b.def.sprite).frames);
       // traînée lumineuse : les balles d'origine, petites et grises, se perdaient sur le sol (GD-022)
       const style = b.owner === 'enemy' ? BULLET_STYLE.enemy : BULLET_STYLE.hero;
       const travelled = Math.hypot(b.x - b.startX, b.y - b.startY);
@@ -375,6 +386,141 @@ export class WorldView {
         img.destroy();
         this.bulletImgs.delete(id);
       }
+    }
+  }
+
+  /** Sprite et image du corps du héros selon son état. */
+  private heroPose(h: Hero): { sprite: string; frame: number } {
+    const def = h.def;
+    const walkCycle = (sprite: string): { sprite: string; frame: number } => {
+      // un cycle d'animation tous les 256 px parcourus
+      const frames = this.info(sprite).frames;
+      return { sprite, frame: h.moving ? ((h.walkDist / 256) * frames) % frames : 0 };
+    };
+    const period = STEPS_PER_SECOND / def.shotsPerSecond;
+    if (def.kind === 'BatBot') {
+      if (h.fire2Anim >= 0) {
+        const sprite = h.swing === 'd' ? 'spr_BatBot_fire2_d' : 'spr_BatBot_fire2_g';
+        return { sprite, frame: (h.fire2Anim / CONFIG.abilities.batBot.throwAnimSteps) * this.info(sprite).frames };
+      }
+      if (h.state === 'firing1' && h.sinceShot < 20) {
+        const sprite = `spr_BatBot_fire1_${h.swing}`;
+        return { sprite, frame: (h.sinceShot / 20) * this.info(sprite).frames };
+      }
+      return walkCycle(`spr_BatBot_move_${h.bats}`);
+    }
+    if (def.kind === 'BadaBot') {
+      // bouclier : l'animation se fige sur l'image 2
+      if (h.fire2Anim >= 0 && def.sprites.fire2) return { sprite: def.sprites.fire2, frame: Math.min(2, h.fire2Anim / 6) };
+      return h.moving ? walkCycle(def.sprites.move) : { sprite: def.sprites.stand, frame: 0 };
+    }
+    if (def.kind === 'EngiBot' && h.fire2Anim >= 0 && def.sprites.fire2) {
+      return { sprite: def.sprites.fire2, frame: (h.fire2Anim / CONFIG.abilities.engiBot.placeAnimSteps) * this.info(def.sprites.fire2).frames };
+    }
+    if (h.state === 'firing1' && h.sinceShot < period) {
+      return { sprite: def.sprites.shot, frame: (h.sinceShot / period) * this.info(def.sprites.shot).frames };
+    }
+    return h.moving ? walkCycle(def.sprites.move) : { sprite: def.sprites.stand, frame: 0 };
+  }
+
+  /** Boule de plasma de BadaBot : au repos, en charge, chargée, ou juste tirée. */
+  private syncPlasmaBall(h: Hero): void {
+    if (h.def.kind !== 'BadaBot') return;
+    if (!this.plasmaBall) this.plasmaBall = this.image('spr_plasmaBawl_idle', 0, h.x, h.y, DEPTH.character + 1);
+    const ball = this.plasmaBall;
+    const now = this.scene.time.now / 1000;
+    const full = CONFIG.abilities.badaBot.fullChargeSteps;
+    ball.setVisible(true).setPosition(h.x, h.y).setRotation(h.angle);
+    if (h.charge >= full) this.setFrame(ball, 'spr_plasmaBawl_loaded', (now * 10) % this.info('spr_plasmaBawl_loaded').frames);
+    else if (h.charge > 0) this.setFrame(ball, 'spr_plasmaBawl_loading', (h.charge / full) * this.info('spr_plasmaBawl_loading').frames);
+    else if (h.sinceShot < 15) this.setFrame(ball, 'spr_plasmaBawl_shot', h.sinceShot / 3);
+    else this.setFrame(ball, 'spr_plasmaBawl_idle', (now * 20) % this.info('spr_plasmaBawl_idle').frames);
+  }
+
+  /** Bouclier de BadaBot levé : arc lumineux devant lui, sur la zone réellement protégée. */
+  private drawShield(h: Hero): void {
+    const box = CONFIG.abilities.badaBot.shieldBox;
+    const g = this.laser;
+    const c = Math.cos(h.angle);
+    const s = Math.sin(h.angle);
+    const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 120);
+    const at = (lx: number, ly: number): [number, number] => [h.x + lx * c - ly * s, h.y + lx * s + ly * c];
+    const [ax, ay] = at(box.x1 - 14, box.y0);
+    const [mx, my] = at(box.x1 + 10, 0);
+    const [bx, by] = at(box.x1 - 14, box.y1);
+    for (const [width, color, alpha] of [[14, 0x7a3cff, 0.25 + 0.15 * pulse], [5, 0xd9b8ff, 0.8], [2, 0xffffff, 0.9]] as const) {
+      g.lineStyle(width, color, alpha);
+      g.beginPath();
+      g.moveTo(ax, ay);
+      g.lineTo(mx, my);
+      g.lineTo(bx, by);
+      g.strokePath();
+    }
+  }
+
+  /** Synchronise un ensemble d'images avec une liste d'entités identifiées. */
+  private syncPool<T extends { id: number }>(pool: Map<number, Img>, items: T[], create: (item: T) => Img, update: (img: Img, item: T) => void): void {
+    const alive = new Set<number>();
+    for (const item of items) {
+      alive.add(item.id);
+      let img = pool.get(item.id);
+      if (!img) {
+        img = create(item);
+        pool.set(item.id, img);
+      }
+      update(img, item);
+    }
+    for (const [id, img] of pool) {
+      if (!alive.has(id)) {
+        img.destroy();
+        pool.delete(id);
+      }
+    }
+  }
+
+  private syncAbilityObjects(): void {
+    const world = this.world;
+    this.syncPool(this.droneImgs, world.drones,
+      (d) => this.image('spr_PetDrone', d.level - 1, d.x, d.y, DEPTH.bullet),
+      (img, d) => img.setPosition(d.x, d.y).setRotation(d.angle));
+    this.syncPool(this.explosionImgs, world.explosions,
+      (e) => this.image(e.sprite, 0, e.x, e.y, DEPTH.fx).setRotation(e.angle).setScale(e.scale),
+      (img, e) => this.setFrame(img, e.sprite, (e.step / e.totalSteps) * this.info(e.sprite).frames));
+    this.syncPool(this.batImgs, world.bats,
+      (b) => this.image(`spr_batte_BatBot_${b.side}`, 0, b.x, b.y, DEPTH.bullet),
+      (img, b) => this.syncBat(img, b));
+    this.syncTurret(world.turret);
+  }
+
+  private syncBat(img: Img, b: Bat): void {
+    img.setPosition(b.x, b.y);
+    if (b.state === 'stopped') {
+      this.setFrame(img, `spr_batte_BatBot_hit_${b.side}_stopped`, 0);
+      img.setDepth(DEPTH.remains + 1);
+    } else {
+      const sprite = `spr_batte_BatBot_${b.side}`;
+      this.setFrame(img, sprite, (b.steps * 40 / STEPS_PER_SECOND) % this.info(sprite).frames);
+      img.setRotation(b.angle).setDepth(DEPTH.bullet);
+    }
+  }
+
+  private syncTurret(t: Turret | null): void {
+    if (!t) {
+      this.turretImg?.destroy();
+      this.turretImg = null;
+      return;
+    }
+    if (!this.turretImg) this.turretImg = this.image('spr_turet_deploy', 0, t.x, t.y, DEPTH.character);
+    const img = this.turretImg;
+    img.setPosition(t.x, t.y).setRotation(t.angle);
+    if (t.state === 'deployed') {
+      this.setFrame(img, 'spr_turet', t.level - 1);
+    } else if (t.state === 'deploying') {
+      const info = this.info('spr_turet_deploy');
+      const total = Math.round((info.frames / spriteFps(info)) * STEPS_PER_SECOND);
+      this.setFrame(img, 'spr_turet_deploy', (1 - t.timer / total) * info.frames);
+    } else {
+      this.setFrame(img, 'spr_turet_deploy', 0);
     }
   }
 
@@ -406,6 +552,13 @@ export class WorldView {
       scene.cameras.main.shake(300, 0.01);
     } else if (e.type === 'heroHit') {
       scene.cameras.main.shake(90, 0.004);
+    } else if (e.type === 'heal') {
+      const plus = scene.add.text(e.x, e.y - 50, '+1', { fontFamily: 'Aldo', fontSize: '36px', color: '#6dff8a', stroke: '#000000', strokeThickness: 5 })
+        .setOrigin(0.5).setDepth(DEPTH.worldText);
+      scene.tweens.add({ targets: plus, y: e.y - 120, alpha: 0, duration: 700, onComplete: () => plus.destroy() });
+    } else if (e.type === 'turretFolded') {
+      const ring = scene.add.circle(e.x, e.y, 30).setStrokeStyle(3, 0xff6b6b).setDepth(DEPTH.fx);
+      scene.tweens.add({ targets: ring, scale: 0.1, alpha: 0, duration: 250, onComplete: () => ring.destroy() });
     } else if (e.type === 'outletTick') {
       const ring = scene.add.circle(e.x, e.y, 20).setStrokeStyle(3, 0xffe36b).setDepth(DEPTH.fx);
       scene.tweens.add({ targets: ring, scale: 3, alpha: 0, duration: 400, onComplete: () => ring.destroy() });
