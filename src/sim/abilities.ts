@@ -112,12 +112,13 @@ function standardFire1(world: World, h: Hero, input: Input, busy: boolean): void
 
 function petBotFire2(world: World, h: Hero, input: Input, busy: boolean): void {
   if (!input.fire2 || busy || h.energy < A.petBot.energyCost) return;
-  const level = Math.min(4, Math.floor(h.energy / 3));
+  // toujours le niveau 1 : la surcharge ne renforce plus le tir secondaire, elle sert à l'ulti (GD-043)
+  const level = 1;
   for (const range of A.petBot.droneRanges) {
     const angle = h.angle + world.rng.int(-A.petBot.droneSpreadDeg, A.petBot.droneSpreadDeg) * DEG;
     world.drones.push({ id: world.newId(), x: h.x, y: h.y, angle, speed: 0, range, level, startX: h.x, startY: h.y });
   }
-  spendEnergy(world, h, h.energy); // la salve consomme toute l'énergie
+  spendEnergy(world, h, A.petBot.energyCost);
 }
 
 function stepDrones(world: World): void {
@@ -196,13 +197,13 @@ function engiBotFire2(world: World, h: Hero, input: Input, busy: boolean): void 
     h.state = 'firing2';
     if (--h.placingTurret === 0) {
       const m = muzzle(h);
-      const level = Math.min(4, Math.floor(h.energy / 3));
+      const level = h.energy >= A.engiBot.turretCost ? 1 : 0;
       if (level >= 1) {
         world.turret = {
           id: world.newId(), x: m.x, y: m.y, angle: h.angle, moveAngle: h.angle + world.rng.range(-1, 1) * DEG,
           speed: A.engiBot.turretThrowSpeed, state: 'flying', level, timer: 0, fireTimer: 0,
         };
-        spendEnergy(world, h, level * 3); // toutes les barres pleines sont consommées
+        spendEnergy(world, h, A.engiBot.turretCost);
       }
       h.fire2Anim = -1;
       h.state = 'standing';
@@ -367,7 +368,7 @@ function batBotFire2(world: World, h: Hero, input: Input, busy: boolean): void {
     return;
   }
   // appui court relâché : lancer
-  const level = batThrowLevel(h.energy);
+  const level = 1;
   if (h.energy < level || h.fire2Timer > 0 || busy) return;
   const side = h.bats >= 2 ? 'd' : 'g';
   const m = muzzle(h);

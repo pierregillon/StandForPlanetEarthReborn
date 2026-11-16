@@ -240,6 +240,7 @@ export const CONFIG = {
   /** Tirs secondaires et particularités de chaque héros (valeurs du code de 2019 sauf mention « remake »). */
   abilities: {
     petBot: {
+      /** Coût de la salve de drones. Depuis GD-043, elle est toujours de niveau 1 : la surcharge sert à l'ulti. */
       energyCost: 3,
       droneRanges: [550, 700, 850],
       droneMaxSpeed: 15,
@@ -302,6 +303,27 @@ export const CONFIG = {
   },
 
   /** Remake (GD-006) : prises de courant. */
+  /** Link entre héros (GD-043). */
+  link: {
+    /** En deçà de cette distance, le lien débite à plein ; au-delà il faiblit, jusqu'à `minFactor` à `maxRange`, où il casse. */
+    fullRange: 350,
+    maxRange: 1000,
+    minFactor: 0.6,
+    /** Écart toléré entre la ligne de visée et le coéquipier qu'on veut lier. */
+    aimWidth: 170,
+    /**
+     * Steps par point d'énergie reçu quand toute l'équipe est liée de près au même robot : 1,5 s, contre 2 s
+     * pour la régénération naturelle d'un seul. Chaque lien porte sa part (ce délai multiplié par le nombre de
+     * coéquipiers), si bien qu'à deux joueurs un lien débite autant que trois liens à quatre.
+     */
+    teamStepsPerEnergy: s(1.5),
+  },
+  /** Attaque ultime (GD-043) : à pleine surcharge, 2 s de lancement immobile, puis le coup. */
+  ulti: {
+    castSteps: s(2),
+    /** BatBot : bond vers le point visé, explosion à l'atterrissage. */
+    batBot: { range: 760, leapSteps: 26, radius: 360, damage: 14, recoverSteps: 24 },
+  },
   /** Résurrection d'un coéquipier à terre (scr_resurectAllie de l'original ; l'invulnérabilité au réveil est ajoutée). */
   revive: { range: 100, steps: s(3), energyCost: 3, hp: 3, invulnSteps: s(1.5) },
   outlet: {

@@ -287,6 +287,8 @@ export class Lobby {
       next.input.dashPressed ||= dropped.input.dashPressed;
       next.input.usePressed ||= dropped.input.usePressed;
       next.input.reloadPressed ||= dropped.input.reloadPressed;
+      next.input.linkPressed ||= dropped.input.linkPressed;
+      next.input.ultiPressed ||= dropped.input.ultiPressed;
     }
     const next = p.queue.shift();
     if (next) {
@@ -296,7 +298,7 @@ export class Lobby {
       return next.input;
     }
     if (++p.starved > STARVED_STEPS) return { ...NO_INPUT, aimX: p.last.aimX, aimY: p.last.aimY };
-    return { ...p.last, dashPressed: false, usePressed: false, reloadPressed: false };
+    return { ...p.last, dashPressed: false, usePressed: false, reloadPressed: false, linkPressed: false, ultiPressed: false };
   }
 
   private sendSnapshot(world: World): void {

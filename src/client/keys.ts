@@ -42,6 +42,9 @@ export const Bind = {
   dash: ['Space', 'ShiftLeft', 'ShiftRight'],
   use: ['KeyE', 'Enter', 'NumpadEnter'],
   reload: ['KeyR'],
+  // link : la touche marquée A sur un clavier AZERTY (Q sur un QWERTY), libre dans les deux dispositions
+  link: ['KeyQ'],
+  ulti: ['KeyF'],
   pause: ['Escape'],
   confirm: ['KeyE', 'Enter', 'NumpadEnter', 'Space'],
 };

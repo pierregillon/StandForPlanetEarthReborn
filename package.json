@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test \"src/**/*.test.ts\"",
     "convert-rooms": "node tools/convert-rooms.ts",
-    "extract-assets": "node tools/extract-assets.ts"
+    "extract-assets": "node tools/extract-assets.ts",
+    "make-sprites": "node tools/make-sprites.ts"
   },
   "dependencies": {
     "phaser": "3.90.0",

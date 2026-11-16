@@ -82,6 +82,34 @@ export class Synth {
     this.boost = 1;
   }
 
+  /** Lien entre héros (GD-043) : une note qui monte quand il se pose, qui retombe quand il casse. */
+  link(on: boolean): void {
+    if (on) {
+      this.tone('sine', 420, 880, 0.18, 0.12);
+      this.tone('triangle', 840, 1760, 0.18, 0.05, 0.03);
+    } else {
+      this.tone('sine', 700, 240, 0.22, 0.1);
+    }
+  }
+
+  /** Lancement d'un ulti : une montée grondante pendant tout le lancement. */
+  ultiCast(seconds: number): void {
+    this.boost = 1.8;
+    this.tone('sawtooth', 60, 430, seconds, 0.09);
+    this.tone('sine', 120, 1300, seconds, 0.07);
+    this.tone('square', 34, 96, seconds, 0.05);
+    this.boost = 1;
+  }
+
+  /** Atterrissage de BatBot : un coup sourd et son claquement. */
+  ultiImpact(): void {
+    this.boost = 2.4;
+    this.tone('sine', 170, 26, 0.75, 0.24);
+    this.tone('sawtooth', 95, 30, 0.45, 0.14);
+    this.tone('square', 950, 110, 0.13, 0.08);
+    this.boost = 1;
+  }
+
   /** Point de sauvegarde : trois notes montantes. */
   checkpoint(): void {
     this.tone('sine', 523, 523, 0.25, 0.14);

@@ -29,15 +29,16 @@ function run(w: World, steps: number, input: Input): void {
   for (let i = 0; i < steps; i++) w.step(input);
 }
 
-test('PetBot : la salve de drones consomme toute l\'énergie, tue et soigne', () => {
+test('PetBot : la salve de drones coûte 3 énergies quel que soit le surplus, tue et soigne', () => {
   const { w, npc, aim } = arena('PetBot', 'obj_npc_human_pistol', 500);
   const h = w.hero;
   h.energy = 6;
   h.hp = 5;
   w.step({ ...aim, fire2: true });
   assert.equal(w.drones.length, 3);
-  assert.equal(w.drones[0].level, 2);
-  assert.equal(h.energy, 0);
+  // GD-043 : plus de paliers, la surcharge ne renforce pas le tir secondaire
+  assert.equal(w.drones[0].level, 1);
+  assert.equal(h.energy, 3);
   // le soldat ne doit pas tuer le héros pendant le test
   npc.fireTimer = 100000;
   run(w, 60, aim);
@@ -69,8 +70,8 @@ test('EngiBot : la tourelle se déploie, tire sur le soldat, puis se replie', ()
   assert.equal(h.state, 'firing2');
   run(w, CONFIG.abilities.engiBot.placeAnimSteps, aim);
   assert.ok(w.turret, 'tourelle lancée');
-  assert.equal(w.turret.level, 2);
-  assert.equal(h.energy, 1, 'les barres pleines sont consommées');
+  assert.equal(w.turret.level, 1);
+  assert.equal(h.energy, 4, 'la tourelle coûte 3 énergies, pas plus');
   run(w, 400, aim);
   assert.ok(!w.npcs.includes(npc), 'le soldat est tué par la tourelle');
   // repli : revenir contre la tourelle et refaire un tir secondaire
@@ -172,16 +173,16 @@ test('BatBot : R rappelle les battes, qui frappent aussi au retour', () => {
   assert.equal(h.energy, energy);
 });
 
-test('BatBot : une batte lancée à 6 d\'énergie explose', () => {
+test('BatBot : même en surcharge, la batte lancée reste une batte simple', () => {
   const { w, npc, aim } = arena('BatBot', 'obj_npc_human_pistol', 600);
   npc.fireTimer = 100000;
   w.hero.energy = 6;
   w.step({ ...aim, fire2: true });
   w.step(aim);
-  assert.equal(w.bats[0].level, 2);
-  assert.equal(w.hero.energy, 4);
+  assert.equal(w.bats[0].level, 1);
+  assert.equal(w.hero.energy, 5);
   run(w, 40, aim);
-  assert.ok(!w.npcs.includes(npc), 'le soldat est tué par l\'explosion');
+  assert.equal(w.explosions.length, 0, 'pas d\'explosion : les paliers ont disparu (GD-043)');
 });
 
 test('BadaBot : tir chargé de 3 boules de plasma', () => {

@@ -107,11 +107,15 @@ export interface Input {
   use: boolean;
   usePressed: boolean;
   reloadPressed: boolean;
+  /** Pose ou coupe un lien avec un coéquipier (GD-043). */
+  linkPressed: boolean;
+  /** Lance l'attaque ultime. */
+  ultiPressed: boolean;
 }
 
 export const NO_INPUT: Input = {
   moveX: 0, moveY: 0, aimX: 0, aimY: 0, fire1: false, fire2: false,
-  dashPressed: false, use: false, usePressed: false, reloadPressed: false,
+  dashPressed: false, use: false, usePressed: false, reloadPressed: false, linkPressed: false, ultiPressed: false,
 };
 
 // ---------- Entités ----------
@@ -165,6 +169,20 @@ export interface Hero {
   /** Steps restants de l'arrivée par le véhicule de largage, avant le déploiement. */
   arrivalSteps: number;
   arrivalTotal: number;
+  /** Link (GD-043) : rang du coéquipier à qui ce héros donne son énergie, -1 s'il ne donne pas. */
+  linkTo: number;
+  /** Part du prochain point d'énergie déjà passée par le lien. */
+  linkTimer: number;
+  /** Force du lien selon la distance, de 0 à 1 (affichage). */
+  linkStrength: number;
+  /** Ulti : phase (0 aucune, 1 lancement, 2 action, 3 récupération) et steps écoulés dans cette phase. */
+  ultiPhase: number;
+  ultiSteps: number;
+  /** Bond de BatBot : départ et arrivée. */
+  ultiFromX: number;
+  ultiFromY: number;
+  ultiToX: number;
+  ultiToY: number;
   /** Résurrection en cours : rang du coéquipier relevé (-1 si aucune) et steps écoulés. */
   reviving: number;
   reviveSteps: number;
@@ -517,6 +535,11 @@ export type SimEvent =
   | { type: 'reloadEnd'; hero: number }
   | { type: 'emptyClick'; hero: number }
   | { type: 'revived'; x: number; y: number }
+  | { type: 'linked'; from: number; to: number }
+  | { type: 'unlinked'; from: number; to: number }
+  | { type: 'ultiCast'; hero: number }
+  | { type: 'ultiLeap'; hero: number }
+  | { type: 'ultiImpact'; hero: number; x: number; y: number; radius: number }
   | { type: 'outletTick'; x: number; y: number }
   | { type: 'notify'; text: string }
   | { type: 'changeRoom'; room: string; spawn: number }

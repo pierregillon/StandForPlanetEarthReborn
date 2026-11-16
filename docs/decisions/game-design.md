@@ -868,3 +868,46 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Un tir principal qui soigne sans rien coûter rendait l'équipe trop résistante. Pour l'affichage, chaque information retirée existait déjà sous une autre forme à l'écran.
 
 **Conséquences.** Écart assumé avec l'original (`obj_bullet_PetBot` soignait les alliés). Le compteur de battes de BatBot (« BATS 1/2 ») et la mention « RELOADING » disparaissent avec les chiffres : les battes se voient sur le robot, le rechargement par son animation. Vérifié à l'écran à deux onglets.
+
+## GD-043 — Le link entre héros, la surcharge et l'attaque ultime
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — première étape livrée (link, surcharge, ulti de BatBot) ; les trois autres ultis restent à faire
+- **Décidée par** : l'utilisateur, après discussion ; choix par défaut pour les valeurs chiffrées et les points marqués « par défaut »
+
+**Contexte.** Le link est la « main feature » du document de design : donner son énergie à un coéquipier. Le code de 2019 en avait une version minimale (touche maintenue, 1 énergie par seconde, sans perte) et le remake l'avait repoussé (GD-002). L'utilisateur le reconçoit avec une conséquence nouvelle : la surcharge ne renforce plus le tir secondaire, elle donne accès à une attaque ultime.
+
+**Décision : le link.**
+
+- **Un don et un flux.** Se lier à un coéquipier lui fait passer d'abord sa réserve d'énergie, puis sa régénération, amplifiée. Celui qui donne reste à 0 tant qu'il est lié : pas de tir secondaire, pas de résurrection.
+- **Un lien qu'on pose** (comme pour les bornes) : touche A (celle marquée A sur un clavier AZERTY, Q sur un QWERTY), en visant le coéquipier. On reste libre de bouger et de tirer. La même touche le coupe, pour celui qui donne comme pour celui qui reçoit.
+- **Il casse** au-delà de 1000 px, si un mur s'interpose, si le receveur tombe ou lance son ulti.
+- **La distance compte** : plein débit jusqu'à 350 px, puis le débit baisse jusqu'à 60 % à 1000 px. Le faisceau le montre : dense et tendu de près, aminci, ondulant et troué de loin.
+- **Débit selon l'équipe** : plus il y a de donneurs sur un même robot, plus il reçoit ; mais plus il y a de joueurs dans la partie, plus chaque lien est faible. Toute l'équipe liée de près apporte 1 point toutes les 1,5 s (contre 2 s pour la régénération naturelle d'un seul robot, plafonnée à 3). À deux joueurs, un lien débite donc autant que trois liens à quatre.
+- **On donne ou on reçoit**, jamais les deux : pas de chaîne, pas de boucle.
+- **Bornes** : leur réserve d'énergie est divisée par le nombre de joueurs (12 seul, 6 à deux, 4 à trois, 3 à quatre). Seul, une borne mène à l'ulti ; à plusieurs, il faut se lier.
+
+**Décision : la surcharge et l'ulti.**
+
+- **Plus de paliers.** Le tir secondaire reste celui du niveau 1 quelle que soit l'énergie, au même coût (drones de PetBot : 3 ; tourelle d'EngiBot : 3 ; batte lancée de BatBot : 1). En surcharge, le joueur choisit : dépenser son énergie en tirs secondaires, ou la garder pour l'ulti.
+- **L'ulti** est disponible à pleine surcharge (12), touche F. Il dépense toute l'énergie et coupe tous les liens du lanceur, qui devront être reposés.
+- **Lancement de 2 s** : le robot est immobile et vulnérable, avec une animation propre à chaque robot. S'il tombe avant la fin, l'ulti est perdu.
+- **BatBot** (livré) : il bondit vers le point visé (760 px au plus, jusqu'au premier mur ; il passe par-dessus meubles et ennemis), intouchable en l'air, et son atterrissage frappe tout ce qui est en vue dans un rayon de 360 px (14 dégâts, boucliers ignorés, vitres brisées).
+- **À faire** : PetBot (essaim de nanomachines qui soigne les alliés autour de lui), BadaBot (mur indestructible et infranchissable, temporaire), EngiBot (grenade électromagnétique qui désactive les robots ennemis, sans effet sur les humains ni sur l'équipe).
+- **Boss** : les ultis lui font leurs dégâts ou l'étourdissent normalement ; il sera renforcé plutôt que protégé.
+- **Résurrection** : toujours 3 énergies ; l'équipe attend que l'énergie remonte.
+
+*Par défaut* : le bonus de vitesse de la surcharge (GD-031) est conservé ; le bond de BatBot ne traverse ni mur, ni porte, ni vitre (sinon il sauterait les portes à carte) ; il lui reste 0,4 s de récupération après l'atterrissage.
+
+**Sprites.** Le jeu d'origine n'a aucune image pour les ultis. Elles sont fabriquées par `tools/make-sprites.ts` à partir des images existantes du robot, pour garder ses proportions, ses couleurs et son origine, avec des tracés d'énergie dans le style de l'original (aplats magenta à reflet rose, comme les arcs de ses coups de batte) :
+
+| Sprite | Images | Construit à partir de |
+|---|---|---|
+| `spr_BatBot_ulti_cast` | 30, à 15 par seconde (2 s) | son déploiement joué à rebours jusqu'aux battes croisées, puis rouvert ; énergie qui converge |
+| `spr_BatBot_ulti_leap` | 8, à 30 par seconde | la pose de son coup de batte, tournée sur un tour ; anneau d'énergie |
+| `spr_BatBot_ulti_blast` | 14, à 30 par seconde | dessiné : anneau de choc morcelé, éclair, traînées, éclats |
+| `spr_BatBot_ulti_crater` | 1 | dessiné : sol fissuré, laissé sur place |
+
+**Pourquoi.** Lié, on produit plus d'énergie que séparé : le link a un intérêt immédiat, et un prix lisible pour celui qui donne. L'ulti donne un but commun à cette énergie, plus spectaculaire que des tirs secondaires renforcés.
+
+**Conséquences.** Contenu retiré : les niveaux 2 à 4 des drones, de la tourelle et des battes (explosives, perçantes) ne sont plus accessibles. Réglages : `link` et `ulti` dans `src/sim/config.ts`. 8 tests dans `src/sim/link.test.ts`. Vérifié à l'écran à deux onglets : faisceau, lancement, bond, atterrissage. **À éprouver en jeu** : le rythme (à deux, un ulti toutes les 20 s environ si l'on reste liés de près), les dégâts de l'ulti, la lisibilité du ciblage quand deux coéquipiers sont dans le même axe.

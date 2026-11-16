@@ -255,3 +255,17 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 - Ajouter un champ à une entité le synchronise d'office ; s'il change à chaque step sans servir à l'affichage, l'ajouter aux exclusions de `LISTS` (`lobby.traffic()` donne les champs les plus envoyés).
 - Outil de développement : `sfpeDebug.teleport` fonctionne en réseau si le serveur est lancé avec `SFPE_DEBUG=1` ; à ne jamais activer sur un serveur ouvert.
 - À faire pour un serveur public : plusieurs salons à la fois, reconnexion, et limiter ce qu'un client peut envoyer.
+
+## ADR-015 — Sprites manquants fabriqués par un outil, à partir des sprites d'origine
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur pour l'objectif (de vrais sprites, cohérents avec les animations existantes) ; choix par défaut pour la méthode
+
+**Contexte.** Les attaques ultimes (GD-043) n'ont aucune image dans le projet d'origine. L'utilisateur veut des sprites, avec un nombre d'images et une cadence comparables aux animations existantes, pas des effets improvisés à l'exécution.
+
+**Décision.** `tools/make-sprites.ts` (`npm run make-sprites`) produit ces sprites en PNG avec les seuls modules de Node : il relit les images du robot (`tools/lib/png.ts`), les recompose (rotation, teinte, superposition) et y ajoute des formes dessinées par distance signée, avec un bord lissé (croissants effilés, disques, traits). Les images vont dans `public/assets/sprites` et sont déclarées dans `sprites.json`, comme celles de l'original ; le jeu ne les distingue pas. `npm run extract-assets` relance la fabrication après avoir extrait les sprites d'origine.
+
+**Pourquoi.** Partir des images d'origine garantit les proportions, les couleurs et l'origine du robot. Un outil rejouable vaut mieux que des fichiers retouchés à la main : on ajuste une valeur et tout est régénéré à l'identique (hasard à graine fixe).
+
+**Conséquences.** Les poses sont limitées à ce que l'original a dessiné : l'outil réagence et habille, il ne dessine pas de nouvelle pose de robot. 1,7 Mo pour l'ulti de BatBot. Les trois autres ultis suivront la même voie.

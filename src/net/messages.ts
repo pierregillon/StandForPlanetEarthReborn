@@ -71,7 +71,8 @@ export type ClientMessage =
 
 /** Entrée d'un step, tassée : [déplacement x, y, visée x, y, boutons]. */
 export function packInput(i: Input): number[] {
-  const bits = (i.fire1 ? 1 : 0) | (i.fire2 ? 2 : 0) | (i.dashPressed ? 4 : 0) | (i.use ? 8 : 0) | (i.usePressed ? 16 : 0) | (i.reloadPressed ? 32 : 0);
+  const bits = (i.fire1 ? 1 : 0) | (i.fire2 ? 2 : 0) | (i.dashPressed ? 4 : 0) | (i.use ? 8 : 0) | (i.usePressed ? 16 : 0) | (i.reloadPressed ? 32 : 0)
+    | (i.linkPressed ? 64 : 0) | (i.ultiPressed ? 128 : 0);
   return [i.moveX, i.moveY, Math.round(i.aimX), Math.round(i.aimY), bits];
 }
 
@@ -82,5 +83,6 @@ export function unpackInput(v: number[]): Input {
     moveX: Math.sign(n(0)), moveY: Math.sign(n(1)), aimX: n(2), aimY: n(3),
     fire1: (bits & 1) !== 0, fire2: (bits & 2) !== 0, dashPressed: (bits & 4) !== 0,
     use: (bits & 8) !== 0, usePressed: (bits & 16) !== 0, reloadPressed: (bits & 32) !== 0,
+    linkPressed: (bits & 64) !== 0, ultiPressed: (bits & 128) !== 0,
   };
 }

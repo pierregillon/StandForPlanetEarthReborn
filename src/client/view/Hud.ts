@@ -3,6 +3,8 @@
 import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import { CONFIG } from '../../sim/config.ts';
+import { donorsOf } from '../../sim/link.ts';
+import { ultiReady } from '../../sim/ulti.ts';
 import type { World } from '../../sim/world.ts';
 
 const DEPTH = 10000;
@@ -169,8 +171,15 @@ export class Hud {
     if (h.state !== 'dead') {
       const fallen = world.heroes.find((o) => o !== h && !o.gone && o.state === 'dead'
         && Math.hypot(o.x - h.x, o.y - h.y) <= CONFIG.revive.range + h.def.radius + o.def.radius);
-      if (h.reviving >= 0) hint = `Reviving... ${Math.ceil((CONFIG.revive.steps - h.reviveSteps) / 60)}`;
+      const linkedTo = h.linkTo >= 0 ? world.heroes[h.linkTo] : null;
+      const donors = donorsOf(world, h);
+      const nameOf = (o: { id: number; def: { name: string } }): string => this.playerNames[o.id] ?? o.def.name;
+      if (h.ultiPhase > 0) hint = '';
+      else if (ultiReady(h)) hint = 'ULTIMATE READY - press F';
+      else if (h.reviving >= 0) hint = `Reviving... ${Math.ceil((CONFIG.revive.steps - h.reviveSteps) / 60)}`;
       else if (fallen) hint = h.energy >= CONFIG.revive.energyCost ? 'Hold E to revive your teammate' : `${CONFIG.revive.energyCost} energy needed to revive`;
+      else if (linkedTo) hint = `Giving your energy to ${nameOf(linkedTo)} - A to unlink`;
+      else if (donors.length > 0) hint = `Receiving energy from ${donors.map(nameOf).join(', ')}`;
       else if (h.charging) hint = 'Linked to the charging station - E to unplug';
       else if (h.def.magazine > 0 && h.reloadTimer === 0 && h.ammo === 0) hint = 'Press R to reload';
       else if (h.def.kind === 'BatBot' && h.bats === 0 && world.bats.some((b) => b.state !== 'returning')) hint = 'Press R to call your bats back';

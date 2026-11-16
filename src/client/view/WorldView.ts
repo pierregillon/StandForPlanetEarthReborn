@@ -8,6 +8,7 @@ import { BLOCK_MOVE, BLOCK_SIGHT } from '../../sim/geom.ts';
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
+import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER } from '../../sim/ulti.ts';
 import type { Bat, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
@@ -125,7 +126,33 @@ interface HeroParts {
   auras: Img[];
   /** Nom du joueur, au-dessus des coéquipiers. */
   tag: Phaser.GameObjects.Text | null;
+  /** Ulti : lueur qui enfle pendant le lancement, ombre au sol pendant le bond. */
+  glow: Img | null;
+  shadow: Phaser.GameObjects.Ellipse | null;
+  airborne: boolean;
 }
+
+/** Brins d'un arc d'énergie, du plus large (halo) au plus fin (cœur). */
+interface BeamStrand {
+  width: number;
+  color: number;
+  alpha: number;
+  jitter: number;
+}
+/** Arc d'une borne de recharge : bleu électrique. */
+const OUTLET_BEAM: BeamStrand[] = [
+  { width: 12, color: 0x2f8dff, alpha: 0.22, jitter: 10 },
+  { width: 6, color: 0x7fd9ff, alpha: 0.55, jitter: 16 },
+  { width: 2.5, color: 0xffffff, alpha: 0.95, jitter: 16 },
+  { width: 2, color: 0xffe36b, alpha: 0.8, jitter: 30 },
+];
+/** Lien entre héros : turquoise à cœur blanc, avec un filet rouge (couleurs du link d'origine : rouge dedans, aqua dehors). */
+const LINK_BEAM: BeamStrand[] = [
+  { width: 14, color: 0x12b9c9, alpha: 0.22, jitter: 8 },
+  { width: 7, color: 0x6ff7ee, alpha: 0.6, jitter: 13 },
+  { width: 3, color: 0xffffff, alpha: 0.95, jitter: 13 },
+  { width: 2, color: 0xff4a5e, alpha: 0.85, jitter: 26 },
+];
 
 export class WorldView {
   private readonly scene: Phaser.Scene;
@@ -349,6 +376,11 @@ export class WorldView {
     this.heroFx.clear();
     for (const h of this.world.heroes) this.syncHero(h, this.partsOf(h), dt);
     this.drawOutlets();
+    // liens entre héros (GD-043) : le faisceau s'effiloche quand ils s'éloignent
+    for (const h of this.world.heroes) {
+      const to = h.gone || h.linkTo < 0 ? null : this.world.heroes[h.linkTo];
+      if (to) this.drawEnergyLink(h.x, h.y, to.x, to.y, LINK_BEAM, h.linkStrength);
+    }
   }
 
   private partsOf(h: Hero): HeroParts {
@@ -357,7 +389,7 @@ export class WorldView {
       p = {
         legs: this.image(h.def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
         body: this.image(h.def.sprites.stand, 0, h.x, h.y, DEPTH.character),
-        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null,
+        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false,
       };
       this.parts.set(h.id, p);
     }
@@ -378,6 +410,8 @@ export class WorldView {
     if (!shown || dead) {
       p.orb?.setVisible(false);
       for (const aura of p.auras) aura.setVisible(false);
+      p.glow?.setVisible(false);
+      p.shadow?.setVisible(false);
     }
     this.syncTag(h, p, shown && !local);
     if (!shown) return;
@@ -401,6 +435,7 @@ export class WorldView {
     const pose = this.heroPose(h);
     this.setFrame(body, pose.sprite, pose.frame);
     this.syncPlasmaBall(h, p, pose.sprite, pose.frame);
+    this.syncUlti(h, p);
 
     // invulnérabilité après un dégât : le héros clignote (effet « glitch » de l'original, simplifié)
     if (h.invuln > 0) body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
@@ -412,11 +447,40 @@ export class WorldView {
     const ey = m.y + Math.sin(h.angle) * 200;
     const hit = this.world.collision.raycast(m.x, m.y, ex, ey, BLOCK_MOVE);
     const t = hit ? hit.t : 1;
-    if (def.laserColor !== null && h.deploySteps === 0) {
+    if (def.laserColor !== null && h.deploySteps === 0 && h.ultiPhase === 0) {
       this.laser.lineStyle(2, def.laserColor, h.state === 'firing1' ? 0.7 : 0.4);
       this.laser.lineBetween(m.x, m.y, m.x + (ex - m.x) * t, m.y + (ey - m.y) * t);
     }
     this.drawHeroFx(h, p, local);
+  }
+
+  /**
+   * Ulti (GD-043). Lancement : une lueur magenta enfle sous le robot. Bond de BatBot : le robot grossit et
+   * s'élève, son ombre reste au sol.
+   */
+  private syncUlti(h: Hero, p: HeroParts): void {
+    const scene = this.scene;
+    if (h.ultiPhase === ULTI_CAST) {
+      this.ensureHalo();
+      p.glow ??= scene.add.image(h.x, h.y, 'lightHalo').setBlendMode(Phaser.BlendModes.ADD).setTint(0xfe00d1).setDepth(DEPTH.legs - 1);
+      const k = Math.min(1, h.ultiSteps / CONFIG.ulti.castSteps);
+      p.glow.setVisible(true).setPosition(h.x, h.y).setScale(0.9 + 2.6 * k + 0.14 * Math.sin(scene.time.now / 45)).setAlpha(0.25 + 0.55 * k);
+    } else {
+      p.glow?.setVisible(false);
+    }
+    const leaping = h.ultiPhase === ULTI_ACTION && h.def.kind === 'BatBot';
+    if (leaping) {
+      const height = Math.sin(Math.PI * Math.min(1, h.ultiSteps / CONFIG.ulti.batBot.leapSteps));
+      p.shadow ??= scene.add.ellipse(h.x, h.y, 170, 130, 0x000000).setDepth(DEPTH.legs - 1);
+      p.shadow.setVisible(true).setPosition(h.x, h.y).setScale(1 - 0.45 * height).setAlpha(0.5 - 0.22 * height);
+      p.body.setPosition(h.x, h.y - 150 * height).setScale(1 + 0.5 * height).setDepth(DEPTH.fx + 30);
+      p.legs.setVisible(false);
+      p.airborne = true;
+    } else if (p.airborne) {
+      p.airborne = false;
+      p.shadow?.setVisible(false);
+      p.body.setScale(1).setDepth(DEPTH.character);
+    }
   }
 
   /** Nom du joueur au-dessus d'un coéquipier. */
@@ -445,7 +509,7 @@ export class WorldView {
       if (d < range * 2.5) {
         const TAU = Math.PI * 2;
         this.cable.lineStyle(5, 0x7fd9ff, 0.9).beginPath();
-        this.cable.arc(outlet.x, outlet.y, 52, -Math.PI / 2, -Math.PI / 2 + TAU * (outlet.energyLeft / CONFIG.outlet.energyCapacity));
+        this.cable.arc(outlet.x, outlet.y, 52, -Math.PI / 2, -Math.PI / 2 + TAU * (outlet.energyLeft / this.world.outletCapacity));
         this.cable.strokePath();
         this.cable.lineStyle(5, 0x5dff7a, 0.9).beginPath();
         this.cable.arc(outlet.x, outlet.y, 60, -Math.PI / 2, -Math.PI / 2 + TAU * (outlet.repairLeft / CONFIG.outlet.repairCapacity));
@@ -454,7 +518,7 @@ export class WorldView {
       if (outlet.inUse) {
         // un arc vers chaque robot relié à cette borne
         for (const other of this.world.heroes) {
-          if (!other.gone && other.charging && other.linkedOutlet === outlet.id) this.drawEnergyLink(outlet.x, outlet.y, other.x, other.y);
+          if (!other.gone && other.charging && other.linkedOutlet === outlet.id) this.drawEnergyLink(outlet.x, outlet.y, other.x, other.y, OUTLET_BEAM, 1);
         }
         this.cable.lineStyle(3, 0x7fd9ff, 0.35 + 0.25 * pulse).strokeCircle(outlet.x, outlet.y, range);
       } else if (d < range * 2.5) {
@@ -465,7 +529,11 @@ export class WorldView {
   }
 
   /** Arc électrique entre deux points : plusieurs brins en zigzag, redessinés à chaque image. */
-  private drawEnergyLink(x1: number, y1: number, x2: number, y2: number): void {
+  /**
+   * Arc d'énergie entre deux points, redessiné à chaque image. `strength` (0 à 1) : à 1 l'arc est dense et
+   * tendu ; plus bas il s'amincit, ondule davantage et se troue, comme un lien qui se distend.
+   */
+  private drawEnergyLink(x1: number, y1: number, x2: number, y2: number, strands: BeamStrand[], strength: number): void {
     const g = this.cable;
     const dx = x2 - x1;
     const dy = y2 - y1;
@@ -473,27 +541,26 @@ export class WorldView {
     const nx = -dy / len;
     const ny = dx / len;
     const segments = Math.max(4, Math.round(len / 28));
-    const strands = [
-      { width: 12, color: 0x2f8dff, alpha: 0.22, jitter: 10 },
-      { width: 6, color: 0x7fd9ff, alpha: 0.55, jitter: 16 },
-      { width: 2.5, color: 0xffffff, alpha: 0.95, jitter: 16 },
-      { width: 2, color: 0xffe36b, alpha: 0.8, jitter: 30 },
-    ];
+    const slack = Math.max(0, Math.min(1, (1 - strength) / 0.4));
     for (const s of strands) {
-      g.lineStyle(s.width, s.color, s.alpha);
+      g.lineStyle(s.width * (1 - 0.55 * slack), s.color, s.alpha * (1 - 0.45 * slack));
       g.beginPath();
       g.moveTo(x1, y1);
-      for (let i = 1; i < segments; i++) {
+      for (let i = 1; i <= segments; i++) {
         const t = i / segments;
         // amplitude nulle aux extrémités, maximale au milieu
-        const off = (Math.random() - 0.5) * 2 * s.jitter * Math.sin(Math.PI * t);
-        g.lineTo(x1 + dx * t + nx * off, y1 + dy * t + ny * off);
+        const off = i === segments ? 0 : (Math.random() - 0.5) * 2 * s.jitter * (1 + 2.2 * slack) * Math.sin(Math.PI * t);
+        const px = x1 + dx * t + nx * off;
+        const py = y1 + dy * t + ny * off;
+        // lien distendu : des tronçons manquent
+        if (Math.random() < 0.3 * slack) g.moveTo(px, py);
+        else g.lineTo(px, py);
       }
-      g.lineTo(x2, y2);
       g.strokePath();
     }
-    const glow = 14 + Math.random() * 8;
-    g.fillStyle(0x7fd9ff, 0.35).fillCircle(x1, y1, glow + 8).fillCircle(x2, y2, glow + 14);
+    const tint = strands[1].color;
+    const glow = (14 + Math.random() * 8) * (1 - 0.4 * slack);
+    g.fillStyle(tint, 0.35).fillCircle(x1, y1, glow + 8).fillCircle(x2, y2, glow + 14);
     g.fillStyle(0xffffff, 0.8).fillCircle(x1, y1, glow * 0.4).fillCircle(x2, y2, glow * 0.5);
   }
 
@@ -590,6 +657,19 @@ export class WorldView {
   /** Sprite et image du corps du héros selon son état. */
   private heroPose(h: Hero): { sprite: string; frame: number } {
     const def = h.def;
+    // ulti de BatBot : lancement, bond en tournoyant, puis coup d'atterrissage (sprites fabriqués, GD-043)
+    if (h.ultiPhase > 0 && def.kind === 'BatBot' && this.scene.textures.exists(frameKey('spr_BatBot_ulti_cast', 0))) {
+      if (h.ultiPhase === ULTI_CAST) {
+        return { sprite: 'spr_BatBot_ulti_cast', frame: (h.ultiSteps / CONFIG.ulti.castSteps) * this.info('spr_BatBot_ulti_cast').frames };
+      }
+      if (h.ultiPhase === ULTI_ACTION) {
+        const leap = this.info('spr_BatBot_ulti_leap');
+        return { sprite: 'spr_BatBot_ulti_leap', frame: ((this.scene.time.now / 1000) * leap.speed) % leap.frames };
+      }
+      if (h.ultiPhase === ULTI_RECOVER) {
+        return { sprite: 'spr_BatBot_fire1_d', frame: (h.ultiSteps / CONFIG.ulti.batBot.recoverSteps) * this.info('spr_BatBot_fire1_d').frames };
+      }
+    }
     if (h.deploySteps > 0) {
       const sprite = `spr_${def.name}_deploy`;
       if (this.scene.textures.exists(frameKey(sprite, 0))) {
@@ -1369,6 +1449,33 @@ export class WorldView {
       const slot = this.weaponSlot(h);
       const flash = scene.add.circle(slot.x, slot.y, 10, h.def.kind === 'BadaBot' ? 0xd9a0ff : 0xffffff).setDepth(DEPTH.fx).setBlendMode(Phaser.BlendModes.ADD);
       scene.tweens.add({ targets: flash, scale: h.def.kind === 'BadaBot' ? 5 : 3, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
+    } else if (e.type === 'ultiCast') {
+      // début du lancement : des anneaux se referment sur le robot
+      const h = this.world.heroes[e.hero];
+      if (h) {
+        for (let i = 0; i < 3; i++) {
+          const ring = scene.add.circle(h.x, h.y, 150).setStrokeStyle(5, 0xfe00d1).setDepth(DEPTH.fx).setAlpha(0);
+          scene.tweens.add({ targets: ring, scale: 0.2, alpha: { from: 0.9, to: 0 }, duration: 520, delay: i * 170, onComplete: () => ring.destroy() });
+        }
+      }
+    } else if (e.type === 'ultiLeap') {
+      // il quitte le sol : un souffle de poussière
+      const h = this.world.heroes[e.hero];
+      if (h) {
+        const dust = scene.add.circle(h.ultiFromX, h.ultiFromY, 50).setStrokeStyle(10, 0xd8d8de).setDepth(DEPTH.remains).setAlpha(0.7);
+        scene.tweens.add({ targets: dust, scale: 2.6, alpha: 0, duration: 380, onComplete: () => dust.destroy() });
+      }
+    } else if (e.type === 'ultiImpact') {
+      if (scene.textures.exists(frameKey('spr_BatBot_ulti_blast', 0))) {
+        const info = this.info('spr_BatBot_ulti_blast');
+        // l'anneau de choc dessiné va jusqu'à 238 px du centre : on l'ajuste au rayon réel de l'explosion
+        const blast = this.image('spr_BatBot_ulti_blast', 0, e.x, e.y, DEPTH.fx + 2).setScale(e.radius / 238);
+        this.anims.push({ img: blast, sprite: 'spr_BatBot_ulti_blast', frames: info.frames, fps: info.speed, elapsed: 0, keepLast: false });
+        this.keepRemains(this.image('spr_BatBot_ulti_crater', 0, e.x, e.y, DEPTH.remains - 2).setRotation(Math.random() * Math.PI * 2).setScale(e.radius / 400).setAlpha(0.75));
+      }
+      const light = scene.add.circle(e.x, e.y, e.radius * 0.8, 0xff9cf0).setDepth(DEPTH.fx + 1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.7);
+      scene.tweens.add({ targets: light, alpha: 0, scale: 1.35, duration: 260, onComplete: () => light.destroy() });
+      if (this.nearView(e.x, e.y)) scene.cameras.main.shake(420, 0.016);
     } else if (e.type === 'heroDead') {
       // l'écran ne tremble que pour ce qui arrive près de soi
       if (this.nearView(e.x, e.y)) scene.cameras.main.shake(300, 0.01);

@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { formatBytes, linesObject, pruneDirectory, writeIfChanged } from './lib/output.ts';
+import { makeSprites } from './make-sprites.ts';
 import { cropImage, decodePng, encodePng, pngSize, stripColourChunks } from './lib/png.ts';
 import { PUBLIC_DIR, listGmlFiles, loadConfig, loadProject, makeMatcher, stripGmlComments } from './lib/reference.ts';
 import type { Project } from './lib/reference.ts';
@@ -397,6 +398,8 @@ function main(): void {
 
   let removed = 0;
   for (const dir of [SPRITES_DIR, FLOORS_DIR, SOUNDS_DIR]) removed += pruneDirectory(dir, keep);
+  // les sprites absents de l'original (ultis) sont refabriqués à partir de ceux qu'on vient d'extraire
+  makeSprites();
 
   if (warnings.length > 0) {
     console.log('\n=== Avertissements ===');

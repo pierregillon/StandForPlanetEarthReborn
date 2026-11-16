@@ -33,6 +33,8 @@ Le serveur lancé par `start.cmd` héberge aussi la partie multijoueur (une seul
 
 À savoir : chaque joueur télécharge une fois les images et les sons du jeu (87 Mo au fil des salles) par la connexion de l'hôte ; ensuite la partie elle-même consomme environ 2 ko/s par joueur. Détails et limites : GD-040 et ADR-014.
 
+En jeu à plusieurs : **A** (Q sur un clavier QWERTY) en visant un coéquipier pour lui donner son énergie par un lien, **F** pour lancer son attaque ultime une fois l'énergie au maximum (GD-043).
+
 ### Commandes
 
 | Action | Touche |

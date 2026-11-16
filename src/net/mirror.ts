@@ -6,6 +6,7 @@
 import { CONFIG } from '../sim/config.ts';
 import { BLOCK_BULLET, IS_WINDOW, angleDiff } from '../sim/geom.ts';
 import { steerHero } from '../sim/hero.ts';
+import { ULTI_ACTION, placeLeap } from '../sim/ulti.ts';
 import { createSession } from '../sim/session.ts';
 import type { Bullet, Chair, Door, Hero, Input, LevelData, SimEvent, SpriteManifest, WindowPane } from '../sim/types.ts';
 import { World } from '../sim/world.ts';
@@ -126,6 +127,14 @@ export class Mirror {
   private predict(input: Input): void {
     const h = this.hero;
     if (h.gone || h.state === 'dead' || h.arrivalSteps > 0 || h.deploySteps > 0 || h.reviving >= 0) return;
+    if (h.ultiPhase > 0) {
+      // ulti : immobile pendant le lancement ; le bond de BatBot, lui, se calcule ici comme sur le serveur
+      if (h.ultiPhase === ULTI_ACTION) {
+        h.ultiSteps++;
+        placeLeap(h);
+      }
+      return;
+    }
     steerHero(this.world, h, input);
     if (h.state !== 'firing1' && h.state !== 'firing2') h.state = h.moving ? 'walking' : 'standing';
   }

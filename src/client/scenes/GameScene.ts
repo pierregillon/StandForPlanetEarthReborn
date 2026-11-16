@@ -64,6 +64,7 @@ export class GameScene extends Phaser.Scene {
   private camY = 0;
   /** Entrées forcées depuis la console (sfpeDebug.hold), pour tester sans clavier. */
   private debugHold: Partial<Input> = {};
+  private debugTap: Partial<Input> | null = null;
   private panel: { objects: Phaser.GameObjects.GameObject[]; buttons: ButtonColumn; kind: PanelKind } | null = null;
   private session!: Session;
   private synth!: Synth;
@@ -211,6 +212,10 @@ export class GameScene extends Phaser.Scene {
       hold: (input: Partial<Input>) => {
         this.debugHold = input;
       },
+      /** Entrée appliquée à un seul step, ex. tap({ linkPressed: true }) ou tap({ ultiPressed: true }). */
+      tap: (input: Partial<Input>) => {
+        this.debugTap = input;
+      },
       teleport: (x: number, y: number) => {
         // en réseau, c'est le serveur qui déplace le robot (s'il a été lancé avec SFPE_DEBUG=1)
         this.conn?.send({ t: 'teleport', x, y });
@@ -264,7 +269,10 @@ export class GameScene extends Phaser.Scene {
       use: Keys.isDown(...Bind.use),
       usePressed: first && Keys.wasPressed(...Bind.use),
       reloadPressed: first && Keys.wasPressed(...Bind.reload),
+      linkPressed: first && Keys.wasPressed(...Bind.link),
+      ultiPressed: first && Keys.wasPressed(...Bind.ulti),
       ...this.debugHold,
+      ...this.takeTap(),
     };
   }
 
@@ -299,6 +307,12 @@ export class GameScene extends Phaser.Scene {
         this.openPanel('end');
       }
     }
+  }
+
+  private takeTap(): Partial<Input> {
+    const tap = this.debugTap ?? {};
+    this.debugTap = null;
+    return tap;
   }
 
   update(_time: number, delta: number): void {
@@ -359,6 +373,15 @@ export class GameScene extends Phaser.Scene {
       else if (e.type === 'buttonPressed') this.synth.buttonPress();
       else if (e.type === 'checkpoint') {
         this.synth.checkpoint();
+        this.view.handleEvent(e);
+      } else if (e.type === 'linked' || e.type === 'unlinked') {
+        // on n'entend que les liens où l'on est partie prenante
+        if (e.from === world.viewHero || e.to === world.viewHero) this.synth.link(e.type === 'linked');
+      } else if (e.type === 'ultiCast') {
+        this.synth.ultiCast(CONFIG.ulti.castSteps / STEPS_PER_SECOND);
+        this.view.handleEvent(e);
+      } else if (e.type === 'ultiImpact') {
+        this.synth.ultiImpact();
         this.view.handleEvent(e);
       } else if (e.type === 'revived') {
         this.synth.checkpoint();

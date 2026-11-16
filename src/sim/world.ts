@@ -53,6 +53,11 @@ export class World {
   private readonly counted = { civil: 0, soldier: 0, civilKilled: 0, soldierKilled: 0 };
 
   tick = 0;
+  /**
+   * Énergie qu'une borne peut donner (GD-043) : la réserve de base, partagée entre les joueurs. Seul, une borne
+   * mène à l'ulti ; à plusieurs, il faut aussi se lier.
+   */
+  outletCapacity: number = CONFIG.outlet.energyCapacity;
   /** L'équipe, dans l'ordre des joueurs. En solo, un seul héros. */
   heroes: Hero[] = [];
   /** Rang du héros que suit l'affichage (celui du joueur local). */
@@ -125,6 +130,7 @@ export class World {
     this.width = level.width;
     this.height = level.height;
     this.rng = new Rng(seed);
+    this.outletCapacity = Math.ceil(CONFIG.outlet.energyCapacity / Math.max(1, session.heroNames.length));
     this.collision = new CollisionWorld(level.width, level.height);
     this.nav = new NavGrid(level.width, level.height, CONFIG.nav.cellSize, CONFIG.nav.clearance, CONFIG.nav.maxExpansions);
 
@@ -325,6 +331,7 @@ export class World {
     h.gone = true;
     h.charging = false;
     h.reviving = -1;
+    h.linkTo = -1;
     if (h.def.kind === 'BatBot') this.bats.length = 0;
     if (h.def.kind === 'EngiBot') this.turret = null;
   }
@@ -433,7 +440,7 @@ export class World {
     } else if (inst.object === CONFIG.outlet.replacesObject) {
       this.outlets.push({
         id: this.nextId++, x: inst.x, y: inst.y, inUse: false,
-        energyLeft: CONFIG.outlet.energyCapacity, repairLeft: CONFIG.outlet.repairCapacity,
+        energyLeft: this.outletCapacity, repairLeft: CONFIG.outlet.repairCapacity,
       });
     } else if (inst.object === 'obj_card_green' || inst.object === 'obj_card_purple') {
       this.cards.push({
@@ -517,6 +524,7 @@ export class World {
   private createHero(def: HeroDef, x: number, y: number, id: number): Hero {
     return {
       id, gone: false, reviving: -1, reviveSteps: 0,
+      linkTo: -1, linkTimer: 0, linkStrength: 0, ultiPhase: 0, ultiSteps: 0, ultiFromX: x, ultiFromY: y, ultiToX: x, ultiToY: y,
       def, x, y, angle: -Math.PI / 2, moveAngle: -Math.PI / 2, moving: false, state: 'standing',
       hp: def.maxHealth, energy: CONFIG.hero.naturalEnergy, energyTimer: 0, energyPause: 0,
       ammo: def.magazine, reloadTimer: 0, fireTimer: 0, sinceShot: 9999,
@@ -574,8 +582,8 @@ export class World {
   /** Dégât infligé au héros. `ignoreInvuln` : le coup de bouclier passe outre l'invulnérabilité. */
   damageHero(h: Hero, amount: number, ignoreInvuln = false): boolean {
     if (h.gone || h.hp <= 0 || h.state === 'dead') return false;
-    // intouchable pendant un dash (GD-031) et pendant le déploiement
-    if (h.dashing || h.deploySteps > 0) return false;
+    // intouchable pendant un dash (GD-031), pendant le déploiement et en plein bond (ulti de BatBot)
+    if (h.dashing || h.deploySteps > 0 || h.ultiPhase === 2) return false;
     if (h.invuln > 0 && !ignoreInvuln) return false;
     h.hp -= amount;
     this.stats.damageTaken += amount;
@@ -596,6 +604,10 @@ export class World {
       h.speedFactor = 1;
       h.deadSteps = 0;
       h.reviving = -1;
+      // un robot qui tombe perd son lien et son ulti en cours de lancement
+      h.linkTo = -1;
+      h.linkStrength = 0;
+      h.ultiPhase = 0;
       // les battes lancées sont perdues à la mort du BatBot, comme dans l'original
       if (h.def.kind === 'BatBot') this.bats.length = 0;
       this.emit({ type: 'heroDead', x: h.x, y: h.y });

@@ -2,6 +2,8 @@
 // Référence : objects/obj_localPlayer et scripts scr_moveAndCollision, scr_aimHero, scr_dashCheck,
 // scr_bumpCheck, scr_fire1Check du projet GameMaker de 2019.
 import { stepWeapons } from './abilities.ts';
+import { donorsOf, stepLink } from './link.ts';
+import { stepUlti } from './ulti.ts';
 import { CONFIG } from './config.ts';
 import { BLOCK_MOVE, DEG, angleDiff, localToWorld, rotateToward } from './geom.ts';
 import type { Hero, Input } from './types.ts';
@@ -47,6 +49,14 @@ export function stepHero(world: World, h: Hero, input: Input): void {
     h.state = 'standing';
     return;
   }
+  if (stepUlti(world, h, input)) {
+    // lancement ou exécution de l'ulti : rien d'autre
+    h.moving = false;
+    h.dashing = false;
+    h.state = 'standing';
+    return;
+  }
+  stepLink(world, h, input);
   stepOutlet(world, h, input);
   steerHero(world, h, input);
 
@@ -56,7 +66,7 @@ export function stepHero(world: World, h: Hero, input: Input): void {
     if (h.dashCharges < CONFIG.hero.dashCharges) h.dashRechargeTimer = CONFIG.hero.dashRechargeSteps;
   }
 
-  stepEnergy(h);
+  stepEnergy(world, h);
   stepWeapons(world, h, input);
 
   // soin fractionnaire : +1 PV chaque fois qu'un point entier est accumulé
@@ -227,12 +237,17 @@ function moveHero(world: World, h: Hero, dir: number, distance: number, collideW
   return hit;
 }
 
-function stepEnergy(h: Hero): void {
+function stepEnergy(world: World, h: Hero): void {
   const natural = CONFIG.hero.naturalEnergy;
   if (h.overchargeHold > 0) h.overchargeHold--;
+  // celui qui donne par un lien ne régénère rien pour lui : sa régénération part chez son coéquipier (GD-043)
+  if (h.linkTo >= 0) {
+    h.energyTimer = 0;
+    return;
+  }
   if (h.energy > natural) {
-    // surplus : stable tant que le délai court, puis décroissance lente (GD-029)
-    if (h.overchargeHold > 0 || h.charging) {
+    // surplus : stable tant que le délai court ou qu'il est alimenté, puis décroissance lente (GD-029)
+    if (h.overchargeHold > 0 || h.charging || donorsOf(world, h).length > 0) {
       h.energyTimer = 0;
     } else if (++h.energyTimer >= CONFIG.hero.overchargeDecaySteps) {
       h.energyTimer = 0;
