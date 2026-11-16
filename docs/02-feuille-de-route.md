@@ -8,8 +8,8 @@ Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque éta
 
 ## État actuel
 
-**Étapes 1, 2 et 3 livrées le 2026-11-16 — l'étape 3 attend les essais de l'utilisateur.**
-Prochaine action : recueillir ses retours sur l'étape 3, puis étape 4 (zone de forage, foreuses, boss SallyBot, brouillard, lumières, écran de score).
+**Les 4 étapes du MVP sont livrées (2026-11-16) — l'étape 4 attend les essais de l'utilisateur.**
+Prochaine action : recueillir ses retours sur le niveau complet, en premier lieu l'équilibre du combat de boss ; puis décider de la suite (voir « Après le MVP »).
 
 ## Prérequis (début de l'étape 1)
 
@@ -104,12 +104,31 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur.
 
 ## Étape 4 — Boss, ambiance, score
 
-- [ ] Conversion de `rm_world2_2` et liaison avec le rez-de-chaussée.
-- [ ] Foreuses destructibles.
-- [ ] Boss SallyBot, 2 phases, mort, fin de niveau.
-- [ ] Brouillard de guerre ; lumières simples.
-- [ ] Écran de score.
-- [ ] Musiques.
+Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-028.
+
+- [x] Conversion de `rm_world2_2` et liaison avec le rez-de-chaussée (la sortie y mène).
+- [x] Foreuses destructibles (20 PV, inventé).
+- [x] Boss SallyBot, 2 phases, mort, fin de niveau.
+- [x] Brouillard de guerre ; lumières simples.
+- [x] Écran de score.
+- [x] Musique du niveau (une seule piste dans l'original, jouée dans les trois salles).
+
+### Ce qui a été vérifié, et comment
+
+- Par tests automatiques (`npm test`, 26 tests) : consigne des foreuses, dégâts par balle et par explosion, consigne du boss, fin du niveau après sa mort, poursuite et frappe du boss, transformation à mi-vie, invulnérabilité de la phase 2 et fenêtre de respiration, levée du brouillard par une porte.
+- À l'écran : arrivée dans la zone de forage, boss qui attaque, barre de vie du boss, foreuse, brouillard sur les pièces fermées, halo des lampes et lueur du héros, 60 images par seconde avec l'éclairage.
+
+### À vérifier par l'utilisateur
+
+- **L'équilibre du combat de boss** : c'est le point le moins sûr. À 10 de vitesse, le boss tuait le héros immobile en une dizaine de secondes ; il est passé à 7 et à 60 PV sans nouvel essai complet.
+- L'aspect des lumières (assombrissement, taille de la lueur du héros) et du brouillard.
+- La mort du boss et la destruction d'une foreuse : effets pas observés à l'écran.
+- L'écran de score au bout du parcours complet joué à la main.
+
+### Limites connues
+
+- Le dépôt contient 82 Mo d'assets (sprites du boss en 840 × 840, sons en WAV) : à alléger avant une mise en ligne (ADR-012).
+- Pas d'ombres portées, pas d'effet « glitch » fidèle, pas d'animation de déploiement des héros.
 
 ## Après le MVP (non planifié)
 
@@ -123,3 +142,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 | 2026-11-16 | Étape 1 : Node 22 portable, squelette du projet, outils d'extraction et de conversion, simulation (héros, ennemis, civils, portes, bornes), affichage, menus. Décisions GD-016 à GD-021 et ADR-009 à ADR-012. |
 | 2026-11-16 | Retours de l'utilisateur sur l'étape 1 (GD-022). Étape 2 : les quatre héros, leurs tirs principaux et secondaires, écran de choix, carte verte et portes à carte. Décisions GD-023 et GD-024. |
 | 2026-11-16 | Retours sur l'étape 2 (GD-025). Étape 3 : partie partagée entre les salles, escalier, étage, carte violette, consignes 1 à 4, sortie et fin provisoire (GD-026). |
+| 2026-11-16 | Boîtes bonus retirées (GD-027). Étape 4 : zone de forage, foreuses destructibles, boss SallyBot, brouillard de guerre, lumières, écran de score (GD-028). Le MVP est complet. |

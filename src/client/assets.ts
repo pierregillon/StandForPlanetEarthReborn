@@ -57,6 +57,16 @@ export function heroSprites(kind: HeroKind, manifest: SpriteManifest): string[] 
   return Object.keys(manifest).filter((n) => HERO_SPRITES[kind].test(n));
 }
 
+/** Sprites propres à une salle, chargés à l'entrée (le boss et ses foreuses pèsent lourd). */
+const ROOM_SPRITES: Record<string, RegExp> = {
+  rm_world2_2: /^spr_(sallyBot_(?!.*HitBox)|explosion_robot$|foreuse_(contours|faisceau)$)/,
+};
+
+export function roomSprites(room: string, manifest: SpriteManifest): string[] {
+  const pattern = ROOM_SPRITES[room];
+  return pattern ? Object.keys(manifest).filter((n) => pattern.test(n)) : [];
+}
+
 /** Sons propres à chaque héros ; les autres sons sont communs. */
 const HERO_SOUNDS: Record<HeroKind, RegExp> = {
   PetBot: /^snd_petBot_/,

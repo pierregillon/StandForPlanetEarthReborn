@@ -11,11 +11,13 @@ import { NavGrid } from './nav.ts';
 import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, stepAbilityObjects } from './abilities.ts';
 import type { NewExplosion } from './abilities.ts';
 import { stepHero } from './hero.ts';
+import { createBoss } from './boss.ts';
+import type { BossState } from './boss.ts';
 import { createNpc, stepNpcs } from './npc.ts';
-import { GROUND_FLOOR, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
+import { DRILL_AREA, GROUND_FLOOR, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
 import type { Session } from './session.ts';
 import type {
-  Bat, Bullet, Button, Card, DecorItem, Door, Drone, Explosion, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
+  Bat, Bullet, Button, Card, DecorItem, Door, Drill, Drone, Explosion, Fog, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
   SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, WindowPane, Zone,
 } from './types.ts';
 
@@ -59,6 +61,11 @@ export class World {
   windows: WindowPane[] = [];
   outlets: Outlet[] = [];
   cards: Card[] = [];
+  drills: Drill[] = [];
+  fogs: Fog[] = [];
+  boss: BossState | null = null;
+  private endTimer = -1;
+  private exitFired = false;
   zones: Zone[] = [];
   decor: DecorItem[] = [];
   /** La salle va être rejouée de zéro (Retry) : ses PNJ ne doivent pas être comptés deux fois. */
@@ -186,6 +193,7 @@ export class World {
       if (!def) return;
       const npc = createNpc(this, this.nextId++, inst, def);
       this.npcs.push(npc);
+      if (def.kind === 'boss') this.boss = createBoss(npc);
       if (def.kind === 'civil') {
         this.stats.totalCivil++;
         this.counted.civil++;
@@ -204,6 +212,27 @@ export class World {
       this.zones.push({
         kind: 'stairs', x: inst.x, y: inst.y, radius: 160, sprite: spriteName ?? 'spr_teleporteur_waiting', active: false,
         targetRoom: String(inst.props.nextRoom ?? ''), targetSpawn: Number(inst.props.spawnNumberOfNextRoom ?? 1),
+      });
+    } else if (inst.object === 'obj_foreuse') {
+      const drill: Drill = {
+        id: this.nextId++, tag: 'drill', x: inst.x, y: inst.y, hp: CONFIG.drill.maxHealth, maxHp: CONFIG.drill.maxHealth,
+        destroyed: false, radius: 0,
+      };
+      const mask = this.sprite(maskName);
+      drill.radius = ((mask.bbox[2] - mask.bbox[0] + 1) / 2) * Math.abs(inst.scaleX);
+      // six rectangles fins croisés tous les 30° forment un dodécagone
+      for (let k = 0; k < 6; k++) {
+        const o = this.collision.add(makeBox(inst.x, inst.y, drill.radius, drill.radius * 0.268, (k * Math.PI) / 6, BLOCK_MOVE | BLOCK_BULLET, drill));
+        this.nav.mark(o, 1);
+      }
+      this.drills.push(drill);
+      if (spriteName) this.addDecor(inst, spriteName);
+    } else if (inst.object === 'obj_warFog') {
+      this.fogs.push({
+        id: this.nextId++, x: inst.x, y: inst.y, w: 64 * inst.scaleX, h: 64 * inst.scaleY,
+        number: inst.props.warFogNumber === null || inst.props.warFogNumber === undefined ? null : Number(inst.props.warFogNumber),
+        attached: inst.props.attachedWarFogNumber === null || inst.props.attachedWarFogNumber === undefined ? null : Number(inst.props.attachedWarFogNumber),
+        fadePerStep: Number(inst.props.apparitionSpeed ?? 0.08), enabled: false, alpha: 1,
       });
     } else if (inst.object === 'obj_endLevel') {
       this.exitZone = this.instanceBox(inst, spriteName, 0);
@@ -283,6 +312,7 @@ export class World {
     this.stepBullets();
     stepAbilityObjects(this);
     this.stepZones();
+    this.stepFogs();
     this.stepObjectives();
   }
 
@@ -455,6 +485,8 @@ export class World {
       return true;
     }
     if (wall) {
+      const drill = wall.obstacle.owner as Drill | null;
+      if (b.owner === 'hero' && drill && drill.tag === 'drill') this.damageDrill(drill, Math.max(1, b.def.damage));
       this.emit({ type: 'impact', x: hx, y: hy, angle: b.angle, surface: 'wall' });
       if (b.def.kind === 'plasma') {
         this.plasmaExplosion(hx, hy);
@@ -501,8 +533,51 @@ export class World {
     if (door.phase === 'closed' || door.phase === 'closing') door.phase = 'opening';
   }
 
+  damageDrill(drill: Drill, amount: number): void {
+    if (drill.destroyed) return;
+    drill.hp -= amount;
+    if (drill.hp > 0) return;
+    drill.hp = 0;
+    drill.destroyed = true;
+    this.emit({ type: 'drillDestroyed', id: drill.id, x: drill.x, y: drill.y });
+    this.emit({ type: 'sound', name: 'snd_human_explosion', x: drill.x, y: drill.y });
+  }
+
+  // ---------- Brouillard de guerre ----------
+
+  private enableFog(fog: Fog): void {
+    if (fog.enabled) return;
+    fog.enabled = true;
+    // les brouillards attachés à celui-ci se lèvent avec lui
+    if (fog.number !== null) for (const other of this.fogs) if (other.attached === fog.number) this.enableFog(other);
+  }
+
+  private stepFogs(): void {
+    const h = this.hero;
+    for (let i = this.fogs.length - 1; i >= 0; i--) {
+      const fog = this.fogs[i];
+      // garde-fou du remake : un héros ne reste jamais sous un brouillard (GD-028)
+      if (!fog.enabled && h.x >= fog.x && h.x <= fog.x + fog.w && h.y >= fog.y && h.y <= fog.y + fog.h) this.enableFog(fog);
+      if (!fog.enabled) continue;
+      fog.alpha -= fog.fadePerStep;
+      if (fog.alpha <= 0) this.fogs.splice(i, 1);
+    }
+  }
+
+  /** Une porte ouverte à fond devant le héros lève le brouillard des pièces qu'elle touche. */
+  private revealThroughDoor(door: Door): void {
+    const h = this.hero;
+    if (h.state === 'dead' || Math.hypot(h.x - door.x, h.y - door.y) > door.detectionRange + h.def.radius) return;
+    const box = makeBox(door.x, door.y, door.halfLength, door.halfThickness + 8, door.angle, 0);
+    for (const fog of this.fogs) {
+      if (fog.enabled) continue;
+      if (box.maxX >= fog.x && box.minX <= fog.x + fog.w && box.maxY >= fog.y && box.minY <= fog.y + fog.h) this.enableFog(fog);
+    }
+  }
+
   private stepDoors(): void {
     for (const door of this.doors) {
+      if (door.phase === 'open' && this.fogs.length > 0) this.revealThroughDoor(door);
       const before = door.progress;
       if (this.someoneNear(door.x, door.y, door.detectionRange)) {
         if (door.kind === 'auto' && door.phase === 'closed') door.phase = 'opening';
@@ -643,15 +718,28 @@ export class World {
     if (s.objective === 2 && this.level.name === GROUND_FLOOR) s.objective = 3;
     const h = this.hero;
     const inExit = s.objective >= 3 && this.exitZone !== null && h.state !== 'dead' && distanceToBox(this.exitZone, h.x, h.y) <= 0;
+    // zone de forage : détruire les foreuses, puis tuer le boss ; l'ordre réel importe peu
+    if (this.level.name === DRILL_AREA) {
+      if (s.objective === 3) s.objective = 4;
+      if (s.objective === 4 && this.drills.every((d) => d.destroyed)) s.objective = 5;
+      if (s.objective === 5 && !this.ended && !this.npcs.some((n) => n.def.kind === 'boss')) {
+        if (this.endTimer < 0) this.endTimer = CONFIG.boss.endDelaySteps;
+        if (--this.endTimer <= 0) {
+          this.ended = true;
+          this.emit({ type: 'levelEnd' });
+        }
+      }
+    }
     if (!inExit) {
       this.exitCountdown = -1;
+      this.exitFired = false;
       return;
     }
     if (this.exitCountdown < 0) this.exitCountdown = CONFIG.hero.exitCountdownSteps;
     if (this.exitCountdown > 0) this.exitCountdown--;
-    if (this.exitCountdown === 0 && !this.ended) {
-      this.ended = true;
-      this.emit({ type: 'levelEnd' });
+    if (this.exitCountdown === 0 && !this.exitFired) {
+      this.exitFired = true;
+      this.emit({ type: 'changeRoom', room: DRILL_AREA, spawn: 1 });
     }
   }
 

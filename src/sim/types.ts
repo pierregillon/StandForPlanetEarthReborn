@@ -364,6 +364,32 @@ export interface Card {
   carried: boolean;
 }
 
+export interface Drill {
+  id: number;
+  tag: 'drill';
+  x: number;
+  y: number;
+  /** La foreuse est ronde : sa collision est un disque (approché par un polygone à 12 côtés). */
+  radius: number;
+  hp: number;
+  maxHp: number;
+  destroyed: boolean;
+}
+
+/** Brouillard de guerre : rectangle opaque couvrant une pièce, levé quand le héros en ouvre la porte. */
+export interface Fog {
+  id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  number: number | null;
+  attached: number | null;
+  fadePerStep: number;
+  enabled: boolean;
+  alpha: number;
+}
+
 export interface Zone {
   kind: 'stairs';
   x: number;
@@ -418,4 +444,5 @@ export type SimEvent =
   | { type: 'outletTick'; x: number; y: number }
   | { type: 'notify'; text: string }
   | { type: 'changeRoom'; room: string; spawn: number }
-  | { type: 'levelEnd' };
+  | { type: 'levelEnd' }
+  | { type: 'drillDestroyed'; id: number; x: number; y: number };

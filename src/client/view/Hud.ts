@@ -20,6 +20,7 @@ export class Hud {
   private readonly notice: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
   private readonly countdown: Phaser.GameObjects.Text;
+  private readonly bossBar: Phaser.GameObjects.Graphics;
   private readonly dashPips: Phaser.GameObjects.Arc[] = [];
   private readonly cardIcons = new Map<string, Phaser.GameObjects.Image>();
   private noticeUntil = 0;
@@ -59,6 +60,7 @@ export class Hud {
     this.notice = scene.add.text(10, (height * 4) / 5 - 40, '', {
       fontFamily: 'Aldo', fontSize: '24px', color: '#ffe36b', wordWrap: { width: 500 }, ...OUTLINE, strokeThickness: 4,
     }).setScrollFactor(0).setDepth(DEPTH);
+    this.bossBar = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH);
     // compte à rebours de sortie du niveau, en haut de l'écran comme obj_countdown_GUI
     this.countdown = scene.add.text(width / 2, height / 8, '', {
       fontFamily: 'Aldo', fontSize: '60px', color: '#e04348', align: 'center', ...OUTLINE,
@@ -101,6 +103,16 @@ export class Hud {
     this.objective.setText(world.objective);
 
     if (now > this.noticeUntil) this.notice.setAlpha(Math.max(0, this.notice.alpha - 0.02));
+
+    // barre de vie du boss : rouge sur noir, en haut de l'écran, dès qu'il est apparu à l'écran (obj_sallyBot/Draw_64)
+    this.bossBar.clear();
+    const boss = world.boss;
+    if (boss && boss.seen && world.npcs.includes(boss.npc)) {
+      const w = this.scene.scale.width - 400;
+      this.bossBar.fillStyle(0x000000, 0.85).fillRect(200, 100, w, 30);
+      this.bossBar.fillStyle(boss.invulnerable ? 0x7a2a2a : 0xe01f1f, 1).fillRect(200, 100, w * Math.max(0, boss.npc.hp / boss.npc.def.maxHealth), 30);
+      this.bossBar.lineStyle(3, 0xffffff, 0.8).strokeRect(200, 100, w, 30);
+    }
 
     let hint = '';
     let hintColor = '#ffe400';

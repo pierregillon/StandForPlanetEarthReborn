@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { World } from './world.ts';
-import { GROUND_FLOOR, UPPER_FLOOR, createSession } from './session.ts';
+import { DRILL_AREA, GROUND_FLOOR, UPPER_FLOOR, createSession } from './session.ts';
 import { NO_INPUT } from './types.ts';
 import type { LevelData, SimEvent, SpriteManifest } from './types.ts';
 import { CONFIG } from './config.ts';
@@ -82,8 +82,9 @@ test('les consignes s\'enchaînent : étage, carte violette, retour, sortie', ()
   g.hero.y = 400;
   g.step(NO_INPUT);
   assert.ok(g.exitCountdown > 0);
-  assert.equal(stepUntil(g, 'levelEnd', CONFIG.hero.exitCountdownSteps - 60), null);
-  assert.ok(stepUntil(g, 'levelEnd', 120), 'fin du niveau après le compte à rebours');
+  assert.equal(stepUntil(g, 'changeRoom', CONFIG.hero.exitCountdownSteps - 60), null);
+  const out = stepUntil(g, 'changeRoom', 120);
+  assert.ok(out && out.type === 'changeRoom' && out.room === DRILL_AREA, 'la sortie mène à la zone de forage');
 });
 
 test('la zone de sortie est inactive tant que la consigne n\'est pas atteinte', () => {

@@ -1,6 +1,6 @@
 // Scène de jeu : fait avancer la simulation à pas fixe (60 par seconde) et la dessine.
 import Phaser from 'phaser';
-import { frameKey, heroSounds, heroSprites } from '../assets.ts';
+import { frameKey, heroSounds, heroSprites, roomSprites } from '../assets.ts';
 import type { FloorManifest, SoundManifest } from '../assets.ts';
 import { Bind, Keys } from '../keys.ts';
 import { ButtonColumn } from '../view/ButtonColumn.ts';
@@ -42,7 +42,9 @@ export class GameScene extends Phaser.Scene {
     const hero = CONFIG.heroes[this.heroName()];
     const sprites = this.cache.json.get('sprites') as SpriteManifest;
     const sounds = (this.cache.json.get('sounds') ?? {}) as SoundManifest;
-    for (const name of heroSprites(hero.kind, sprites)) {
+    const session = this.registry.get('session') as Session | null | undefined;
+    const room = session?.room ?? 'rm_world2';
+    for (const name of [...heroSprites(hero.kind, sprites), ...roomSprites(room, sprites)]) {
       for (let i = 0; i < sprites[name].frames; i++) {
         if (!this.textures.exists(frameKey(name, i))) this.load.image(frameKey(name, i), `assets/sprites/${name}/${i}.png`);
       }
@@ -234,7 +236,7 @@ export class GameScene extends Phaser.Scene {
     if (this.panel) return;
     const { width, height } = this.scale;
     const bg = this.add.rectangle(width / 2, height / 2, width / 2, height / 2, 0x040c29, 0.9).setScrollFactor(0).setDepth(PANEL_DEPTH);
-    const titles: Record<PanelKind, string> = { pause: 'PAUSE', lose: 'YOU LOSE', end: 'TO BE CONTINUED' };
+    const titles: Record<PanelKind, string> = { pause: 'PAUSE', lose: 'YOU LOSE', end: 'SCORE' };
     const title = this.add.text(width / 2, height / 2 - 180, titles[kind], {
       fontFamily: 'Aldo', fontSize: kind === 'end' ? '70px' : '90px', color: '#ffffff',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(PANEL_DEPTH + 1);
@@ -244,11 +246,11 @@ export class GameScene extends Phaser.Scene {
     let buttonsY = height / 2;
     if (kind === 'lose') specs = [{ label: 'Retry', sprite: 'spr_btn_retry', action: () => this.retry() }, exit];
     if (kind === 'end') {
-      // fin provisoire : la zone de forage et le boss arrivent à l'étape 4 ; statistiques de l'écran de score d'origine
+      // écran de score de l'original (rm_score), sans la « Global note : 42 » codée en dur (GD-028)
       const s = this.session.stats;
       const pct = (n: number, total: number): number => (total > 0 ? Math.round((100 * n) / total) : 0);
       const lines = [
-        'The drilling area is coming next.',
+        'SallyBot is destroyed. Planet Earth says thanks.',
         '',
         `Percent of civil killed : ${pct(s.civilKilled, s.totalCivil)}%`,
         `Percent of soldier killed : ${pct(s.soldierKilled, s.totalSoldier)}%`,

@@ -3,6 +3,7 @@
 // scr_attackHero, scr_processFire, src_patrol, scr_buildNpcPatrolPath, scr_getNpcBehaviourCivil,
 // scr_runAwayFromHero du projet GameMaker de 2019 (voir docs/reference/jeu-original/02-ennemis-et-ia.md).
 import { CONFIG, STEPS_PER_SECOND } from './config.ts';
+import { guardBoss, stepBoss } from './boss.ts';
 import type { NpcDef, SoldierDef } from './config.ts';
 import { BLOCK_MOVE, BLOCK_SIGHT, DEG, TAU, gmAngleToRad, localToWorld, rotateToward } from './geom.ts';
 import type { Point } from './nav.ts';
@@ -45,8 +46,14 @@ export function stepNpcs(world: World): void {
       if (Math.hypot(npc.x - hero.x, npc.y - hero.y) > N.activationRange) continue;
       npc.active = true;
     }
+    const boss = npc.def.kind === 'boss' ? world.boss : null;
+    if (boss) guardBoss(boss);
     if (npc.hp <= 0) {
       world.killNpc(npc);
+      continue;
+    }
+    if (boss) {
+      stepBoss(world, boss);
       continue;
     }
     const before = npc.state;
@@ -54,7 +61,7 @@ export function stepNpcs(world: World): void {
     if (npc.reloadTimer > 0) npc.reloadTimer--;
     if (npc.repathTimer > 0) npc.repathTimer--;
     if (npc.def.kind === 'soldier') stepSoldier(world, npc, npc.def);
-    else stepCivil(world, npc);
+    else if (npc.def.kind === 'civil') stepCivil(world, npc);
     npc.angle = rotateToward(npc.angle, npc.dir, (npc.def.kind === 'soldier' ? N.rotateSpeedDeg : 10) * DEG);
     npc.stateSteps = npc.state === before ? npc.stateSteps + 1 : 0;
   }

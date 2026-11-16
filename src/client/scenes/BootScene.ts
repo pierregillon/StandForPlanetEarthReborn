@@ -4,8 +4,8 @@ import { commonSounds, frameKey, spritesNeeded } from '../assets.ts';
 import type { FloorManifest, SoundManifest } from '../assets.ts';
 import type { LevelData, SpriteManifest } from '../../sim/types.ts';
 
-/** Salles chargées au démarrage (la zone de forage arrivera à l'étape 4). */
-export const LEVELS = ['rm_world2', 'rm_world2_1'];
+/** Salles du niveau, chargées au démarrage. */
+export const LEVELS = ['rm_world2', 'rm_world2_1', 'rm_world2_2'];
 
 export class BootScene extends Phaser.Scene {
   constructor() {

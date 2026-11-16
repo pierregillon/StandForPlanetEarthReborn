@@ -2,7 +2,7 @@
 
 Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du dessus développé sous GameMaker entre 2016 et 2019. Une équipe de robots traverse des niveaux remplis de soldats, de robots ennemis et de civils.
 
-**État : étape 3 sur 4 livrée — le rez-de-chaussée et l'étage du monde 2 sont jouables avec les quatre héros (PetBot, EngiBot, BatBot, BadaBot), leurs tirs secondaires, les cartes et les objectifs. Restent la zone de forage et le boss.** Voir la [feuille de route](docs/02-feuille-de-route.md).
+**État : les 4 étapes du MVP sont livrées — le monde 2 se joue en entier avec les quatre héros (PetBot, EngiBot, BatBot, BadaBot) : rez-de-chaussée, étage, zone de forage et boss SallyBot, jusqu'à l'écran de score.** Voir la [feuille de route](docs/02-feuille-de-route.md).
 
 ## Documentation
 

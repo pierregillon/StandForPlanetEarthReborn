@@ -6,13 +6,17 @@ import type { FloorManifest } from '../assets.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { BLOCK_MOVE } from '../../sim/geom.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
-import type { Bat, Door, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
+import type { Bat, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
 const DEPTH = {
   background: -800, floor: -700, decal: -600, zone: -400, window: -300, outlet: -150,
-  remains: -50, legs: -1, character: 0, laser: 4, bullet: 5, wallThin: 200, wallThick: 300, door: 500, fx: 600, worldText: 700,
+  remains: -50, legs: -1, character: 0, laser: 4, bullet: 5, fog: 100, wallThin: 200, wallThick: 300, door: 500, fx: 600, worldText: 700, darkness: 5000,
 };
+/** Brouillard de guerre : gris foncé de l'original ($313131). */
+const FOG_COLOR = 0x313131;
+/** Éclairage simplifié. L'original assombrit à 60 % ; 50 % ici pour garder les combats lisibles (GD-028). */
+const LIGHTING = { ambient: 0.5, strength: 2, heroRadius: 420, heroStrength: 0.75 };
 const MAX_REMAINS = 500;
 /** Aspect des projectiles (GD-022) : traînée jaune pour le héros, orange pour les ennemis. */
 const BULLET_STYLE = {
@@ -53,6 +57,12 @@ export class WorldView {
   private readonly explosionImgs = new Map<number, Img>();
   private readonly batImgs = new Map<number, Img>();
   private turretImg: Img | null = null;
+  private readonly fogRects = new Map<number, Phaser.GameObjects.Rectangle>();
+  private readonly drillParts = new Map<number, { contours: Img | null; beam: Img | null }>();
+  private drillBars!: Phaser.GameObjects.Graphics;
+  private darkness: Phaser.GameObjects.RenderTexture | null = null;
+  private lightStamp: Img | null = null;
+  private lights: { x: number; y: number; radius: number; intensity: number }[] = [];
   private plasmaBall: Img | null = null;
   private readonly doorImgs = new Map<number, Img>();
   private readonly windowImgs = new Map<number, Img>();
@@ -170,6 +180,15 @@ export class WorldView {
     this.laser = scene.add.graphics().setDepth(DEPTH.laser);
     this.cable = scene.add.graphics().setDepth(DEPTH.laser);
     this.tracers = scene.add.graphics().setDepth(DEPTH.bullet + 1);
+    this.drillBars = scene.add.graphics().setDepth(DEPTH.worldText);
+    for (const fog of world.fogs) {
+      this.fogRects.set(fog.id, scene.add.rectangle(fog.x, fog.y, fog.w, fog.h, FOG_COLOR).setOrigin(0, 0).setDepth(DEPTH.fog).setAlpha(fog.alpha));
+    }
+    for (const drill of world.drills) {
+      const part = (sprite: string): Img | null => (scene.textures.exists(frameKey(sprite, 0)) ? this.image(sprite, 0, drill.x, drill.y, DEPTH.character - 2) : null);
+      this.drillParts.set(drill.id, { contours: part('spr_foreuse_contours'), beam: part('spr_foreuse_faisceau') });
+    }
+    this.buildLights();
   }
 
   /** Remake (GD-006) : borne de recharge dessinée par le code, faute de sprite d'origine. */
@@ -196,6 +215,9 @@ export class WorldView {
     this.syncNpcs();
     this.syncBullets();
     this.syncAbilityObjects();
+    this.syncFogs();
+    this.syncDrills();
+    this.syncLights();
     for (const door of this.world.doors) this.syncDoor(door);
     for (const outlet of this.world.outlets) {
       const img = this.outletImgs.get(outlet.id);
@@ -309,6 +331,14 @@ export class WorldView {
 
   private npcFrame(npc: Npc): { sprite: string; frame: number } {
     const def = npc.def;
+    if (def.kind === 'boss') {
+      const boss = this.world.boss;
+      if (!boss) return { sprite: def.sprites.stand, frame: 0 };
+      const frames = this.info(boss.sprite).frames;
+      if (boss.action === 'walking') return { sprite: boss.sprite, frame: ((npc.walkDist / 256) * frames) % frames };
+      if (boss.action === 'idle') return { sprite: boss.sprite, frame: 0 };
+      return { sprite: boss.sprite, frame: Math.min(frames - 1, (boss.anim / boss.animSteps) * frames) };
+    }
     if (def.kind === 'civil') {
       if (npc.state === 'running') {
         const frames = this.info(def.sprites.run).frames;
@@ -524,6 +554,92 @@ export class WorldView {
     }
   }
 
+  // ---------- Brouillard, foreuses, lumières ----------
+
+  private syncFogs(): void {
+    const alive = new Map<number, Fog>();
+    for (const fog of this.world.fogs) alive.set(fog.id, fog);
+    for (const [id, rect] of this.fogRects) {
+      const fog = alive.get(id);
+      if (fog) rect.setAlpha(Math.max(0, fog.alpha));
+      else {
+        rect.destroy();
+        this.fogRects.delete(id);
+      }
+    }
+  }
+
+  private syncDrills(): void {
+    const g = this.drillBars;
+    g.clear();
+    const now = this.scene.time.now / 1000;
+    for (const drill of this.world.drills) {
+      const parts = this.drillParts.get(drill.id);
+      if (parts?.contours) this.setFrame(parts.contours, 'spr_foreuse_contours', drill.destroyed ? 0 : (now * 15) % this.info('spr_foreuse_contours').frames);
+      if (parts?.beam) {
+        parts.beam.setVisible(!drill.destroyed);
+        this.setFrame(parts.beam, 'spr_foreuse_faisceau', (now * 15) % this.info('spr_foreuse_faisceau').frames);
+      }
+      this.drawDrillBar(g, drill);
+    }
+    // le boss est « vu » dès qu'il entre dans la vue : sa barre de vie s'affiche alors
+    const boss = this.world.boss;
+    if (boss && !boss.seen && this.scene.cameras.main.worldView.contains(boss.npc.x, boss.npc.y)) boss.seen = true;
+  }
+
+  private drawDrillBar(g: Phaser.GameObjects.Graphics, drill: Drill): void {
+    if (drill.destroyed || drill.hp >= drill.maxHp) return;
+    const w = 300;
+    g.fillStyle(0x000000, 0.8).fillRect(drill.x - w / 2, drill.y - 20, w, 22);
+    g.fillStyle(0xffb347, 1).fillRect(drill.x - w / 2, drill.y - 20, (w * drill.hp) / drill.maxHp, 22);
+    g.lineStyle(2, 0xffffff, 0.8).strokeRect(drill.x - w / 2, drill.y - 20, w, 22);
+  }
+
+  /** Lumières simples (GD-011) : un voile sombre sur la vue, percé d'un halo par lumière, sans ombres portées. */
+  private buildLights(): void {
+    const scene = this.scene;
+    const placed = this.world.level.instances.filter((i) => i.object === 'obj_lumiere');
+    if (placed.length === 0) return;
+    this.lights = placed.map((i) => ({
+      x: i.x, y: i.y,
+      radius: Number(i.props.radius ?? 256 * Math.abs(i.scaleX)),
+      intensity: Number(i.props.lightIntensity ?? 0.5),
+    }));
+    if (!scene.textures.exists('lightHalo')) {
+      const canvas = scene.textures.createCanvas('lightHalo', 256, 256);
+      if (!canvas) return;
+      const gradient = canvas.context.createRadialGradient(128, 128, 0, 128, 128, 128);
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.55, 'rgba(255,255,255,0.7)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      canvas.context.fillStyle = gradient;
+      canvas.context.fillRect(0, 0, 256, 256);
+      canvas.refresh();
+    }
+    this.lightStamp = scene.make.image({ key: 'lightHalo', add: false });
+    this.darkness = scene.add.renderTexture(0, 0, VIEW.width, VIEW.height).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.darkness);
+  }
+
+  private syncLights(): void {
+    const rt = this.darkness;
+    const stamp = this.lightStamp;
+    if (!rt || !stamp) return;
+    const cam = this.scene.cameras.main;
+    rt.clear();
+    rt.fill(0x000000, LIGHTING.ambient);
+    const h = this.world.hero;
+    const halo = (x: number, y: number, radius: number, strength: number): void => {
+      const sx = x - cam.scrollX;
+      const sy = y - cam.scrollY;
+      if (sx < -radius || sy < -radius || sx > VIEW.width + radius || sy > VIEW.height + radius) return;
+      stamp.setScale((radius * 2) / 256).setAlpha(Math.min(1, strength));
+      rt.erase(stamp, sx, sy);
+    };
+    for (const light of this.lights) halo(light.x, light.y, light.radius, light.intensity * LIGHTING.strength);
+    // le héros porte sa propre lueur, pour rester lisible loin des lampes
+    halo(h.x, h.y, LIGHTING.heroRadius, LIGHTING.heroStrength);
+  }
+
   private syncDoor(door: Door): void {
     const img = this.doorImgs.get(door.id);
     if (img) this.setFrame(img, door.sprite, Math.round(door.progress * (this.info(door.sprite).frames - 1)));
@@ -552,6 +668,15 @@ export class WorldView {
       scene.cameras.main.shake(300, 0.01);
     } else if (e.type === 'heroHit') {
       scene.cameras.main.shake(90, 0.004);
+    } else if (e.type === 'drillDestroyed') {
+      scene.cameras.main.shake(400, 0.012);
+      if (scene.textures.exists(frameKey('spr_explosion_robot', 0))) {
+        const sp = this.info('spr_explosion_robot');
+        for (let i = 0; i < 5; i++) {
+          const img = this.image('spr_explosion_robot', 0, e.x + (Math.random() - 0.5) * 900, e.y + (Math.random() - 0.5) * 900, DEPTH.fx).setScale(2 + Math.random() * 2);
+          this.anims.push({ img, sprite: 'spr_explosion_robot', frames: sp.frames, fps: spriteFps(sp), elapsed: -i * 0.12, keepLast: false });
+        }
+      }
     } else if (e.type === 'heal') {
       const plus = scene.add.text(e.x, e.y - 50, '+1', { fontFamily: 'Aldo', fontSize: '36px', color: '#6dff8a', stroke: '#000000', strokeThickness: 5 })
         .setOrigin(0.5).setDepth(DEPTH.worldText);
@@ -623,7 +748,7 @@ export class WorldView {
     for (let i = this.anims.length - 1; i >= 0; i--) {
       const a = this.anims[i];
       a.elapsed += dt;
-      const frame = Math.floor(a.elapsed * a.fps);
+      const frame = Math.floor(Math.max(0, a.elapsed) * a.fps);
       if (frame >= a.frames) {
         if (!a.keepLast) a.img.destroy();
         this.anims.splice(i, 1);

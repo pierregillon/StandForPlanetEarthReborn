@@ -81,7 +81,16 @@ export interface CivilDef {
   runAnimFactor: number;
 }
 
-export type NpcDef = SoldierDef | CivilDef;
+export interface BossDef {
+  kind: 'boss';
+  genre: 'robot';
+  maxHealth: number;
+  normalSpeed: number;
+  radius: number;
+  sprites: { stand: string; move: string; dead: string };
+}
+
+export type NpcDef = SoldierDef | CivilDef | BossDef;
 
 const enemyBullet = (sprite: string): BulletDef => ({ sprite, speed: 40, maxDistance: 1500, damage: 1, radius: 4 });
 
@@ -338,7 +347,53 @@ export const CONFIG = {
     obj_npc_civil_ouvrier: civil('spr_npc_ouvrier_marche', 'spr_npc_ouvrier_cours', 'spr_npc_ouvier_mort', 33, 1),
     obj_npc_civil_scientifique: civil('spr_npc_scientifique_marche', 'spr_npc_scientifique_cours', 'spr_npc_scientifique_mort', 28, 1),
     obj_npc_civil_technicien: civil('spr_npc_techni_move', 'spr_npc_techni_course', 'spr_npc_techni_mort', 38, 1),
+    // Boss. 100 PV dans l'original, prévus pour quatre héros ; 60 pour un joueur seul (GD-028).
+    obj_sallyBot: {
+      kind: 'boss', genre: 'robot', maxHealth: 60, normalSpeed: 10, radius: 110,
+      sprites: { stand: 'spr_sallyBot_1_standing', move: 'spr_sallyBot_1_marche', dead: 'spr_explosion_robot' },
+    },
   } as Record<string, NpcDef>,
+
+  /** Boss SallyBot (valeurs du code de 2019 sauf mention « remake »). */
+  boss: {
+    aggroRange: 1600,
+    // 10 dans le code, la vitesse des heros ; 7 ici pour qu un joueur seul puisse prendre de la distance (GD-028)
+    speed: 7,
+    chargeSpeed: 20,
+    chargeDamage: 4,
+    /** Une chance sur cinq de charger à chaque recalcul de chemin (toutes les 0,5 s). */
+    chargeChance: 0.2,
+    chargeMoveFromFrame: 7,
+    repathSteps: s(0.5),
+    attackRange: 20,
+    keepAttackingRange: 170,
+    /** Phase 2 : après 3 s cumulées d'attaque ou de charge, le boss s'arrête pour respirer et devient vulnérable. */
+    breatheAfterSteps: s(3),
+    /** Remake : il se tourne vers le héros à vitesse limitée, ce qui laisse le temps d'esquiver. */
+    rotateDeg: 4,
+    /** Remake : part de l'animation d'un coup pendant laquelle il touche (les masques image par image ne sont pas portés). */
+    hitWindow: [0.35, 0.85],
+    /** Combo de la phase 1 ; zones de frappe = boîtes des masques spr_sallyBot_1_HitBox*, dans le repère du boss. */
+    combo: [
+      { sprite: 'spr_sallyBot_1_AttackD1', damage: 2, box: { x0: -48, y0: -72, x1: 263, y1: 330 } },
+      { sprite: 'spr_sallyBot_1_AttackG1', damage: 2, box: { x0: -48, y0: -331, x1: 263, y1: 71 } },
+      { sprite: 'spr_sallyBot_1_AttackD2', damage: 3, box: { x0: -282, y0: -72, x1: 263, y1: 330 } },
+      { sprite: 'spr_sallyBot_1_AttackG2', damage: 4, box: { x0: -282, y0: -331, x1: 247, y1: 71 } },
+    ],
+    attack2: { sprite: 'spr_sallyBot_2_attack', damage: 3, box: { x0: -45, y0: -238, x1: 188, y1: 238 } },
+    sprites: {
+      stand1: 'spr_sallyBot_1_standing', walk1: 'spr_sallyBot_1_marche', charge1: 'spr_sallyBot_1_fire2',
+      transform: 'spr_sallyBot_transformation',
+      stand2: 'spr_sallyBot_2_standing', walk2: 'spr_sallyBot_2_marche', charge2: 'spr_sallyBot_2_fire2', breathe: 'spr_sallyBot_2_respire',
+    },
+    /** Délai entre la mort du boss et l'écran de score. */
+    endDelaySteps: s(2.5),
+  },
+
+  /** Remake (GD-028) : foreuses destructibles, sans équivalent dans le code d'origine. */
+  drill: {
+    maxHealth: 20,
+  },
 
   door: {
     /**

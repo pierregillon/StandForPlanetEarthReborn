@@ -15,6 +15,7 @@ export const OBJECTIVES = [
 
 export const GROUND_FLOOR = 'rm_world2';
 export const UPPER_FLOOR = 'rm_world2_1';
+export const DRILL_AREA = 'rm_world2_2';
 
 export interface Session {
   heroName: string;

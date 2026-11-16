@@ -488,3 +488,31 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** Cohérence avec le choix des bornes : un robot se recharge sur une prise, il ne ramasse pas de bonus. L'énergie et les tirs secondaires portent déjà la montée en puissance.
 
 **Conséquences.** Les instances `obj_bonus_box` restent dans les fichiers de niveau convertis mais sont ignorées par le jeu. Les touches 1 et 2 n'ont pas d'usage. Si la difficulté en solo s'avère trop élevée, on la règle par les valeurs de combat (GD-018), pas par des bonus.
+
+---
+
+## GD-028 — Zone de forage, foreuses, boss SallyBot, brouillard, lumières et score
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — équilibrage à ajuster après essai
+- **Décidée par** : choix par défaut (application de GD-009, GD-010, GD-011, GD-013, GD-014)
+
+**Contexte.** Dans le code d'origine, la salle du boss n'est reliée à rien, les foreuses sont indestructibles, le boss n'a pas de mort ni de fin de niveau, et l'écran de score affiche une note codée en dur. L'étape 4 termine ce que les textes de consigne annonçaient.
+
+**Décision.**
+
+- **Liaison** : la sortie du rez-de-chaussée (10 s dans la bande nord) mène à la zone de forage. On y arrive avec son héros tel qu'il est.
+- **Foreuses** (inventé) : 20 points de vie chacune. Balles, explosions, coups de batte et battes lancées les entament ; une barre de vie apparaît dès qu'elles sont touchées. Détruite, la foreuse perd son faisceau et reste en épave. Leur collision est un disque, car elles sont rondes. Les trois détruites, la consigne passe à « Kill SallyBot ».
+- **Boss** : règles du code (poursuite, combo de 4 coups à 2/2/3/4 dégâts, charge à 4 dégâts, transformation à mi-vie, phase 2 invulnérable sauf pendant la « respiration » après 3 s cumulées d'attaque). Écarts :
+  - 60 points de vie au lieu de 100, et vitesse de marche 7 au lieu de 10 : l'original est prévu pour quatre héros entre lesquels le boss change de cible ; seul, le joueur l'a en permanence sur lui. Lors des essais à 10 de vitesse, le héros immobile mourait en une dizaine de secondes.
+  - Il se tourne vers le héros à 4° par step au lieu d'instantanément, pour qu'un dash permette d'esquiver un coup.
+  - Un coup touche pendant la partie centrale de son animation (35 % à 85 %), dans la boîte du masque d'origine ; les masques image par image ne sont pas portés.
+  - L'invulnérabilité vaut pour toutes les armes ; dans le code, les battes de BatBot et les drones l'ignoraient.
+  - Mort : il n'a pas d'animation de mort dans l'original ; il explose avec le sprite `spr_explosion_robot` et laisse des débris de robot.
+- **Fin du niveau** : foreuses détruites et boss mort, dans n'importe quel ordre, puis écran de score 2,5 s plus tard. Le score reprend les statistiques de l'original ; la « Global note : 42 » codée en dur est retirée.
+- **Brouillard de guerre** : rectangles gris de l'original, levés quand le héros se tient devant une porte ouverte à fond qui les touche, avec le chaînage d'origine entre pièces. Ajout : un brouillard qui contient le héros se lève toujours, pour ne jamais jouer à l'aveugle.
+- **Lumières** (GD-011) : un voile sombre sur la vue, percé d'un halo par lampe du niveau, sans ombres portées. Assombrissement de 50 % au lieu de 60 %, et le héros porte une lueur propre, pour garder les combats lisibles. Seul le rez-de-chaussée a des lampes, comme dans l'original.
+
+**Pourquoi.** Achever le niveau tel que les consignes le décrivent, en restant jouable par une seule personne.
+
+**Conséquences.** Réglages dans `src/sim/config.ts` (`boss`, `drill`, `npcs.obj_sallyBot`) et `LIGHTING` dans `src/client/view/WorldView.ts`. L'équilibre du combat de boss n'a été vérifié que par des tests automatiques et un essai bref : c'est le premier point à faire juger par l'utilisateur.

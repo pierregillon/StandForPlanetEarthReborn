@@ -7,7 +7,7 @@ import {
   BLOCK_BULLET, BLOCK_MOVE, DEG, IS_WINDOW, angleDiff, boxNormal, distanceToRect, localToWorld, reflectAngle,
   rotateToward, segmentCircle,
 } from './geom.ts';
-import type { Bat, Drone, Explosion, Hero, Input, Npc, Turret, WindowPane } from './types.ts';
+import type { Bat, Drill, Drone, Explosion, Hero, Input, Npc, Turret, WindowPane } from './types.ts';
 import type { World } from './world.ts';
 
 const A = CONFIG.abilities;
@@ -170,6 +170,11 @@ function stepExplosions(world: World): void {
       e.hit.add(npc.id);
       if (!blockedByFrontShield(npc, e.x, e.y)) npc.hp -= e.damage;
     }
+    for (const drill of world.drills) {
+      if (e.hit.has(-drill.id) || Math.hypot(e.x - drill.x, e.y - drill.y) - drill.radius > e.radius) continue;
+      e.hit.add(-drill.id);
+      world.damageDrill(drill, e.damage);
+    }
     if (e.healFromStep >= 0 && e.step >= e.healFromStep && hero.state !== 'dead' && hero.hp < hero.def.maxHealth
       && Math.hypot(hero.x - e.x, hero.y - e.y) <= e.radius + hero.def.radius) {
       hero.healPool += A.petBot.healPerStep;
@@ -253,7 +258,7 @@ function stepTurret(world: World, t: Turret): void {
   let target: Npc | null = null;
   let best = A.engiBot.turretRange;
   for (const npc of world.npcs) {
-    if (npc.def.kind !== 'soldier') continue;
+    if (npc.def.kind === 'civil') continue;
     const d = Math.hypot(npc.x - t.x, npc.y - t.y);
     if (d <= best && !world.sightBlocked(t.x, t.y, npc.x, npc.y)) {
       best = d;
@@ -301,6 +306,11 @@ function swingHits(world: World, h: Hero): void {
   const c = Math.cos(h.angle);
   const s = Math.sin(h.angle);
   breakWindows(world, h.x, h.y, h.x + c * box.x1, h.y + s * box.x1);
+  for (const drill of world.drills) {
+    if (h.swingHit.has(-drill.id) || Math.hypot(h.x + c * box.x1 * 0.7 - drill.x, h.y + s * box.x1 * 0.7 - drill.y) - drill.radius > 40) continue;
+    h.swingHit.add(-drill.id);
+    world.damageDrill(drill, A.batBot.swingDamage);
+  }
   for (const npc of world.npcs) {
     if (h.swingHit.has(npc.id)) continue;
     const dx = npc.x - h.x;
@@ -440,6 +450,8 @@ function flyBat(world: World, b: Bat): void {
     world.emit({ type: 'impact', x: b.x, y: b.y, angle: b.angle, surface: 'npc' });
     stopBat(world, b);
   } else if (wall && limit <= 1) {
+    const drill = wall.obstacle.owner as Drill | null;
+    if (drill && drill.tag === 'drill') world.damageDrill(drill, world.hero.def.bullet.damage);
     // recule un peu pour ne pas rester dans le mur
     b.x -= Math.cos(b.angle) * 24;
     b.y -= Math.sin(b.angle) * 24;

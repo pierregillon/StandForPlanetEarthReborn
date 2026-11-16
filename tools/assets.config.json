@@ -7,9 +7,7 @@
   "excludeSprites": [
     "NanoBot",
     "RamBot",
-    "SallyBot",
     "^spr_hero[14]_",
-    "^spr_foreuse_(contours|faisceau)$",
     "^spr_sapin",
     "^spri?_car",
     "^spr_tapisRoulant_",
@@ -25,7 +23,6 @@
   "excludeSounds": [
     "NanoBot",
     "RamBot",
-    "SallyBot",
     "^snd_music_room1$"
   ]
 }
