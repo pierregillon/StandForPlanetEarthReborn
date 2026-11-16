@@ -110,6 +110,27 @@ export class Synth {
     this.boost = 1;
   }
 
+  /** Un ulti produit son effet (GD-044) : essaim, mur, lancer de grenade, puis son impulsion. */
+  ultiFx(kind: string): void {
+    this.boost = 2;
+    if (kind === 'PetBot') {
+      // l'essaim se déploie : un bourdonnement aigu qui s'ouvre
+      this.tone('triangle', 500, 1500, 0.5, 0.1);
+      this.tone('sine', 750, 2200, 0.5, 0.06, 0.05);
+    } else if (kind === 'BadaBot') {
+      // le mur se dresse : un claquement grave et sa résonance
+      this.tone('square', 60, 180, 0.12, 0.2);
+      this.tone('sine', 180, 360, 0.6, 0.12, 0.08);
+    } else if (kind === 'EngiBot') {
+      this.tone('square', 300, 140, 0.12, 0.12);
+    } else {
+      // l'impulsion électromagnétique : un claquement puis un sifflement qui s'effondre
+      this.tone('square', 1800, 90, 0.5, 0.14);
+      this.tone('sawtooth', 240, 40, 0.7, 0.16);
+    }
+    this.boost = 1;
+  }
+
   /** Point de sauvegarde : trois notes montantes. */
   checkpoint(): void {
     this.tone('sine', 523, 523, 0.25, 0.14);

@@ -40,7 +40,7 @@ function array(name: 'npcs' | 'doors' | 'buttons' | 'windows' | 'outlets' | 'car
   };
 }
 
-function spawned(name: 'bullets' | 'drones' | 'explosions' | 'bats', blank: () => Entity, coast: string[] = []): ListDef {
+function spawned(name: 'bullets' | 'drones' | 'explosions' | 'bats' | 'effects', blank: () => Entity, coast: string[] = []): ListDef {
   return {
     name, coast, blank,
     get: (w) => w[name] as unknown as Entity[],
@@ -111,6 +111,8 @@ export const LISTS: ListDef[] = [
   spawned('drones', () => ({})),
   spawned('explosions', () => ({ hit: new Set<number>() }), ['step']),
   spawned('bats', () => ({ hit: new Set<number>() })),
+  // effets d'ultis : le client fait avancer leur durée, et la grenade en vol, lui-même
+  spawned('effects', () => ({}), ['steps', 'x', 'y']),
   {
     name: 'turret',
     get: (w) => (w.turret ? [w.turret as unknown as Entity] : []),

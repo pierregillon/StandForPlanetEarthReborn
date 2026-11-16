@@ -34,7 +34,7 @@ export function createNpc(world: World, id: number, inst: LevelInstance, def: Np
     attackRange: soldier ? world.rng.int(soldier.attackRangeMin, soldier.attackRangeMax) : 0,
     ammo: soldier ? soldier.magazine : 0,
     fireTimer: 0, reloadTimer: 0, repathTimer: 0, surpriseTimer: 0, spotted: false, viewRange: N.viewRange,
-    alerted: false, alertX: 0, alertY: 0, alertTimer: 0,
+    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0,
     shieldHp: soldier && soldier.frontShield ? N.shieldHits : 0, shieldBroken: false,
     fear: false, fearTimer: 0, stateSteps: 0, walkDist: 0,
   };
@@ -52,6 +52,15 @@ export function stepNpcs(world: World): void {
     if (boss) guardBoss(boss);
     if (npc.hp <= 0) {
       world.killNpc(npc);
+      continue;
+    }
+    if (npc.stun > 0) {
+      // robot désactivé par la grenade d'EngiBot : il ne bouge plus, ne tire plus, et n'est plus protégé
+      npc.stun--;
+      if (boss) {
+        boss.invulnerable = false;
+        boss.guardedHp = npc.hp;
+      }
       continue;
     }
     if (boss) {

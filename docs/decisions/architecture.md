@@ -251,6 +251,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 **Conséquences.**
 
 - **Trafic mesuré** (deux joueurs en local, compression comprise) : environ 1,5 ko/s envoyés et 0,5 à 0,8 ko/s reçus par joueur, soit de l'ordre de 8 Mo par heure et par joueur. Le serveur l'affiche toutes les 10 s pendant une partie. En revanche chaque nouveau joueur télécharge une fois les images et les sons (87 Mo au total, au fil des salles) par la connexion de l'hôte : voir ADR-012.
+- Deux corrections après essai à distance (GD-044) : la distance de marche du robot prédit n'est plus recomptée à chaque instantané (animation saccadée) ; les chaises glissent entre deux instantanés. Pousser une chaise garde le délai du réseau : c'est le serveur qui la déplace.
 - 6 tests sans navigateur : `src/net/net.test.ts` fait jouer un salon et deux clients simulés (prédiction, miroir, changement de salle, Retry, départ d'un joueur).
 - Ajouter un champ à une entité le synchronise d'office ; s'il change à chaque step sans servir à l'affichage, l'ajouter aux exclusions de `LISTS` (`lobby.traffic()` donne les champs les plus envoyés).
 - Outil de développement : `sfpeDebug.teleport` fonctionne en réseau si le serveur est lancé avec `SFPE_DEBUG=1` ; à ne jamais activer sur un serveur ouvert.
@@ -268,4 +269,6 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 
 **Pourquoi.** Partir des images d'origine garantit les proportions, les couleurs et l'origine du robot. Un outil rejouable vaut mieux que des fichiers retouchés à la main : on ajuste une valeur et tout est régénéré à l'identique (hasard à graine fixe).
 
-**Conséquences.** Les poses sont limitées à ce que l'original a dessiné : l'outil réagence et habille, il ne dessine pas de nouvelle pose de robot. 1,7 Mo pour l'ulti de BatBot. Les trois autres ultis suivront la même voie.
+**Conséquences.** Les poses sont limitées à ce que l'original a dessiné : l'outil réagence et habille, il ne dessine pas de nouvelle pose de robot. 4 Mo pour les quatre ultis.
+
+**Règle ajoutée par GD-044.** Le sprite d'un robot ne contient que le robot. Les effets (énergie, poussière, ondes) sont des sprites séparés, dessinés en blanc quand ils doivent prendre la couleur du robot, et superposés par le jeu. On planche d'abord l'animation sur une planche-contact avant de l'essayer en jeu.

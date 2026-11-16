@@ -135,7 +135,8 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 - [x] Lumières avec ombres portées et couleurs (GD-038).
 - [x] Multijoueur en ligne, première version : salon, 4 joueurs au plus, résurrection (GD-039, GD-040, ADR-014).
 - [x] Link entre héros, surcharge sans paliers, attaque ultime de BatBot (GD-043).
-- [ ] Ultis de PetBot (nanomachines), BadaBot (mur) et EngiBot (grenade électromagnétique), avec leurs sprites.
+- [x] Ultis de PetBot (nanomachines), BadaBot (mur) et EngiBot (grenade électromagnétique), avec leurs sprites (GD-044).
+- [ ] Équilibrage des ultis et du boss après essais à plusieurs.
 - [ ] Multijoueur public : plusieurs parties à la fois, reconnexion, hébergement, assets allégés.
 - Non planifié : manette, autres mondes, autres héros.
 
@@ -160,3 +161,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-16 | Retours du premier essai à deux (GD-041) : vignettes des coéquipiers, collision légère, balles qui traversent les alliés, animations complètes de tous les robots, lumière qui perce le brouillard, lueur de chaque joueur, départ à 5 s, chargement synchronisé. 57 tests. |
 | 2026-11-16 | Balles de PetBot sans soin ; HUD allégé (plus de chiffres ni d'indicateurs de dash), avatars des coéquipiers identiques au sien et collés à sa droite (GD-042). 57 tests. |
 | 2026-11-16 | Link entre héros (touche A), surcharge sans paliers, bornes partagées selon le nombre de joueurs, attaque ultime (touche F, 2 s de lancement) ; ulti de BatBot avec ses sprites fabriqués par `tools/make-sprites.ts` (GD-043, ADR-015). 65 tests. |
+| 2026-11-16 | Les quatre ultis (GD-044) : postures de lancement stables, effets séparés des sprites de robot, essaim de PetBot, mur de BadaBot, grenade d'EngiBot ; lien deux fois plus rapide ; avatar « ulti prêt » ; animation à distance corrigée. 68 tests. |

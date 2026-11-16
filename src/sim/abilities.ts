@@ -29,7 +29,7 @@ function spendEnergy(world: World, h: Hero, amount: number): void {
 
 /** Le robot bouclier ne craint que ce qui vient de l'arrière (cône de ±40°). */
 export function blockedByFrontShield(npc: Npc, fromX: number, fromY: number): boolean {
-  if (npc.def.kind !== 'soldier' || !npc.def.frontShield || npc.shieldHp <= 0) return false;
+  if (npc.def.kind !== 'soldier' || !npc.def.frontShield || npc.shieldHp <= 0 || npc.stun > 0) return false;
   const toSource = Math.atan2(fromY - npc.y, fromX - npc.x);
   if (Math.abs(angleDiff(npc.angle, toSource)) >= SHIELD_ARC) return false;
   // le bouclier encaisse le coup et s'use ; brisé, il ne protège plus (GD-029)

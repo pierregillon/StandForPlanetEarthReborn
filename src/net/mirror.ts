@@ -6,9 +6,9 @@
 import { CONFIG } from '../sim/config.ts';
 import { BLOCK_BULLET, IS_WINDOW, angleDiff } from '../sim/geom.ts';
 import { steerHero } from '../sim/hero.ts';
-import { ULTI_ACTION, placeLeap } from '../sim/ulti.ts';
+import { ULTI_ACTION, ULTI_CAST, dropWall, placeGrenade, placeLeap, raiseWall } from '../sim/ulti.ts';
 import { createSession } from '../sim/session.ts';
-import type { Bullet, Chair, Door, Hero, Input, LevelData, SimEvent, SpriteManifest, WindowPane } from '../sim/types.ts';
+import type { Bullet, Chair, Door, Hero, Input, LevelData, SimEvent, SpriteManifest, UltiEffect, WindowPane } from '../sim/types.ts';
 import { World } from '../sim/world.ts';
 import { SNAPSHOT_EVERY, packInput, unpackInput } from './messages.ts';
 import type { RoomStart } from './messages.ts';
@@ -16,7 +16,7 @@ import { SnapshotDecoder } from './snapshot.ts';
 import type { Entity, Snapshot } from './snapshot.ts';
 
 /** Listes dont les entités glissent d'une position reçue à la suivante. */
-const GLIDING = new Set(['heroes', 'npcs', 'bats', 'drones', 'turret']);
+const GLIDING = new Set(['heroes', 'npcs', 'bats', 'drones', 'turret', 'chairs']);
 /** Durée du glissement : un peu plus que l'écart entre deux instantanés, pour absorber leur irrégularité. */
 const GLIDE_MS = (SNAPSHOT_EVERY * 1000 / 60) * 1.25;
 /** Au-delà de cet écart, l'entité est placée d'un coup (apparition, changement de salle). */
@@ -84,17 +84,22 @@ export class Mirror {
         else if (list === 'chairs' && (keys.includes('x') || keys.includes('y'))) this.moveChair(e as unknown as Chair);
         else if (list === 'windows' && keys.includes('broken')) (e as unknown as WindowPane).obstacle.flags &= ~IS_WINDOW;
         else if (list === 'bullets') e.spent = false;
+        else if (list === 'effects' && e.kind === 'wall') raiseWall(world, e as unknown as UltiEffect);
       },
-      removed: (_list, e) => {
+      removed: (list, e) => {
         this.glides.delete(e);
+        if (list === 'effects') dropWall(world, e as unknown as UltiEffect);
       },
     });
     for (const e of events) world.emit(e);
 
     // mon héros : on repart de l'état du serveur et on rejoue les entrées qu'il n'a pas encore vues
     this.pending = this.pending.filter((p) => p.q > ack);
+    // la distance de marche anime le robot : rejouer les entrées ne doit pas la recompter (animation saccadée)
+    const walked = this.hero.walkDist;
     Object.assign(mine, this.shadow);
     for (const p of this.pending) this.predict(p.input);
+    this.hero.walkDist = walked;
     this.ready = true;
   }
 
@@ -115,11 +120,13 @@ export class Mirror {
     else g.a1 = value;
   }
 
+  /** L'obstacle d'une chaise va tout de suite là où le serveur la place ; son image, elle, y glisse. */
   private moveChair(chair: Chair): void {
     const o = chair.obstacle;
+    const glide = this.glides.get(chair as unknown as Entity);
     this.world.collision.update(o, () => {
-      o.cx = chair.x + chair.offsetX;
-      o.cy = chair.y + chair.offsetY;
+      o.cx = (glide ? glide.x1 : chair.x) + chair.offsetX;
+      o.cy = (glide ? glide.y1 : chair.y) + chair.offsetY;
     });
   }
 
@@ -127,14 +134,14 @@ export class Mirror {
   private predict(input: Input): void {
     const h = this.hero;
     if (h.gone || h.state === 'dead' || h.arrivalSteps > 0 || h.deploySteps > 0 || h.reviving >= 0) return;
-    if (h.ultiPhase > 0) {
-      // ulti : immobile pendant le lancement ; le bond de BatBot, lui, se calcule ici comme sur le serveur
-      if (h.ultiPhase === ULTI_ACTION) {
-        h.ultiSteps++;
-        placeLeap(h);
-      }
+    if (h.ultiPhase === ULTI_CAST) return; // immobile pendant le lancement
+    if (h.ultiPhase === ULTI_ACTION) {
+      // le bond de BatBot se calcule ici comme sur le serveur
+      h.ultiSteps++;
+      placeLeap(h);
       return;
     }
+    if (h.ultiPhase > 0) return;
     steerHero(this.world, h, input);
     if (h.state !== 'firing1' && h.state !== 'firing2') h.state = h.moving ? 'walking' : 'standing';
   }
@@ -154,6 +161,14 @@ export class Mirror {
     for (const b of this.world.bullets) this.coast(b);
     for (const e of this.world.explosions) if (e.step < e.totalSteps - 1) e.step++;
     // compteurs d'animation : ils avancent d'un par step, le serveur ne les renvoie que quand ils repartent
+    for (const e of this.world.effects) {
+      e.steps++;
+      if (e.kind === 'emp') placeGrenade(e);
+      else if (e.kind === 'nanos' && this.world.heroes[e.owner]) {
+        e.x = this.world.heroes[e.owner].x;
+        e.y = this.world.heroes[e.owner].y;
+      }
+    }
     for (const npc of this.world.npcs) npc.stateSteps++;
     for (const h of this.world.heroes) h.sinceShot++;
     if (typeof this.shadow.sinceShot === 'number') this.shadow.sinceShot++;

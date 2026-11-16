@@ -872,7 +872,7 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 ## GD-043 — Le link entre héros, la surcharge et l'attaque ultime
 
 - **Date** : 2026-11-16
-- **Statut** : Acceptée — première étape livrée (link, surcharge, ulti de BatBot) ; les trois autres ultis restent à faire
+- **Statut** : Acceptée — complétée et ajustée par GD-044 (les quatre ultis, débit du lien doublé, sprites refaits)
 - **Décidée par** : l'utilisateur, après discussion ; choix par défaut pour les valeurs chiffrées et les points marqués « par défaut »
 
 **Contexte.** Le link est la « main feature » du document de design : donner son énergie à un coéquipier. Le code de 2019 en avait une version minimale (touche maintenue, 1 énergie par seconde, sans perte) et le remake l'avait repoussé (GD-002). L'utilisateur le reconçoit avec une conséquence nouvelle : la surcharge ne renforce plus le tir secondaire, elle donne accès à une attaque ultime.
@@ -911,3 +911,40 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Lié, on produit plus d'énergie que séparé : le link a un intérêt immédiat, et un prix lisible pour celui qui donne. L'ulti donne un but commun à cette énergie, plus spectaculaire que des tirs secondaires renforcés.
 
 **Conséquences.** Contenu retiré : les niveaux 2 à 4 des drones, de la tourelle et des battes (explosives, perçantes) ne sont plus accessibles. Réglages : `link` et `ulti` dans `src/sim/config.ts`. 8 tests dans `src/sim/link.test.ts`. Vérifié à l'écran à deux onglets : faisceau, lancement, bond, atterrissage. **À éprouver en jeu** : le rythme (à deux, un ulti toutes les 20 s environ si l'on reste liés de près), les dégâts de l'ulti, la lisibilité du ciblage quand deux coéquipiers sont dans le même axe.
+
+## GD-044 — Les quatre ultis, postures de lancement, lien plus rapide, avatar « ulti prêt »
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — à éprouver en jeu
+- **Décidée par** : l'utilisateur (retour d'essai à trois joueurs) ; choix par défaut pour les valeurs chiffrées et les points marqués « par défaut »
+
+**Contexte.** Premier essai du link et de l'ulti de BatBot (GD-043), à trois joueurs. Retours : l'animation de lancement gesticule trop (BatBot rangeait ses battes), la surcharge monte trop lentement, on ne voit pas assez qu'un ulti est prêt, et il faut les ultis des trois autres robots.
+
+**Décision.**
+
+- **Posture de lancement** : le robot prend une pose de concentration et la tient, presque immobile. BatBot garde ses battes en main, levées, prêt à frapper. L'énergie qui se concentre autour de lui est inchangée.
+- **Atterrissage de BatBot** : l'explosion des battes d'avant (GD-031), que l'utilisateur aimait, plus un nuage de poussière qui le cache un instant et se dissipe vite. L'anneau de choc magenta est conservé : il montre le rayon réel du coup.
+- **Lien deux fois plus rapide** : toute l'équipe liée de près apporte 1 point toutes les 0,75 s. Par lien : 0,75 s à deux joueurs, 1,5 s à trois, 2,25 s à quatre. De 3 à 12 d'énergie, tous liés de près : environ 7 s.
+- **Avatar « ulti prêt »** : quand un robot atteint la pleine surcharge, son cadre d'énergie est parcouru d'arcs électriques bleus et son portrait brille, sur son avatar comme sur ceux de ses coéquipiers.
+- **PetBot — essaim de nanomachines** : pendant 8 s, un essaim le suit et soigne tous les alliés à moins de 420 px (1,5 PV par seconde), lui compris. PetBot reste libre de bouger et de tirer.
+  - *Par défaut* : l'essaim ne relève pas les robots à terre ; il se disperse si PetBot tombe.
+- **BadaBot — mur d'énergie** : pendant 8 s, un mur de 540 px se dresse à 150 px devant lui, en travers de sa visée.
+  - *Par défaut* : il arrête les déplacements et les balles, dans les deux sens et pour tout le monde (alliés compris), mais pas le regard : on voit à travers, et un lien entre héros passe. Ceux qui se trouvent à son emplacement sont repoussés. Les ennemis le contournent.
+- **EngiBot — grenade électromagnétique** : elle vole vers le point visé (760 px au plus, arrêtée par un mur) puis éclate ; les robots ennemis à moins de 750 px sont désactivés 6 s. Aucun effet sur les humains ni sur l'équipe.
+  - *Par défaut* : l'impulsion traverse les murs ; un robot désactivé ne bouge plus, ne tire plus, et son bouclier frontal ne le protège plus ; le boss, robot lui aussi, est désactivé comme les autres (l'utilisateur prévoit de le renforcer).
+
+**Sprites** (question de l'utilisateur : faut-il mettre les effets dans le sprite du robot ?). Non, et c'est corrigé : le sprite d'un robot ne contient plus que le robot. Les effets sont des sprites à part, dessinés en blanc, que le jeu teinte à la couleur du robot (magenta pour BatBot, vert pour PetBot, violet pour BadaBot, bleu pour EngiBot) et superpose, un calque sous le robot et un par-dessus. Les mêmes effets servent ainsi aux quatre robots, on peut les régler sans refaire les poses, et ils suivent la durée réelle du lancement.
+
+| Sprite | Images | Construit à partir de |
+|---|---|---|
+| `spr_<Robot>_ulti_cast` (×4) | 16, à 8 par seconde (2 s) | BatBot : l'armé de son coup de batte ; BadaBot : son lever de bouclier ; EngiBot : son lancer de tourelle ; PetBot : son arme qui se réarme |
+| `spr_ulti_charge`, `spr_ulti_charge_top` | 30, à 15 par seconde | dessinés en blanc : croissants qui se resserrent, étincelles aspirées, éclat final |
+| `spr_ulti_dust` | 14, à 20 par seconde | dessiné : volutes de poussière |
+| `spr_BatBot_ulti_leap`, `_blast`, `_crater` | 8, 14 et 1 | inchangés (GD-043), sans teinte ajoutée au robot |
+| `spr_PetBot_ulti_nanos` | 24, à 24 par seconde, en boucle | dessiné en blanc : 64 nanomachines en orbite |
+| `spr_BadaBot_ulti_wall` | 12, à 12 par seconde, en boucle | dessiné aux couleurs de BadaBot : lame d'énergie entre deux plots |
+| `spr_EngiBot_ulti_grenade`, `_pulse` | 8 et 16 | dessinés : cartouche qui tourne, anneaux d'éclairs |
+
+**Pourquoi.** Une pose tenue se lit mieux qu'un geste, et laisse la vedette à l'énergie qui monte. Les trois nouveaux ultis donnent à chaque robot un rôle d'équipe : frapper, soigner, protéger, neutraliser.
+
+**Conséquences.** Réglages : `ulti` et `link` dans `src/sim/config.ts` ; couleurs dans `ULTI_COLORS` (`WorldView.ts`). 4 Mo de sprites fabriqués. 3 tests de plus (68). Vu à l'écran en solo : l'avatar « ulti prêt », l'essaim de PetBot et son soin, le mur de BadaBot, la grenade d'EngiBot et les robots désactivés, le début de l'atterrissage de BatBot. **Pas vu en mouvement** (le navigateur de contrôle tournait au ralenti) : la dissipation du nuage de poussière et la fluidité des animations. **À éprouver** : la durée des effets, le soin de l'essaim (jusqu'à 12 PV en 8 s), le mur qui bloque aussi les alliés, la désactivation du boss.

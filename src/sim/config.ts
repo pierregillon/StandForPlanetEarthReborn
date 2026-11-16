@@ -312,17 +312,25 @@ export const CONFIG = {
     /** Écart toléré entre la ligne de visée et le coéquipier qu'on veut lier. */
     aimWidth: 170,
     /**
-     * Steps par point d'énergie reçu quand toute l'équipe est liée de près au même robot : 1,5 s, contre 2 s
-     * pour la régénération naturelle d'un seul. Chaque lien porte sa part (ce délai multiplié par le nombre de
+     * Steps par point d'énergie reçu quand toute l'équipe est liée de près au même robot : 0,75 s (doublé par
+     * GD-044), contre 2 s pour la régénération naturelle d'un seul. Chaque lien porte sa part (ce délai multiplié par le nombre de
      * coéquipiers), si bien qu'à deux joueurs un lien débite autant que trois liens à quatre.
      */
-    teamStepsPerEnergy: s(1.5),
+    teamStepsPerEnergy: s(0.75),
   },
   /** Attaque ultime (GD-043) : à pleine surcharge, 2 s de lancement immobile, puis le coup. */
   ulti: {
     castSteps: s(2),
+    /** Après le coup, le robot met un instant à reprendre la main. */
+    recoverSteps: 24,
     /** BatBot : bond vers le point visé, explosion à l'atterrissage. */
-    batBot: { range: 760, leapSteps: 26, radius: 360, damage: 14, recoverSteps: 24 },
+    batBot: { range: 760, leapSteps: 26, radius: 360, damage: 14 },
+    /** PetBot : l'essaim de nanomachines le suit et soigne tous les alliés dans son rayon. */
+    petBot: { steps: s(8), radius: 420, healPerStep: 1.5 / STEPS_PER_SECOND },
+    /** BadaBot : mur d'énergie dressé devant lui, en travers de sa visée. */
+    badaBot: { steps: s(8), distance: 150, halfLength: 270, halfThickness: 24 },
+    /** EngiBot : la grenade vole puis éclate ; les robots ennemis du rayon sont désactivés. */
+    engiBot: { range: 760, flySteps: 34, pulseSteps: 45, radius: 750, stunSteps: s(6) },
   },
   /** Résurrection d'un coéquipier à terre (scr_resurectAllie de l'original ; l'invulnérabilité au réveil est ajoutée). */
   revive: { range: 100, steps: s(3), energyCost: 3, hp: 3, invulnSteps: s(1.5) },

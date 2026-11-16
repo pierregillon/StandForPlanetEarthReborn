@@ -134,6 +134,9 @@ test('en jeu : les miroirs suivent le serveur, mon robot est prédit sans attend
   assert.ok(Math.abs(a.mirror.world.heroes[0].x - sx) < 0.5, `prédiction et serveur d'accord (${a.mirror.world.heroes[0].x} / ${sx})`);
   assert.ok(Math.abs(b.mirror.world.heroes[0].x - sx) < 0.5, 'l\'autre joueur le voit au même endroit');
   assert.ok(Math.abs(a.mirror.world.heroes[0].angle - world.heroes[0].angle) < 0.02);
+  // la distance de marche (qui anime le robot) ne doit pas etre recomptee a chaque instantane
+  const walked = world.heroes[0].walkDist;
+  assert.ok(Math.abs(a.mirror.world.heroes[0].walkDist - walked) < walked * 0.1, `distance de marche : ${a.mirror.world.heroes[0].walkDist} chez le client, ${walked} sur le serveur`);
 
   // le reste du monde est le même partout
   assert.equal(a.mirror.world.npcs.length, world.npcs.length);

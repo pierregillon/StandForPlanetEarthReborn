@@ -17,9 +17,10 @@ import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, GROUND_FLOOR, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
 import type { Session } from './session.ts';
 import { NO_INPUT } from './types.ts';
+import { clearEffects, stepEffects } from './ulti.ts';
 import type {
   Bat, Bullet, Button, Card, Chair, Checkpoint, DecorItem, Door, Drill, Drone, Explosion, Fog, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
-  SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, WindowPane, Zone,
+  SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, UltiEffect, WindowPane, Zone,
 } from './types.ts';
 
 const FALLBACK_SPRITE: SpriteInfo = {
@@ -67,6 +68,8 @@ export class World {
   drones: Drone[] = [];
   explosions: Explosion[] = [];
   bats: Bat[] = [];
+  /** Effets d'ultis en cours : essaim, mur, grenade. */
+  effects: UltiEffect[] = [];
   turret: Turret | null = null;
   doors: Door[] = [];
   buttons: Button[] = [];
@@ -344,6 +347,7 @@ export class World {
   enter(previousTeam: Hero[] | null, spawnNumber: number): void {
     this.heroes = this.heroes.map((old, slot) => this.enterHero(old, previousTeam?.[slot] ?? null, spawnNumber));
     // ce que l'équipe avait laissé derrière elle dans cette salle ne l'attend pas
+    clearEffects(this);
     this.bats.length = 0;
     this.drones.length = 0;
     this.bullets.length = 0;
@@ -572,6 +576,7 @@ export class World {
     this.stepDoors();
     this.stepBullets();
     stepAbilityObjects(this);
+    stepEffects(this);
     this.stepZones();
     this.stepFogs();
     this.stepObjectives();

@@ -5,6 +5,7 @@ import { frameKey } from '../assets.ts';
 import { CONFIG } from '../../sim/config.ts';
 import { donorsOf } from '../../sim/link.ts';
 import { ultiReady } from '../../sim/ulti.ts';
+import type { Hero } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
 const DEPTH = 10000;
@@ -35,6 +36,8 @@ export class Hud {
   /** Noms des joueurs, par rang de héros (partie en réseau). */
   playerNames: string[] = [];
   private readonly bossBar: Phaser.GameObjects.Graphics;
+  /** Arcs électriques autour de l'avatar d'un robot dont l'ulti est prêt. */
+  private readonly ready: Phaser.GameObjects.Graphics;
   private readonly cardIcons = new Map<string, Phaser.GameObjects.Image>();
   private noticeUntil = 0;
 
@@ -72,6 +75,7 @@ export class Hud {
       fontFamily: 'Aldo', fontSize: '24px', color: '#ffe36b', wordWrap: { width: 500 }, ...OUTLINE, strokeThickness: 4,
     }).setScrollFactor(0).setDepth(DEPTH);
     this.bossBar = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH);
+    this.ready = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH + 4);
     // compte à rebours de sortie du niveau, en haut de l'écran comme obj_countdown_GUI
     this.countdown = scene.add.text(width / 2, height / 8, '', {
       fontFamily: 'Aldo', fontSize: '60px', color: '#e04348', align: 'center', ...OUTLINE,
@@ -116,7 +120,7 @@ export class Hud {
       const x = AVATAR_X + rank * AVATAR_SPACING;
       const dead = o.state === 'dead';
       card.bar?.setX(x).setTexture(frameKey('spr_healthBar', Math.max(0, Math.min(12, o.energy))));
-      card.portrait?.setX(x).setTint(dead ? 0x555555 : 0xffffff);
+      card.portrait?.setX(x).setTint(dead ? 0x555555 : this.shine(o, x));
       if (card.portrait && card.damage) {
         const missing = dead ? 0 : 1 - o.hp / o.def.maxHealth;
         const fh = card.portrait.height;
@@ -125,6 +129,36 @@ export class Hud {
       card.label.setX(x - 6).setText((this.playerNames[o.id] ?? o.def.name).toUpperCase()).setColor(dead ? '#ff6b6b' : '#ffffff');
     }
     return rank;
+  }
+
+  /**
+   * Ulti prêt (GD-044) : le cadre d'énergie de l'avatar « flambe » d'arcs électriques bleus et le portrait
+   * brille. Retourne la teinte à donner au portrait (blanc quand l'ulti n'est pas prêt).
+   */
+  private shine(h: Hero, x: number): number {
+    if (!ultiReady(h)) return 0xffffff;
+    const g = this.ready;
+    const y = this.scene.scale.height - 116;
+    const cx = x - 6;
+    const cy = y - 8;
+    const now = this.scene.time.now;
+    // halo qui bat sous les arcs
+    g.fillStyle(0x4fb8ff, 0.1 + 0.08 * Math.sin(now / 120)).fillCircle(cx, cy, 104);
+    for (let k = 0; k < 7; k++) {
+      // chaque arc court le long du cadre et se tord : il est redessiné à chaque image
+      let a = (now / 260 + k * 0.9) % (Math.PI * 2);
+      const white = k % 3 === 0;
+      g.lineStyle(white ? 2.5 : 4, white ? 0xffffff : 0x4fb8ff, white ? 0.95 : 0.8).beginPath();
+      g.moveTo(cx + Math.cos(a) * 88, cy + Math.sin(a) * 88);
+      for (let j = 0; j < 5; j++) {
+        a += 0.13 + Math.random() * 0.1;
+        const r = 84 + Math.random() * 22;
+        g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      }
+      g.strokePath();
+    }
+    // le portrait brille : il oscille entre sa couleur et un bleu très clair
+    return Math.sin(now / 90) > 0 ? 0xffffff : 0xbfe9ff;
   }
 
   notify(text: string): void {
@@ -142,9 +176,11 @@ export class Hud {
       const missing = 1 - h.hp / h.def.maxHealth;
       const fh = this.portrait.height;
       this.damage.setVisible(missing > 0).setCrop(0, fh * (1 - missing), this.portrait.width, fh * missing);
-      if (h.state === 'dead') this.portrait.setTint(0x555555);
+
     }
     // les cartes d'accès trouvées s'affichent à droite du dernier avatar
+    this.ready.clear();
+    this.portrait?.setTint(h.state === 'dead' ? 0x555555 : this.shine(h, AVATAR_X));
     const avatars = 1 + this.updateMates();
     let cardX = AVATAR_X + (avatars - 1) * AVATAR_SPACING + 150;
     for (const [color, icon] of this.cardIcons) {

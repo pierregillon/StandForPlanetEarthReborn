@@ -75,7 +75,7 @@ const ORB_SHIELD_X = [141, 158, 158, 147];
 function orbOffset(bodySprite: string, frame: number): { x: number; y: number } {
   const i = Math.max(0, Math.floor(frame));
   if (bodySprite === 'spr_BadaBot_move') return { x: 0, y: ORB_WALK_Y[i % ORB_WALK_Y.length] - 137 };
-  if (bodySprite === 'spr_BadaBot_fire2') return { x: ORB_SHIELD_X[Math.min(i, ORB_SHIELD_X.length - 1)] - 141, y: 0 };
+  if (bodySprite === 'spr_BadaBot_fire2' || bodySprite === 'spr_BadaBot_ulti_cast') return { x: ORB_SHIELD_X[Math.min(i, ORB_SHIELD_X.length - 1)] - 141, y: 0 };
   return { x: 0, y: 0 };
 }
 /** Logement de la munition sur l'arme de chaque robot, dans le repère de son sprite. */
@@ -130,7 +130,18 @@ interface HeroParts {
   glow: Img | null;
   shadow: Phaser.GameObjects.Ellipse | null;
   airborne: boolean;
+  /** Énergie qui se concentre pendant le lancement : un calque sous le robot, un par-dessus. */
+  chargeUnder: Img | null;
+  chargeTop: Img | null;
 }
+
+/** Couleur de l'énergie de chaque robot quand il lance son ulti : teinte principale et reflet. */
+const ULTI_COLORS: Record<string, { main: number; light: number }> = {
+  BatBot: { main: 0xfe00d1, light: 0xff84e8 },
+  PetBot: { main: 0x3dff7a, light: 0xc4ffd6 },
+  BadaBot: { main: 0x8a6cff, light: 0xd9c8ff },
+  EngiBot: { main: 0x4fb8ff, light: 0xd4f0ff },
+};
 
 /** Brins d'un arc d'énergie, du plus large (halo) au plus fin (cœur). */
 interface BeamStrand {
@@ -162,6 +173,8 @@ export class WorldView {
   private readonly droneImgs = new Map<number, Img>();
   private readonly explosionImgs = new Map<number, Img>();
   private readonly batImgs = new Map<number, Img>();
+  /** Effets d'ultis en cours : image principale et, selon l'effet, une seconde (zone de soin, impulsion). */
+  private readonly effectImgs = new Map<number, { main: Img; extra: Img | Phaser.GameObjects.Arc | null }>();
   private turretImg: Img | null = null;
   private fogLayer!: Phaser.GameObjects.RenderTexture;
   private readonly drillParts = new Map<number, { contours: Img | null; beam: Img | null }>();
@@ -389,7 +402,7 @@ export class WorldView {
       p = {
         legs: this.image(h.def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
         body: this.image(h.def.sprites.stand, 0, h.x, h.y, DEPTH.character),
-        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false,
+        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, chargeUnder: null, chargeTop: null,
       };
       this.parts.set(h.id, p);
     }
@@ -412,6 +425,8 @@ export class WorldView {
       for (const aura of p.auras) aura.setVisible(false);
       p.glow?.setVisible(false);
       p.shadow?.setVisible(false);
+      p.chargeUnder?.setVisible(false);
+      p.chargeTop?.setVisible(false);
     }
     this.syncTag(h, p, shown && !local);
     if (!shown) return;
@@ -460,13 +475,27 @@ export class WorldView {
    */
   private syncUlti(h: Hero, p: HeroParts): void {
     const scene = this.scene;
-    if (h.ultiPhase === ULTI_CAST) {
+    const casting = h.ultiPhase === ULTI_CAST;
+    if (casting && scene.textures.exists(frameKey('spr_ulti_charge', 0))) {
+      const colors = ULTI_COLORS[h.def.kind] ?? ULTI_COLORS.BatBot;
       this.ensureHalo();
-      p.glow ??= scene.add.image(h.x, h.y, 'lightHalo').setBlendMode(Phaser.BlendModes.ADD).setTint(0xfe00d1).setDepth(DEPTH.legs - 1);
+      p.glow ??= scene.add.image(h.x, h.y, 'lightHalo').setBlendMode(Phaser.BlendModes.ADD).setTint(colors.main).setDepth(DEPTH.legs - 1);
+      // l'énergie est un sprite à part, blanc, teinté à la couleur du robot : un calque dessous, un dessus
+      p.chargeUnder ??= this.image('spr_ulti_charge', 0, h.x, h.y, DEPTH.legs - 0.5).setTint(colors.main);
+      p.chargeTop ??= this.image('spr_ulti_charge_top', 0, h.x, h.y, DEPTH.character + 2).setTint(colors.light);
       const k = Math.min(1, h.ultiSteps / CONFIG.ulti.castSteps);
+      const frame = k * (this.info('spr_ulti_charge').frames - 1);
+      // les robots n'ont pas tous la même taille : l'énergie s'ajuste à leur rayon
+      const scale = Math.max(0.8, h.def.radius / 62);
+      this.setFrame(p.chargeUnder, 'spr_ulti_charge', frame);
+      this.setFrame(p.chargeTop, 'spr_ulti_charge_top', frame);
+      p.chargeUnder.setVisible(true).setPosition(h.x, h.y).setScale(scale);
+      p.chargeTop.setVisible(true).setPosition(h.x, h.y).setScale(scale);
       p.glow.setVisible(true).setPosition(h.x, h.y).setScale(0.9 + 2.6 * k + 0.14 * Math.sin(scene.time.now / 45)).setAlpha(0.25 + 0.55 * k);
     } else {
       p.glow?.setVisible(false);
+      p.chargeUnder?.setVisible(false);
+      p.chargeTop?.setVisible(false);
     }
     const leaping = h.ultiPhase === ULTI_ACTION && h.def.kind === 'BatBot';
     if (leaping) {
@@ -657,17 +686,19 @@ export class WorldView {
   /** Sprite et image du corps du héros selon son état. */
   private heroPose(h: Hero): { sprite: string; frame: number } {
     const def = h.def;
-    // ulti de BatBot : lancement, bond en tournoyant, puis coup d'atterrissage (sprites fabriqués, GD-043)
-    if (h.ultiPhase > 0 && def.kind === 'BatBot' && this.scene.textures.exists(frameKey('spr_BatBot_ulti_cast', 0))) {
-      if (h.ultiPhase === ULTI_CAST) {
-        return { sprite: 'spr_BatBot_ulti_cast', frame: (h.ultiSteps / CONFIG.ulti.castSteps) * this.info('spr_BatBot_ulti_cast').frames };
-      }
+    // lancement d'un ulti : la posture de concentration propre au robot (sprites fabriqués, GD-044)
+    const cast = `spr_${def.name}_ulti_cast`;
+    if (h.ultiPhase === ULTI_CAST && this.scene.textures.exists(frameKey(cast, 0))) {
+      return { sprite: cast, frame: (h.ultiSteps / CONFIG.ulti.castSteps) * this.info(cast).frames };
+    }
+    // BatBot : bond en tournoyant, puis coup d'atterrissage
+    if (h.ultiPhase > 0 && def.kind === 'BatBot' && this.scene.textures.exists(frameKey('spr_BatBot_ulti_leap', 0))) {
       if (h.ultiPhase === ULTI_ACTION) {
         const leap = this.info('spr_BatBot_ulti_leap');
         return { sprite: 'spr_BatBot_ulti_leap', frame: ((this.scene.time.now / 1000) * leap.speed) % leap.frames };
       }
       if (h.ultiPhase === ULTI_RECOVER) {
-        return { sprite: 'spr_BatBot_fire1_d', frame: (h.ultiSteps / CONFIG.ulti.batBot.recoverSteps) * this.info('spr_BatBot_fire1_d').frames };
+        return { sprite: 'spr_BatBot_fire1_d', frame: (h.ultiSteps / CONFIG.ulti.recoverSteps) * this.info('spr_BatBot_fire1_d').frames };
       }
     }
     if (h.deploySteps > 0) {
@@ -783,6 +814,65 @@ export class WorldView {
       (b) => this.image(`spr_batte_BatBot_${b.side}`, 0, b.x, b.y, DEPTH.bullet),
       (img, b) => this.syncBat(img, b));
     this.syncTurret(world.turret);
+    this.syncEffects();
+  }
+
+  /** Effets laissés par les ultis (GD-044) : essaim de PetBot, mur de BadaBot, grenade d'EngiBot. */
+  private syncEffects(): void {
+    const scene = this.scene;
+    const now = scene.time.now / 1000;
+    const alive = new Set<number>();
+    for (const e of this.world.effects) {
+      alive.add(e.id);
+      let parts = this.effectImgs.get(e.id);
+      // les dernières images : l'effet s'efface au lieu de disparaître d'un coup
+      const fade = Math.min(1, (e.total - e.steps) / 30, e.steps / 10);
+      if (e.kind === 'nanos') {
+        const colors = ULTI_COLORS.PetBot;
+        parts ??= {
+          main: this.image('spr_PetBot_ulti_nanos', 0, e.x, e.y, DEPTH.fx + 3).setTint(colors.light),
+          extra: scene.add.circle(e.x, e.y, e.radius, colors.main).setDepth(DEPTH.remains + 1),
+        };
+        const info = this.info('spr_PetBot_ulti_nanos');
+        this.setFrame(parts.main, 'spr_PetBot_ulti_nanos', (now * info.speed) % info.frames);
+        // la couronne dessinée va jusqu'à 246 px du centre : on l'ajuste au rayon de soin
+        parts.main.setPosition(e.x, e.y).setScale(e.radius / 246).setAlpha(fade);
+        parts.extra?.setPosition(e.x, e.y).setAlpha(0.07 * fade + 0.02 * Math.sin(now * 5));
+      } else if (e.kind === 'wall') {
+        parts ??= { main: this.image('spr_BadaBot_ulti_wall', 0, e.x, e.y, DEPTH.door + 1).setRotation(e.angle), extra: null };
+        const info = this.info('spr_BadaBot_ulti_wall');
+        this.setFrame(parts.main, 'spr_BadaBot_ulti_wall', (now * info.speed) % info.frames);
+        // il se dresse en un instant, d'un bout à l'autre ; les plots dessinés dépassent de 30 px
+        const rise = Math.min(1, e.steps / 8);
+        parts.main.setScale(1, ((e.length * 2 + 60) / info.h) * rise).setAlpha(0.55 + 0.45 * fade);
+      } else {
+        const fly = CONFIG.ulti.engiBot.flySteps;
+        parts ??= {
+          main: this.image('spr_EngiBot_ulti_grenade', 0, e.x, e.y, DEPTH.fx + 4),
+          extra: this.image('spr_EngiBot_ulti_pulse', 0, e.x, e.y, DEPTH.fx + 3).setTint(ULTI_COLORS.EngiBot.main).setBlendMode(Phaser.BlendModes.ADD).setVisible(false),
+        };
+        const flying = e.steps < fly;
+        const grenade = this.info('spr_EngiBot_ulti_grenade');
+        this.setFrame(parts.main, 'spr_EngiBot_ulti_grenade', (now * grenade.speed) % grenade.frames);
+        // en vol, la grenade monte puis retombe : elle grossit au sommet de sa course
+        const arc = Math.sin(Math.PI * Math.min(1, e.steps / fly));
+        parts.main.setVisible(flying).setPosition(e.x, e.y - 70 * arc).setScale(1.2 + 0.7 * arc);
+        if (parts.extra && !flying) {
+          const pulse = this.info('spr_EngiBot_ulti_pulse');
+          const frame = ((e.steps - fly) / STEPS_PER_SECOND) * pulse.speed;
+          this.setFrame(parts.extra as Img, 'spr_EngiBot_ulti_pulse', frame);
+          // l'anneau dessiné va jusqu'à 240 px du centre : on l'étire jusqu'au rayon de la grenade
+          (parts.extra as Img).setVisible(frame < pulse.frames).setPosition(e.x, e.y).setScale(e.radius / 240);
+        }
+      }
+      this.effectImgs.set(e.id, parts);
+    }
+    for (const [id, parts] of this.effectImgs) {
+      if (alive.has(id)) continue;
+      parts.main.destroy();
+      parts.extra?.destroy();
+      this.effectImgs.delete(id);
+    }
   }
 
   private syncBat(img: Img, b: Bat): void {
@@ -1270,6 +1360,22 @@ export class WorldView {
     g.clear();
     const total = CONFIG.npc.shieldHits;
     for (const npc of this.world.npcs) {
+      if (npc.stun > 0 && !this.underFog(npc.x, npc.y)) {
+        // robot désactivé par la grenade d'EngiBot : des arcs électriques courent sur lui
+        for (let k = 0; k < 3; k++) {
+          let a = Math.random() * Math.PI * 2;
+          let r = npc.def.radius * (0.4 + Math.random() * 0.7);
+          g.lineStyle(k === 0 ? 3 : 2, k === 0 ? 0xffffff : 0x4fb8ff, 0.9).beginPath();
+          g.moveTo(npc.x + Math.cos(a) * r, npc.y + Math.sin(a) * r);
+          for (let j = 0; j < 4; j++) {
+            a += (Math.random() - 0.5) * 1.6;
+            r = npc.def.radius * (0.3 + Math.random() * 0.9);
+            g.lineTo(npc.x + Math.cos(a) * r, npc.y + Math.sin(a) * r);
+          }
+          g.strokePath();
+        }
+        continue;
+      }
       if (npc.shieldHp <= 0) continue;
       const r = npc.def.radius + 16;
       const span = (100 * Math.PI) / 180;
@@ -1454,7 +1560,7 @@ export class WorldView {
       const h = this.world.heroes[e.hero];
       if (h) {
         for (let i = 0; i < 3; i++) {
-          const ring = scene.add.circle(h.x, h.y, 150).setStrokeStyle(5, 0xfe00d1).setDepth(DEPTH.fx).setAlpha(0);
+          const ring = scene.add.circle(h.x, h.y, 150).setStrokeStyle(5, (ULTI_COLORS[h.def.kind] ?? ULTI_COLORS.BatBot).main).setDepth(DEPTH.fx).setAlpha(0);
           scene.tweens.add({ targets: ring, scale: 0.2, alpha: { from: 0.9, to: 0 }, duration: 520, delay: i * 170, onComplete: () => ring.destroy() });
         }
       }
@@ -1473,9 +1579,21 @@ export class WorldView {
         this.anims.push({ img: blast, sprite: 'spr_BatBot_ulti_blast', frames: info.frames, fps: info.speed, elapsed: 0, keepLast: false });
         this.keepRemains(this.image('spr_BatBot_ulti_crater', 0, e.x, e.y, DEPTH.remains - 2).setRotation(Math.random() * Math.PI * 2).setScale(e.radius / 400).setAlpha(0.75));
       }
-      const light = scene.add.circle(e.x, e.y, e.radius * 0.8, 0xff9cf0).setDepth(DEPTH.fx + 1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.7);
-      scene.tweens.add({ targets: light, alpha: 0, scale: 1.35, duration: 260, onComplete: () => light.destroy() });
+      // l'explosion des battes d'avant (GD-031), puis un nuage de poussière qui cache BatBot et se dissipe vite
+      if (this.nearView(e.x, e.y)) this.blastFx(e.x, e.y, e.radius * 0.6);
+      if (scene.textures.exists(frameKey('spr_ulti_dust', 0))) {
+        const info = this.info('spr_ulti_dust');
+        const dust = this.image('spr_ulti_dust', 0, e.x, e.y, DEPTH.fx + 40).setScale(1.25).setRotation(Math.random() * Math.PI * 2);
+        this.anims.push({ img: dust, sprite: 'spr_ulti_dust', frames: info.frames, fps: info.speed, elapsed: 0, keepLast: false });
+      }
       if (this.nearView(e.x, e.y)) scene.cameras.main.shake(420, 0.016);
+    } else if (e.type === 'ultiFx') {
+      // un ulti part : un éclat à la couleur du robot (ou l'onde de la grenade quand elle éclate)
+      const color = (ULTI_COLORS[e.kind] ?? ULTI_COLORS.EngiBot).main;
+      const big = e.kind === 'emp';
+      const flash = scene.add.circle(e.x, e.y, big ? 220 : 90, color).setDepth(DEPTH.fx + 1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.75);
+      scene.tweens.add({ targets: flash, alpha: 0, scale: big ? 2.6 : 2, duration: big ? 380 : 260, onComplete: () => flash.destroy() });
+      if (big && this.nearView(e.x, e.y)) scene.cameras.main.shake(260, 0.009);
     } else if (e.type === 'heroDead') {
       // l'écran ne tremble que pour ce qui arrive près de soi
       if (this.nearView(e.x, e.y)) scene.cameras.main.shake(300, 0.01);

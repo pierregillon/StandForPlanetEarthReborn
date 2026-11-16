@@ -215,6 +215,26 @@ export interface Hero {
   placingTurret: number;
 }
 
+/** Effet laissé dans le monde par un ulti (GD-044) : essaim de PetBot, mur de BadaBot, grenade d'EngiBot. */
+export interface UltiEffect {
+  id: number;
+  kind: 'nanos' | 'wall' | 'emp';
+  /** Rang du héros qui l'a lancé. */
+  owner: number;
+  x: number;
+  y: number;
+  /** Direction du lancer (la grenade vole dans cette direction, le mur lui est perpendiculaire). */
+  angle: number;
+  fromX: number;
+  fromY: number;
+  steps: number;
+  total: number;
+  /** Rayon d'action (essaim, grenade) ou demi-épaisseur (mur). */
+  radius: number;
+  /** Demi-longueur du mur, ou distance de vol de la grenade. */
+  length: number;
+}
+
 export interface Drone {
   id: number;
   x: number;
@@ -317,6 +337,8 @@ export interface Npc {
   alertX: number;
   alertY: number;
   alertTimer: number;
+  /** Steps pendant lesquels ce robot est désactivé par une grenade électromagnétique. */
+  stun: number;
   /** Coups que le bouclier frontal peut encore encaisser (robot bouclier). */
   shieldHp: number;
   shieldBroken: boolean;
@@ -540,6 +562,8 @@ export type SimEvent =
   | { type: 'ultiCast'; hero: number }
   | { type: 'ultiLeap'; hero: number }
   | { type: 'ultiImpact'; hero: number; x: number; y: number; radius: number }
+  /** Un ulti produit son effet : `kind` est le robot qui le lance, ou 'emp' quand sa grenade éclate. */
+  | { type: 'ultiFx'; kind: string; x: number; y: number }
   | { type: 'outletTick'; x: number; y: number }
   | { type: 'notify'; text: string }
   | { type: 'changeRoom'; room: string; spawn: number }

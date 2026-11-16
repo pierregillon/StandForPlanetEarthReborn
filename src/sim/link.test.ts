@@ -180,7 +180,7 @@ test('ulti de BatBot : pleine surcharge, 2 s de lancement immobile, bond puis ex
   assert.ok(near.hp <= hpNear - CONFIG.ulti.batBot.damage, 'l\'ennemi proche encaisse');
   assert.equal(far.hp, hpFar, 'l\'ennemi hors du rayon n\'a rien');
   assert.ok(w.drainEvents().some((e) => e.type === 'ultiImpact'));
-  run(w, CONFIG.ulti.batBot.recoverSteps + 1, [aim]);
+  run(w, CONFIG.ulti.recoverSteps + 1, [aim]);
   assert.equal(bat.ultiPhase, 0);
 });
 
@@ -194,4 +194,86 @@ test('ulti : perdu si le robot tombe pendant le lancement', () => {
   assert.equal(bat.state, 'dead');
   assert.equal(bat.ultiPhase, 0);
   assert.equal(bat.energy, 0);
+});
+
+// ---------- Ultis de PetBot, BadaBot et EngiBot (GD-044) ----------
+
+/** Lance l'ulti du premier heros vers `aim` et attend la fin du lancement. */
+function castUlti(w: World, aim: Input): void {
+  w.heroes[0].energy = CONFIG.hero.maxEnergy;
+  w.step([{ ...aim, ultiPressed: true }]);
+  run(w, CONFIG.ulti.castSteps, [aim]);
+}
+
+test('ulti de PetBot : un essaim le suit et soigne les allies autour de lui', () => {
+  const w = team(['PetBot', 'BatBot', 'EngiBot'], 200);
+  const [pet, near, far] = w.heroes;
+  far.x = pet.x + CONFIG.ulti.petBot.radius + 600;
+  pet.hp = 6;
+  near.hp = 4;
+  far.hp = 4;
+  castUlti(w, { ...NO_INPUT, aimX: pet.x, aimY: pet.y - 300 });
+  assert.equal(w.effects.length, 1);
+  assert.equal(w.effects[0].kind, 'nanos');
+  run(w, CONFIG.ulti.recoverSteps + 1);
+  // PetBot reste libre de bouger : l'essaim le suit
+  run(w, 30, [{ ...NO_INPUT, moveY: 1, aimX: pet.x, aimY: pet.y + 300 }]);
+  assert.equal(w.effects[0].x, pet.x);
+  assert.equal(w.effects[0].y, pet.y);
+  run(w, 240);
+  assert.ok(near.hp >= 8, `allie proche soigne (${near.hp})`);
+  assert.ok(pet.hp >= 10, 'PetBot aussi');
+  assert.equal(far.hp, 4, 'hors du rayon : rien');
+  run(w, CONFIG.ulti.petBot.steps);
+  assert.equal(w.effects.length, 0, 'l\'essaim se disperse');
+});
+
+test('ulti de BadaBot : un mur arrete deplacements et balles, pas le regard, puis disparait', () => {
+  const w = team(['BadaBot', 'PetBot'], 200);
+  const [bada, pet] = w.heroes;
+  const wallX = bada.x + CONFIG.ulti.badaBot.distance;
+  // un coequipier se tient la ou le mur va se dresser : il est repousse
+  pet.x = wallX;
+  pet.y = bada.y;
+  castUlti(w, { ...NO_INPUT, aimX: bada.x + 600, aimY: bada.y });
+  const wall = w.effects[0];
+  assert.equal(wall.kind, 'wall');
+  assert.ok(Math.abs(wall.x - wallX) < 1);
+  assert.ok(Math.abs(pet.x - wall.x) >= CONFIG.ulti.badaBot.halfThickness + pet.def.radius, 'personne ne reste dans le mur');
+  assert.equal(w.shotBlocked(bada.x, bada.y, bada.x + 500, bada.y), true, 'les balles sont arretees');
+  assert.equal(w.sightBlocked(bada.x, bada.y, bada.x + 500, bada.y), false, 'on voit a travers');
+  assert.equal(w.collision.circleFree(wall.x, wall.y + 200, 20, 1), false, 'on ne le traverse pas');
+  assert.equal(w.collision.circleFree(wall.x, wall.y + CONFIG.ulti.badaBot.halfLength + 80, 20, 1), true, 'on peut le contourner');
+  run(w, CONFIG.ulti.badaBot.steps);
+  assert.equal(w.effects.length, 0);
+  assert.equal(w.shotBlocked(bada.x, bada.y, bada.x + 500, bada.y), false, 'le mur a disparu');
+});
+
+test('ulti d\'EngiBot : la grenade desactive les robots, pas les humains', () => {
+  const w = team(['EngiBot', 'PetBot'], 200);
+  const engi = w.heroes[0];
+  const model = new World(ground, sprites, 'PetBot', 2).npcs;
+  const robot = model.find((n) => n.def.kind === 'soldier' && n.def.genre === 'robot');
+  const human = model.find((n) => n.def.kind === 'soldier' && n.def.genre === 'humain');
+  assert.ok(robot && human);
+  const target = { x: engi.x - 500, y: engi.y };
+  robot.x = target.x - 200;
+  robot.y = target.y;
+  human.x = target.x - 200;
+  human.y = target.y + 150;
+  w.npcs = [robot, human];
+  castUlti(w, { ...NO_INPUT, aimX: target.x, aimY: target.y });
+  assert.equal(w.effects[0].kind, 'emp');
+  assert.equal(robot.stun, 0, 'la grenade est encore en vol');
+  run(w, CONFIG.ulti.engiBot.flySteps + 1);
+  assert.ok(Math.abs(w.effects[0].x - target.x) < 2, 'elle eclate au point vise');
+  assert.ok(robot.stun > 0, 'le robot est desactive');
+  assert.equal(human.stun, 0, 'l\'humain ne sent rien');
+  const x = robot.x;
+  const angle = robot.angle;
+  run(w, 120);
+  assert.equal(robot.x, x);
+  assert.equal(robot.angle, angle, 'il ne bouge plus');
+  run(w, CONFIG.ulti.engiBot.stunSteps);
+  assert.equal(robot.stun, 0, 'puis il se reactive');
 });

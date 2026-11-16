@@ -380,6 +380,9 @@ export class GameScene extends Phaser.Scene {
       } else if (e.type === 'ultiCast') {
         this.synth.ultiCast(CONFIG.ulti.castSteps / STEPS_PER_SECOND);
         this.view.handleEvent(e);
+      } else if (e.type === 'ultiFx') {
+        this.synth.ultiFx(e.kind);
+        this.view.handleEvent(e);
       } else if (e.type === 'ultiImpact') {
         this.synth.ultiImpact();
         this.view.handleEvent(e);
