@@ -236,6 +236,19 @@ export class World {
 
   // ---------- Balles ----------
 
+  /**
+   * Tire une balle depuis le bout du canon d'un personnage placé en (fromX, fromY).
+   * Si un mur sépare le personnage de son canon, la balle s'écrase dessus (GD-019).
+   */
+  fireBullet(def: BulletDef, owner: 'hero' | 'enemy', fromX: number, fromY: number, x: number, y: number, angle: number): void {
+    const hit = this.collision.raycast(fromX, fromY, x, y, BLOCK_BULLET);
+    if (hit) {
+      this.emit({ type: 'impact', x: fromX + (x - fromX) * hit.t, y: fromY + (y - fromY) * hit.t, angle, surface: 'wall' });
+      return;
+    }
+    this.spawnBullet(def, owner, x, y, angle);
+  }
+
   spawnBullet(def: BulletDef, owner: 'hero' | 'enemy', x: number, y: number, angle: number): void {
     this.bullets.push({ id: this.nextId++, def, owner, x, y, angle, startX: x, startY: y });
   }

@@ -1,6 +1,6 @@
 # Feuille de route
 
-Dernière mise à jour : 2026-11-15.
+Dernière mise à jour : 2026-11-16.
 
 Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque étape, le jeu se lance et se joue ; l'utilisateur teste et corrige la direction avant l'étape suivante.
 
@@ -8,29 +8,50 @@ Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque éta
 
 ## État actuel
 
-**Étape 0 terminée — documentation et dépôt créés. Aucun code de jeu, rien d'installé.**
-Prochaine action : étape 1, en commençant par les prérequis.
+**Étape 1 livrée le 2026-11-16 — en attente des essais de l'utilisateur.**
+Prochaine action : recueillir ses retours sur l'étape 1 (voir « À vérifier par l'utilisateur » ci-dessous), puis étape 2.
 
 ## Prérequis (début de l'étape 1)
 
 Connexion internet limitée : **annoncer la taille et attendre l'accord avant chaque téléchargement**.
 
-- [ ] Installer nvm-windows (~5 Mo) puis Node 22 LTS (~30 Mo), en gardant Node 14. *Approche validée par l'utilisateur le 2026-11-15.*
-- [ ] Installer les dépendances du projet (~100 Mo estimés ; donner le chiffre réel avant de lancer).
-- [ ] Extraire sprites et sons du commit `d438c548` (déjà sur la machine, aucun téléchargement) — voir [reference/README.md](reference/README.md).
+- [x] Node 22.23.5 en copie portable dans `.tools/node22` (35,6 Mo téléchargés), Node 14 intact. nvm-windows n'a pas été installé (ADR-009).
+- [x] Dépendances du projet installées : 33 Mo téléchargés, 183 Mo sur disque (ADR-010).
+- [x] Projet GameMaker de 2019 extrait dans `.cache/reference` (287 Mo, non versionné) ; sprites, sols et sons utiles copiés dans `public/assets` (29 Mo).
 
 ## Étape 1 — Rez-de-chaussée jouable avec un héros
 
-- [ ] Squelette du projet : TypeScript, Phaser 3, serveur Node, commande unique de lancement.
-- [ ] Convertisseur des salles GameMaker vers JSON ; conversion de `rm_world2`.
-- [ ] Affichage de la salle : sols, murs, mobilier, fenêtres.
-- [ ] Un héros (PetBot proposé) : déplacement, visée, dash, tir principal, rechargement avec R, PV, énergie.
-- [ ] Caméra et HUD (énergie, PV sur le portrait, chargeur).
-- [ ] Les 4 types d'ennemis avec l'IA du code ; les civils.
-- [ ] Portes automatiques et à bouton.
-- [ ] Prises de courant.
-- [ ] Mort du héros : « YOU LOSE », Retry, Exit.
-- [ ] Menu minimal : titre → jeu → pause.
+- [x] Squelette du projet : TypeScript, Phaser 3, serveur Node, commande unique de lancement (`start.cmd`).
+- [x] Convertisseur des salles GameMaker vers JSON ; les trois salles du monde 2 sont converties, sans écart de comptage avec l'original.
+- [x] Affichage de la salle : sols, murs, mobilier, fenêtres, décalques.
+- [x] PetBot : déplacement, visée, dash, tir principal, rechargement avec R, PV, énergie.
+- [x] Caméra et HUD (énergie, PV sur le portrait, chargeur, consigne).
+- [x] Les 4 types d'ennemis avec l'IA du code ; les civils (patrouille, panique, fuite).
+- [x] Portes automatiques et à bouton.
+- [x] Prises de courant (bornes de recharge, GD-020).
+- [x] Mort du héros : « YOU LOSE », Retry, Exit.
+- [x] Menu minimal : titre → jeu → pause.
+
+### Ce qui a été vérifié, et comment
+
+- Par tests automatiques (`npm test`, 8 tests sur le vrai niveau) : chargement du niveau (36 soldats, 52 civils, 36 portes, 4 boutons, 20 fenêtres, 10 bornes), marche, tir et rechargement, énergie et bornes, dégâts et mort, robot bouclier (coup, repoussement, vulnérable seulement de dos), vitre brisée par une balle qui continue, 60 secondes de simulation sans erreur.
+- À l'écran dans le navigateur : menu, affichage du rez-de-chaussée, HUD, soldats au pistolet qui repèrent, tirent et meurent, civils qui paniquent, 26 portes automatiques traversées, porte à bouton, pause, écran de défaite et Retry, 60 images par seconde.
+
+### À vérifier par l'utilisateur (non contrôlé à la fin de l'étape 1)
+
+- Sensations de jeu : vitesse, glissement contre les murs et le mobilier, dash, difficulté (GD-018).
+- Robot bouclier : logique testée automatiquement, pas observée à l'écran. LightBot et ShotBot : même code que le soldat au pistolet avec d'autres réglages, pas observés en combat.
+- Sons (tirs, mort d'un PNJ) et musique : chargés, pas écoutés.
+- Éclats de vitre, débris et flaques à la mort d'un PNJ : effets visuels pas observés à l'écran.
+- Emplacement des 10 bornes de recharge (GD-020).
+
+### Limites connues de l'étape 1
+
+- L'escalier affiche « The upper floor is not open yet. » : l'étage arrive à l'étape 3.
+- Portes à carte fermées, pas de cartes, pas de boîtes bonus, pas de brouillard ni de lumières (étapes 3 et 4).
+- Pas de tir secondaire (clic droit) : étape 2. L'énergie se recharge mais ne sert pas encore.
+- L'effet « glitch » du héros touché est remplacé par un clignotement ; la ventilation animée est figée.
+- Chargement d'une dizaine de secondes : images chargées une par une (ADR-012).
 
 ## Étape 2 — Les 3 autres héros
 
@@ -64,3 +85,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 | Date | Ce qui a été fait |
 |---|---|
 | 2026-11-15 | Analyse du jeu d'origine (version 2019), cadrage du MVP avec l'utilisateur, création du dépôt et de la documentation. |
+| 2026-11-16 | Étape 1 : Node 22 portable, squelette du projet, outils d'extraction et de conversion, simulation (héros, ennemis, civils, portes, bornes), affichage, menus. Décisions GD-016 à GD-021 et ADR-009 à ADR-012. |

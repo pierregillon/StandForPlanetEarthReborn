@@ -166,7 +166,7 @@ function processFire(world: World, npc: Npc, def: SoldierDef): void {
       const m = localToWorld(npc.x, npc.y, npc.angle, def.muzzle.x, def.muzzle.y);
       for (let i = 0; i < def.bulletsPerShot; i++) {
         const spread = world.rng.range(-def.precisionDeg, def.precisionDeg) * DEG;
-        world.spawnBullet(def.bullet, 'enemy', m.x, m.y, npc.angle + spread);
+        world.fireBullet(def.bullet, 'enemy', npc.x, npc.y, m.x, m.y, npc.angle + spread);
       }
       if (def.fireSound) world.emit({ type: 'sound', name: def.fireSound, x: npc.x, y: npc.y });
     }

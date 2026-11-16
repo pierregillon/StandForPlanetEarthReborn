@@ -1,6 +1,6 @@
 # Cadre du MVP
 
-Dernière mise à jour : 2026-11-15.
+Dernière mise à jour : 2026-11-16.
 
 Ce document décrit **ce que l'on construit** pour la première version jouable. Le **pourquoi** de chaque choix est dans les journaux de décisions ([game design](decisions/game-design.md), [architecture](decisions/architecture.md)) ; les identifiants entre crochets (`GD-005`, `ADR-002`) y renvoient.
 
@@ -66,7 +66,7 @@ Portes : automatiques, à bouton, à carte verte ou violette.
 ### Présentation
 
 - Textes **en anglais**, comme le code `[GD-012]`.
-- Clavier-souris : déplacement **ZQSD et WASD**, souris pour viser, clic gauche / clic droit pour les tirs, Espace ou Maj pour le dash, E pour utiliser, A pour se brancher/linker, R pour recharger, Échap pour la pause. Manette : plus tard `[GD-012]`.
+- Clavier-souris : déplacement **ZQSD et WASD** (mêmes touches physiques, sans réglage), souris pour viser, clic gauche / clic droit pour les tirs, Espace ou Maj pour le dash, E pour utiliser et pour se brancher sur une borne (maintenir), R pour recharger, Échap pour la pause `[GD-016]`. Manette : plus tard `[GD-012]`.
 - Visuels et sons : ceux du projet GameMaker de 2019. S'il manque un sprite ou une posture, il peut être régénéré fidèlement à l'existant `[ADR-007]`.
 - Équilibrage : valeurs du code, ajustées pour un joueur seul, regroupées dans un fichier de réglages `[GD-013]`.
 
@@ -76,7 +76,7 @@ Portes : automatiques, à bouton, à carte verte ou violette.
 - **Un seul projet TypeScript** : un serveur Node sert le jeu et pourra héberger du code serveur ; une seule commande pour lancer.
 - **Logique de jeu séparée de l'affichage**, pour pouvoir la faire tourner côté serveur quand le multijoueur arrivera.
 - **Niveaux en fichiers JSON** générés par un convertisseur depuis les salles GameMaker, modifiables à la main.
-- Node 22 LTS (installé à côté de Node 14 via nvm-windows). Hébergement : non décidé, local pour l'instant.
+- Node 22 LTS en copie portable dans `.tools/node22`, à côté du Node 14 du système `[ADR-009]`. Hébergement : non décidé, local pour l'instant.
 
 ## 5. Hors périmètre du MVP
 
@@ -88,11 +88,12 @@ Multijoueur et chat ; link entre héros et résurrection (ils demandent un coéq
 
 | Sujet | Proposition par défaut | À décider à l'étape |
 |---|---|---|
-| Emplacement et nombre des prises de courant | Le monde 2 n'a aucun bonus énergie posé. Proposition : réutiliser une partie des emplacements des bonus munitions (devenus inutiles), contre les murs | 1 |
-| Boîtes bonus aléatoires (invincibilité, vitesse, énergie), stockées dans 2 emplacements (touches 1 et 2) | Les garder, en retirant le tirage « énergie » puisque les prises le remplacent. L'utilisateur trouve les bonus à ramasser peu réalistes : à confirmer | 1 |
-| Tailles de chargeur et durées de rechargement | À inventer (absent du code) ; point de départ : chargeur = 1/4 de l'ancien stock | 1 puis 2 |
-| Premier héros livré | PetBot (tir principal le plus simple) | 1 |
-| Conflit de la touche A | En WASD, A sert à aller à gauche ; dans le code, A sert au link (réutilisé pour les prises). Proposition : une autre touche pour se brancher, ou un choix de disposition clavier dans les options | 1 |
+| Emplacement et nombre des prises de courant | **Fait par défaut à l'étape 1** `[GD-020]` : une borne à la place de chaque bonus munitions (10 au rez-de-chaussée). À confirmer par l'utilisateur ; un vrai sprite reste à produire | 1, à revoir |
+| Boîtes bonus aléatoires (invincibilité, vitesse, énergie), stockées dans 2 emplacements (touches 1 et 2) | Les garder, en retirant le tirage « énergie » puisque les prises le remplacent. L'utilisateur trouve les bonus à ramasser peu réalistes : à confirmer. Non affichées à l'étape 1 | 3 |
+| Tailles de chargeur et durées de rechargement | PetBot : 24 balles, 1,2 s `[GD-021]`, à ajuster après essai. Les trois autres héros : à l'étape 2 | 2 |
+| Premier héros livré | **Fait** : PetBot | — |
+| Conflit de la touche A | **Résolu** `[GD-016]` : touches lues par position physique, branchement avec E | — |
+| Difficulté en solo | Invulnérabilité après un dégât allongée à 0,5–1 s `[GD-018]` ; à revoir après essai et quand le soin de PetBot existera | 2 |
 | Tir soignant de PetBot en solo | Sans allié à soigner, garder seulement le soin de zone des drones sur soi-même | 2 |
 | Foreuses destructibles | Non destructibles dans le code : PV et effets à inventer | 4 |
 | Passage du rez-de-chaussée vers la zone de forage | La zone de sortie du rez-de-chaussée y mène, une fois la consigne 4 active | 3 |

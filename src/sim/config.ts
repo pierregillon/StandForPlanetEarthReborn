@@ -94,8 +94,9 @@ export const CONFIG = {
     dashSpeedFactor: 3,
     dashRechargeSteps: s(2),
     /** Invulnérabilité après un dégât (durée de l'effet « glitch » d'origine). */
-    invulnMinSteps: 10,
-    invulnMaxSteps: 40,
+    // Original : 10 à 40 steps, avec la mort désactivée. Allongé pour un joueur seul qui peut mourir (GD-018).
+    invulnMinSteps: 30,
+    invulnMaxSteps: 60,
     bumpDistance: 350,
     bumpSpeed: 15,
     useRange: 120,

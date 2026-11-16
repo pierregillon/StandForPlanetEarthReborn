@@ -179,7 +179,7 @@ function stepWeapon(world: World, h: Hero, input: Input): void {
     if (h.fireTimer === 0 && canFire && h.ammo > 0) {
       const m = muzzlePosition(h);
       const spread = world.rng.range(-h.def.precisionDeg, h.def.precisionDeg) * DEG;
-      world.spawnBullet(h.def.bullet, 'hero', m.x, m.y, h.angle + spread);
+      world.fireBullet(h.def.bullet, 'hero', h.x, h.y, m.x, m.y, h.angle + spread);
       world.emit({ type: 'sound', name: h.def.sounds.fire1, x: h.x, y: h.y });
       h.ammo--;
       world.stats.ammoUsed++;

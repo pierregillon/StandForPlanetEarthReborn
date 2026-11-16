@@ -2,7 +2,7 @@
 
 Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du dessus développé sous GameMaker entre 2016 et 2019. Une équipe de robots traverse des niveaux remplis de soldats, de robots ennemis et de civils.
 
-**État : documentation et cadrage terminés, développement non commencé.** Voir la [feuille de route](docs/02-feuille-de-route.md).
+**État : étape 1 sur 4 livrée — le rez-de-chaussée du monde 2 est jouable avec PetBot.** Voir la [feuille de route](docs/02-feuille-de-route.md).
 
 ## Documentation
 
@@ -12,8 +12,37 @@ Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du 
 | [docs/02-feuille-de-route.md](docs/02-feuille-de-route.md) | Les 4 étapes de livraison et l'avancement |
 | [docs/decisions/game-design.md](docs/decisions/game-design.md) | Journal des décisions de game design : quoi, et pourquoi |
 | [docs/decisions/architecture.md](docs/decisions/architecture.md) | Journal des décisions techniques |
+| [docs/formats-donnees.md](docs/formats-donnees.md) | Formats des niveaux et des manifestes d'assets produits par les outils |
 | [docs/reference/](docs/reference/README.md) | Le jeu d'origine : accès au code, analyses détaillées, documents de conception d'époque |
 
 ## Lancer le jeu
 
-À compléter à l'étape 1.
+Double-cliquer sur `start.cmd` (ou le lancer dans un terminal), puis ouvrir <http://localhost:3000> dans un navigateur.
+
+Il faut Node 22.18 ou plus récent. Sur la machine de développement, une copie portable se trouve dans `.tools/node22` (non versionnée) et `start.cmd` l'utilise automatiquement. Ailleurs : installer Node 22, puis `npm install` (33 Mo) et `npm start`.
+
+### Commandes
+
+| Action | Touche |
+|---|---|
+| Se déplacer | ZQSD sur clavier AZERTY, WASD sur QWERTY (mêmes touches physiques), ou les flèches |
+| Viser | souris |
+| Tirer | clic gauche |
+| Recharger | R |
+| Dash (en marchant) | Espace ou Maj |
+| Utiliser un bouton ; se recharger sur une borne (maintenir) | E |
+| Pause | Échap |
+
+## Développer
+
+| Commande | Effet |
+|---|---|
+| `dev.cmd` ou `npm run dev` | Reconstruit le code à chaque modification et sert le jeu ; `http://localhost:3000/?play` saute le menu |
+| `npm test` | Tests de la simulation, sans navigateur |
+| `npm run typecheck` | Vérification des types |
+| `npm run convert-rooms` | Reconvertit les salles GameMaker en `public/levels/*.json` |
+| `npm run extract-assets` | Recopie sprites, sols et sons depuis le projet GameMaker (réglages : `tools/assets.config.json`) |
+
+Organisation du code : `src/sim` (logique du jeu, sans Phaser ni navigateur ; réglages dans `src/sim/config.ts`), `src/client` (affichage Phaser), `server` (serveur Node), `tools` (build et conversion), `public` (assets et niveaux).
+
+Dans la console du navigateur, `sfpeWorld` donne l'état du jeu et `sfpeDebug.teleport(x, y)` déplace le héros.

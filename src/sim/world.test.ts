@@ -70,6 +70,59 @@ test("l'énergie revient à 3 puis une prise la fait monter", () => {
   assert.ok(w.hero.charging);
 });
 
+test('le robot bouclier frappe et repousse le héros, et ne craint que les tirs dans le dos', () => {
+  const w = makeWorld();
+  const h = w.hero;
+  const robot = w.npcs.find((n) => n.object === 'obj_npc_robot_shield');
+  assert.ok(robot);
+  // on amène le robot dehors, face au héros, là où rien ne gêne
+  robot.x = h.x + 130;
+  robot.y = h.y;
+  const startX = h.x;
+  let minX = h.x;
+  for (let i = 0; i < 240 && h.hp === h.def.maxHealth; i++) w.step(NO_INPUT);
+  assert.ok(h.hp < h.def.maxHealth, 'le héros doit avoir été frappé');
+  for (let i = 0; i < 30; i++) {
+    w.step(NO_INPUT);
+    minX = Math.min(minX, h.x);
+  }
+  assert.ok(startX - minX > 200, `repoussement : ${startX - minX} px`);
+
+  // de face : aucun dégât ; de dos : dégât
+  const hpBefore = robot.hp;
+  const face = Math.atan2(h.y - robot.y, h.x - robot.x);
+  robot.angle = face;
+  w.bullets.length = 0;
+  w.spawnBullet(h.def.bullet, 'hero', robot.x + Math.cos(face) * 150, robot.y + Math.sin(face) * 150, face + Math.PI);
+  for (let i = 0; i < 8; i++) w.step(NO_INPUT);
+  assert.equal(robot.hp, hpBefore, 'tir de face bloqué par le bouclier');
+  robot.angle = Math.atan2(h.y - robot.y, h.x - robot.x);
+  const back = robot.angle + Math.PI;
+  w.spawnBullet(h.def.bullet, 'hero', robot.x + Math.cos(back) * 150, robot.y + Math.sin(back) * 150, back + Math.PI);
+  let hit = false;
+  for (let i = 0; i < 8 && !hit; i++) {
+    // l'angle du robot suit le héros : on le fige dos à la balle
+    robot.angle = back + Math.PI;
+    w.step(NO_INPUT);
+    hit = robot.hp < hpBefore || !w.npcs.includes(robot);
+  }
+  assert.ok(hit, 'tir dans le dos efficace');
+});
+
+test('une balle brise une vitre sans être arrêtée', () => {
+  const w = makeWorld();
+  const pane = w.windows[0];
+  const o = pane.obstacle;
+  // tir perpendiculaire à la vitre, à travers son milieu
+  const nx = o.hw < o.hh ? o.cos : -o.sin;
+  const ny = o.hw < o.hh ? o.sin : o.cos;
+  w.spawnBullet(w.hero.def.bullet, 'hero', o.cx - nx * 60, o.cy - ny * 60, Math.atan2(ny, nx));
+  const bullet = w.bullets[0];
+  for (let i = 0; i < 5; i++) w.step(NO_INPUT);
+  assert.ok(pane.broken, 'vitre brisée');
+  assert.ok(w.bullets.includes(bullet), 'la balle continue');
+});
+
 test('une balle ennemie blesse le héros, qui meurt à 0 PV', () => {
   const w = makeWorld();
   const h = w.hero;

@@ -28,6 +28,14 @@ Lire, dans cet ordre :
 - La logique de jeu ne dépend ni de Phaser ni du navigateur (voir ADR-005).
 - Les valeurs d'équilibrage vivent dans un fichier de réglages unique, pas dispersées dans le code.
 
-## Environnement (relevé le 2026-11-15)
+## Lancer, tester, vérifier
 
-Windows 10. Node 14.17 installé ; Node 22 LTS à installer à côté via nvm-windows (ADR-003). Présents : npm 6, yarn 1.16, git 2.21, winget, choco, `pdftotext`. Absents : Python, Docker. Dans l'outil Bash de cette machine, une commande contenant des caractères accentués perd ses variables shell : utiliser des motifs (`D*cors`) à la place des accents.
+- Le `node` du PATH est un Node 14 : toujours utiliser le Node 22 portable, `export PATH="$PWD/.tools/node22:$PATH"` dans Bash, ou `start.cmd` / `dev.cmd` (ADR-009).
+- `npm test` (simulation sur le vrai niveau, sans navigateur), `npm run typecheck`, `npm run dev` (serveur sur le port 3000, reconstruction automatique).
+- Dans le navigateur : `http://localhost:3000/?play` saute le menu ; `sfpeWorld` expose l'état du jeu ; `sfpeDebug.teleport(x, y)` et `sfpeDebug.advance(steps, entrées)` permettent d'inspecter une zone ou de jouer une séquence. Si le panneau du navigateur est masqué, la page tourne au ralenti (chargement de plusieurs minutes, 1 image par seconde) : l'afficher avant de mesurer quoi que ce soit.
+- Le projet GameMaker de référence est extrait dans `.cache/reference` (non versionné ; `npm run extract-assets` le recrée depuis l'étiquette `remake-reference-2019` si besoin).
+- Ne jamais écrire dans `src/sim` de code qui dépend de Phaser ou du navigateur, ni de syntaxe TypeScript non effaçable (`enum`, propriétés-paramètres) : `npm test` exécute ces fichiers directement avec Node (ADR-010, ADR-011).
+
+## Environnement (relevé le 2026-11-16)
+
+Windows 10. Node 14.17 installé sur le système ; Node 22.23.5 portable dans `.tools/node22`. Présents : npm 6 (système), git 2.21, winget, choco, `pdftotext`. Absents : Python, Docker. Dans l'outil Bash de cette machine, une commande contenant des caractères accentués échoue ou perd ses variables shell, y compris dans un heredoc : utiliser des motifs (`D*cors`) à la place des accents, et écrire tout texte accentué avec l'outil d'écriture de fichiers (message de commit dans un fichier puis `git commit -F`).

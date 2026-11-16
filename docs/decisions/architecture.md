@@ -61,6 +61,8 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 
 **Conséquences.** Téléchargements : environ 5 Mo (nvm-windows) et 30 Mo (Node 22). La connexion internet de l'utilisateur est limitée : annoncer la taille et attendre son accord avant tout téléchargement, y compris `npm install`.
 
+**Mise à jour du 2026-11-16 (voir ADR-009).** nvm-windows n'a pas été installé : Node 22 est une copie portable dans `.tools/node22`.
+
 ---
 
 ## ADR-004 — Un dépôt séparé du dépôt GameMaker
@@ -140,3 +142,67 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 **Pourquoi.** Demande de l'utilisateur : qu'une session future puisse reprendre avec la documentation complète, et que les décisions de jeu soient tracées « comme des ADR, mais plus finement ».
 
 **Conséquences.** Documentation en français ; textes du jeu en anglais (GD-012). Pas de `git push` sans demande de l'utilisateur.
+
+---
+
+## ADR-009 — Node 22 portable dans le projet, sans nvm-windows
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée (remplace le moyen prévu par ADR-003, pas son objectif)
+- **Décidée par** : choix par défaut (à valider par l'utilisateur)
+
+**Contexte.** Node 14 est installé dans `C:\Program Files\nodejs`. nvm-windows a besoin de prendre la main sur ce dossier (droits administrateur, désinstallation ou renommage de l'installation existante) et bascule la version de Node pour toute la machine, pas par projet.
+
+**Décision.** Télécharger l'archive officielle `node-v22.23.5-win-x64.zip` (35,6 Mo, somme SHA-256 vérifiée) et la décompresser dans `.tools/node22`, dossier ignoré par git. Les scripts `start.cmd` et `dev.cmd` mettent ce dossier en tête du PATH le temps de la commande.
+
+**Pourquoi.** Rien n'est modifié sur la machine : pas de droits administrateur, Node 14 intact pour les autres projets, suppression en effaçant un dossier. Même volume de téléchargement.
+
+**Conséquences.** Sur une autre machine, il faut Node 22.18 ou plus récent dans le PATH, ou refaire cette copie. Dans un terminal, `node` reste le Node 14 du système : passer par `start.cmd` / `dev.cmd`, ou préfixer le PATH.
+
+---
+
+## ADR-010 — Outils minimaux : esbuild, TypeScript exécuté par Node, serveur sans dépendance
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : choix par défaut
+
+**Contexte.** La connexion de l'utilisateur est limitée (ADR-003) ; chaque dépendance se paie en téléchargement.
+
+**Décision.** Quatre paquets seulement : `phaser` 3.90.0 (version figée), `esbuild` (assemble le code du navigateur dans `dist/game.js`), `typescript` 5.9 (vérification des types uniquement) et `@types/node`. Le serveur (`server/main.ts`) et les outils (`tools/*.ts`) sont du TypeScript exécuté directement par Node 22, qui efface les types : ni `enum`, ni `namespace`, ni propriétés déclarées dans les paramètres d'un constructeur. Le serveur n'utilise que le module `http` de Node. Les tests utilisent le lanceur intégré `node --test`.
+
+**Pourquoi.** 33 Mo de téléchargement au lieu d'une centaine avec Vite, Express et un lanceur de tests. Moins de pièces à maintenir.
+
+**Conséquences.** Phaser 4 est sorti entre-temps ; on reste sur Phaser 3.90 (ADR-001), dernière version de la série 3. Une migration serait limitée à `src/client`, puisque la logique n'en dépend pas (ADR-005). Le multijoueur demandera une bibliothèque WebSocket, à annoncer avant téléchargement.
+
+---
+
+## ADR-011 — Simulation à pas fixe de 60 par seconde, séparée de l'affichage
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée (précise ADR-005)
+- **Décidée par** : choix par défaut
+
+**Contexte.** Le jeu d'origine tourne à 60 steps par seconde et exprime vitesses et durées dans cette unité.
+
+**Décision.** `src/sim` contient toute la logique : un objet `World` avancé d'un step à la fois par `world.step(entrées)`, sans Phaser, sans navigateur, avec son propre générateur aléatoire. `src/client` lit l'état du monde à chaque image, le dessine, et consomme une file d'événements (sons, impacts, morts). Les réglages sont dans `src/sim/config.ts`, dans les unités du jeu d'origine (pixels, steps, pixels par step).
+
+**Pourquoi.** Les valeurs du code GameMaker se recopient sans conversion. La simulation se teste sans navigateur (`npm test` la fait tourner sur le vrai niveau) et pourra tourner sur le serveur pour le multijoueur.
+
+**Conséquences.** L'affichage ne doit jamais modifier l'état du monde. Sur un écran plus rapide que 60 Hz, le mouvement n'est pas interpolé pour l'instant.
+
+---
+
+## ADR-012 — Images de sprites chargées une par une ; sprites sélectionnés par configuration
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — à améliorer
+- **Décidée par** : choix par défaut
+
+**Contexte.** GameMaker stocke chaque image d'animation dans un fichier PNG séparé. Le projet d'origine pèse 159 Mo de sprites.
+
+**Décision.** `tools/extract-assets.ts` copie dans `public/assets` uniquement les sprites utiles (ceux des salles converties et ceux cités par le code, moins les exclusions de `tools/assets.config.json`) : 29 Mo à l'étape 1. Le jeu charge une image par fichier, et seulement celles du niveau en cours (environ 600 fichiers).
+
+**Pourquoi.** Simple, sans outil de traitement d'image supplémentaire, et le dépôt reste raisonnable à pousser sur une connexion limitée.
+
+**Conséquences.** Le chargement prend une dizaine de secondes en local et serait lent sur un hébergement distant : il faudra regrouper les images en planches de sprites avant toute mise en ligne. Les sprites des héros de l'étape 2 et du boss sont à retirer des exclusions le moment venu, puis relancer `npm run extract-assets`.
