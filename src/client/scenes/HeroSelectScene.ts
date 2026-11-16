@@ -35,7 +35,10 @@ export class HeroSelectScene extends Phaser.Scene {
       zone.on('pointerover', () => {
         this.selected = i;
       });
-      zone.on('pointerdown', () => this.confirm());
+      zone.on('pointerdown', () => {
+        this.selected = i;
+        this.confirm();
+      });
       return { frame, name: label };
     });
     this.blurb = this.add.text(width / 2, height - 190, '', {

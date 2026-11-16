@@ -432,3 +432,19 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** Débloquer l'exploration du rez-de-chaussée sans attendre l'étage.
 
 **Conséquences.** Les deux portes violettes du rez-de-chaussée restent fermées jusqu'à l'étape 3 : la carte violette se trouve à l'étage.
+
+---
+
+## GD-025 — BatBot : un clic droit sans batte en main rappelle les battes
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée (corrige un point de GD-023)
+- **Décidée par** : l'utilisateur (souvenir du jeu d'origine : « quand on jetait ses battes, elles pouvaient revenir quand on cliquait sur clic droit »)
+
+**Contexte.** Dans le code d'origine, un appui court qui ne peut pas lancer de batte laisse courir le délai de l'appui long, et les battes reviennent quand même. L'analyse y voyait un bogue, et GD-023 l'avait supprimé : il fallait maintenir le clic droit pour rappeler. L'utilisateur se souvient de ce retour au simple clic comme du comportement normal.
+
+**Décision.** Sans batte en main, un simple clic droit rappelle les battes au sol (1 énergie, seulement s'il y en a une à rappeler). Avec une batte en main, le clic court lance et l'appui long rappelle, comme avant.
+
+**Pourquoi.** C'est le comportement que le joueur connaissait, et il évite de rester sans arme en cherchant le bon geste.
+
+**Conséquences.** Le clic court sans batte ne coûte rien s'il n'y a aucune batte au sol ou pas d'énergie. Marcher sur une batte la reprend toujours gratuitement.

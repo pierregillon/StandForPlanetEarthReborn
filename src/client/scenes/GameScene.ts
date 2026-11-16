@@ -64,6 +64,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new Hud(this, this.world);
     this.acc = 0;
     this.panel = null;
+    this.debugHold = {};
 
     const target = this.view.cameraTarget();
     this.camX = target.x;

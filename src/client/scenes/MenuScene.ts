@@ -6,6 +6,7 @@ import { CONFIG } from '../../sim/config.ts';
 import { ButtonColumn } from '../view/ButtonColumn.ts';
 
 export class MenuScene extends Phaser.Scene {
+  private static shortcutUsed = false;
   private buttons!: ButtonColumn;
 
   constructor() {
@@ -31,8 +32,10 @@ export class MenuScene extends Phaser.Scene {
     Keys.clearPressed();
     // raccourci de développement : http://localhost:3000/?play lance directement la partie
     // (?play=EngiBot choisit le héros)
+    // Le raccourci ne joue qu'une fois : ensuite, Exit ramène bien au menu.
     const play = new URLSearchParams(window.location.search).get('play');
-    if (play !== null) {
+    if (play !== null && !MenuScene.shortcutUsed) {
+      MenuScene.shortcutUsed = true;
       if (CONFIG.heroes[play]) this.registry.set('hero', play);
       this.scene.start('Game');
     }

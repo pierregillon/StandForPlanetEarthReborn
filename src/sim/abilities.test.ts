@@ -122,6 +122,29 @@ test('BatBot : coup de batte, lancer, rappel', () => {
   assert.equal(h.bats, 2);
 });
 
+test('BatBot : sans batte en main, un clic droit rappelle les battes', () => {
+  const { w, aim } = arena('BatBot', 'obj_npc_human_pistol', 5000);
+  const h = w.hero;
+  h.energy = 3;
+  const click = (): void => {
+    w.step({ ...aim, fire2: true });
+    w.step(aim);
+  };
+  click();
+  run(w, 40, aim);
+  click();
+  assert.equal(h.bats, 0);
+  assert.equal(w.bats.length, 2);
+  assert.equal(h.energy, 1);
+  run(w, 90, aim);
+  assert.ok(w.bats.every((b) => b.state === 'stopped'));
+  click();
+  assert.ok(w.bats.every((b) => b.state === 'returning'), 'les deux battes reviennent');
+  assert.equal(h.energy, 0);
+  run(w, 150, aim);
+  assert.equal(h.bats, 2);
+});
+
 test('BatBot : une batte lancée à 6 d\'énergie explose', () => {
   const { w, npc, aim } = arena('BatBot', 'obj_npc_human_pistol', 600);
   npc.fireTimer = 100000;

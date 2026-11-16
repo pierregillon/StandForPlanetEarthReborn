@@ -340,21 +340,20 @@ function batBotFire2(world: World, h: Hero, input: Input, busy: boolean): void {
     // appui long : rappel des battes au sol
     if (++h.fire2Hold >= A.batBot.holdStepsForRecall && !h.recallDone) {
       h.recallDone = true;
-      const grounded = world.bats.filter((b) => b.state === 'stopped');
-      if (h.energy >= A.batBot.recallCost && grounded.length > 0) {
-        for (const b of grounded) {
-          b.state = 'returning';
-          b.hit = new Set();
-        }
-        spendEnergy(world, h, A.batBot.recallCost);
-      }
+      recallBats(world, h);
     }
     return;
   }
   if (!h.fire2Was) return;
+  if (h.fire2Hold >= A.batBot.holdStepsForRecall) return;
+  // appui court relâché sans batte en main : les battes reviennent (GD-025)
+  if (h.bats < 1) {
+    recallBats(world, h);
+    return;
+  }
   // appui court relâché : lancer
   const level = batThrowLevel(h.energy);
-  if (h.fire2Hold >= A.batBot.holdStepsForRecall || h.bats < 1 || h.energy < level || h.fire2Timer > 0 || busy) return;
+  if (h.energy < level || h.fire2Timer > 0 || busy) return;
   const side = h.bats >= 2 ? 'd' : 'g';
   const m = muzzle(h);
   const angle = h.angle + world.rng.range(-h.def.precisionDeg, h.def.precisionDeg) * DEG;
@@ -366,6 +365,17 @@ function batBotFire2(world: World, h: Hero, input: Input, busy: boolean): void {
   h.bats--;
   spendEnergy(world, h, level);
   playOneOf(world, h.def.sounds.fire2, h.x, h.y);
+}
+
+/** Rappelle les battes au sol : coûte 1 énergie, seulement s'il y en a une à rappeler. */
+function recallBats(world: World, h: Hero): void {
+  const grounded = world.bats.filter((b) => b.state === 'stopped');
+  if (h.energy < A.batBot.recallCost || grounded.length === 0) return;
+  for (const b of grounded) {
+    b.state = 'returning';
+    b.hit = new Set();
+  }
+  spendEnergy(world, h, A.batBot.recallCost);
 }
 
 function stepBats(world: World): void {
