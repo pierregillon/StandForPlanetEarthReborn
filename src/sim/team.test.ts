@@ -115,7 +115,7 @@ test('passage entre salles : toute l\'équipe part aussitôt, la moitié déclen
   assert.equal(left, true);
 });
 
-test('une balle de PetBot traverse le coéquipier et le soigne au passage, une fois', () => {
+test('les balles des héros traversent les coéquipiers, sans les soigner ni les blesser', () => {
   const w = team('PetBot', 'BatBot');
   const [pet, ally] = w.heroes;
   ally.hp = 5;
@@ -124,7 +124,7 @@ test('une balle de PetBot traverse le coéquipier et le soigne au passage, une f
   // une seule balle, tirée à la main vers le coéquipier
   w.spawnBullet(pet.def.bullet, 'hero', pet.x + 60, pet.y, 0, pet.id);
   for (let i = 0; i < 20; i++) w.step([aim]);
-  assert.equal(ally.hp, 6, 'soigné d\'un point, pas plus');
+  assert.equal(ally.hp, 5, 'la balle de PetBot ne soigne pas');
   assert.equal(w.bullets.length, 1, 'la balle continue sa route');
   assert.ok(w.bullets[0].x > ally.x + 100, 'elle a dépassé le coéquipier');
   // les balles des autres robots traversent aussi, sans soigner

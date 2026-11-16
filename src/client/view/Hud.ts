@@ -14,10 +14,9 @@ interface MateCard {
   damage: Phaser.GameObjects.Image | null;
   label: Phaser.GameObjects.Text;
 }
-/** Vignettes des coéquipiers : taille par rapport à la sienne, position de la première, écart entre deux. */
-const MATE_SCALE = 0.55;
-const MATE_X = 640;
-const MATE_SPACING = 200;
+/** Avatars en bas à gauche : position du sien, puis écart avec celui de chaque coéquipier, collé à sa droite. */
+const AVATAR_X = 131;
+const AVATAR_SPACING = 205;
 
 export class Hud {
   private readonly scene: Phaser.Scene;
@@ -25,9 +24,6 @@ export class Hud {
   private readonly bar?: Phaser.GameObjects.Image;
   private readonly portrait?: Phaser.GameObjects.Image;
   private readonly damage?: Phaser.GameObjects.Image;
-  private readonly ammo: Phaser.GameObjects.Text;
-  private readonly hp: Phaser.GameObjects.Text;
-  private readonly energy: Phaser.GameObjects.Text;
   private readonly objective: Phaser.GameObjects.Text;
   private readonly notice: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
@@ -37,7 +33,6 @@ export class Hud {
   /** Noms des joueurs, par rang de héros (partie en réseau). */
   playerNames: string[] = [];
   private readonly bossBar: Phaser.GameObjects.Graphics;
-  private readonly dashPips: Phaser.GameObjects.Arc[] = [];
   private readonly cardIcons = new Map<string, Phaser.GameObjects.Image>();
   private noticeUntil = 0;
 
@@ -46,7 +41,7 @@ export class Hud {
     this.world = world;
     const { width, height } = scene.scale;
     const def = world.hero.def;
-    const x = 131;
+    const x = AVATAR_X;
     const y = height - 116;
 
     if (scene.textures.exists(frameKey('spr_healthBar', 0))) {
@@ -59,18 +54,13 @@ export class Hud {
       this.portrait = scene.add.image(x, y, key).setOrigin(sp.ox / sp.w, sp.oy / sp.h).setScrollFactor(0).setDepth(DEPTH + 1);
       this.damage = scene.add.image(x, y, key).setOrigin(sp.ox / sp.w, sp.oy / sp.h).setScrollFactor(0).setDepth(DEPTH + 2).setTint(0xff0000).setAlpha(0.8);
     }
-    // nom du robot sous son portrait, vie et énergie en chiffres à côté (GD-029)
+    // nom du robot sous son portrait. Pas de chiffres (GD-042) : le cadre montre l'énergie, le portrait qui
+    // rougit montre la vie, la jauge sur l'arme montre les munitions.
     scene.add.text(x - 6, y + 78, def.name.toUpperCase(), { fontFamily: 'Aldo', fontSize: '28px', color: '#ffffff', ...OUTLINE }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH + 3);
-    this.hp = scene.add.text(x + 44, y - 22, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#ffffff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
-    this.energy = scene.add.text(x + 44, y + 8, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#8fdcff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
-    this.ammo = scene.add.text(x + 44, y + 40, '', { fontFamily: 'Aldo', fontSize: '30px', color: '#ffffff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
-    for (let i = 0; i < CONFIG.hero.dashCharges; i++) {
-      this.dashPips.push(scene.add.circle(x + 200 + i * 26, y + 58, 9, 0x7fd3ff).setStrokeStyle(2, 0x000000).setScrollFactor(0).setDepth(DEPTH + 3));
-    }
-    for (const [i, color] of ['green', 'purple'].entries()) {
+    for (const color of ['green', 'purple']) {
       const key = `card:${color}`;
       if (scene.textures.exists(key)) {
-        this.cardIcons.set(color, scene.add.image(x + 280 + i * 62, y + 56, key).setScale(0.6).setScrollFactor(0).setDepth(DEPTH + 3).setVisible(false));
+        this.cardIcons.set(color, scene.add.image(0, y + 56, key).setScale(0.6).setScrollFactor(0).setDepth(DEPTH + 3).setVisible(false));
       }
     }
     this.objective = scene.add.text(10, (height * 2) / 3, '', {
@@ -90,13 +80,14 @@ export class Hud {
   }
 
   /**
-   * Vignettes des coéquipiers (GD-041), à droite de la sienne : le même cadre en plus petit, avec le portrait
-   * qui rougit à mesure que la vie baisse, l'énergie sur le cadre, et le nom du joueur dessous.
+   * Avatars des coéquipiers (GD-041, GD-042) : exactement le même que le sien, collé à sa droite. Le cadre
+   * montre l'énergie, le portrait rougit avec les dégâts, le nom du joueur est dessous.
+   * Retourne le nombre d'avatars affichés.
    */
-  private updateMates(): void {
+  private updateMates(): number {
     const world = this.world;
     const scene = this.scene;
-    const y = scene.scale.height - 96;
+    const y = scene.scale.height - 116;
     let rank = 0;
     for (const o of world.heroes) {
       if (o === world.hero) continue;
@@ -105,14 +96,13 @@ export class Hud {
         const image = (sprite: string, depth: number): Phaser.GameObjects.Image | null => {
           if (!scene.textures.exists(frameKey(sprite, 0))) return null;
           const sp = world.sprite(sprite);
-          return scene.add.image(0, y, frameKey(sprite, 0)).setOrigin(sp.ox / sp.w, sp.oy / sp.h).setScale(MATE_SCALE).setScrollFactor(0).setDepth(depth);
+          return scene.add.image(0, y, frameKey(sprite, 0)).setOrigin(sp.ox / sp.w, sp.oy / sp.h).setScrollFactor(0).setDepth(depth);
         };
         card = {
           bar: image('spr_healthBar', DEPTH),
           portrait: image(o.def.sprites.portrait, DEPTH + 1),
           damage: image(o.def.sprites.portrait, DEPTH + 2)?.setTint(0xff0000).setAlpha(0.8) ?? null,
-          label: scene.add.text(0, y + 44, '', { fontFamily: 'Aldo', fontSize: '20px', color: '#ffffff', align: 'center', ...OUTLINE, strokeThickness: 4 })
-            .setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH + 3),
+          label: scene.add.text(0, y + 78, '', { fontFamily: 'Aldo', fontSize: '28px', color: '#ffffff', ...OUTLINE }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH + 3),
         };
         this.mateCards.set(o.id, card);
       }
@@ -120,8 +110,8 @@ export class Hud {
       const shown = !o.gone;
       for (const part of [card.bar, card.portrait, card.damage, card.label]) part?.setVisible(shown);
       if (!shown) continue;
-      const x = MATE_X + rank * MATE_SPACING;
       rank++;
+      const x = AVATAR_X + rank * AVATAR_SPACING;
       const dead = o.state === 'dead';
       card.bar?.setX(x).setTexture(frameKey('spr_healthBar', Math.max(0, Math.min(12, o.energy))));
       card.portrait?.setX(x).setTint(dead ? 0x555555 : 0xffffff);
@@ -130,9 +120,9 @@ export class Hud {
         const fh = card.portrait.height;
         card.damage.setX(x).setVisible(missing > 0).setCrop(0, fh * (1 - missing), card.portrait.width, fh * missing);
       }
-      const name = (this.playerNames[o.id] ?? o.def.name).toUpperCase();
-      card.label.setX(x - 3).setText(`${name}\n${dead ? 'DOWN' : `HP ${o.hp}/${o.def.maxHealth}   EN ${o.energy}`}`).setColor(dead ? '#ff6b6b' : '#ffffff');
+      card.label.setX(x - 6).setText((this.playerNames[o.id] ?? o.def.name).toUpperCase()).setColor(dead ? '#ff6b6b' : '#ffffff');
     }
+    return rank;
   }
 
   notify(text: string): void {
@@ -152,20 +142,14 @@ export class Hud {
       this.damage.setVisible(missing > 0).setCrop(0, fh * (1 - missing), this.portrait.width, fh * missing);
       if (h.state === 'dead') this.portrait.setTint(0x555555);
     }
-    this.hp.setText(h.state === 'dead' ? 'Dead' : `HP ${h.hp}/${h.def.maxHealth}`);
-    this.energy.setText(`EN ${h.energy}/${CONFIG.hero.maxEnergy}`);
-
-    for (const [color, icon] of this.cardIcons) icon.setVisible(world.hasCard(color));
-    if (h.def.magazine === 0) {
-      this.ammo.setText(`BATS ${h.bats}/2`).setColor(h.bats === 0 ? '#ff3030' : '#ffffff');
-    } else if (h.reloadTimer > 0) {
-      this.ammo.setText('RELOADING').setColor('#ffe36b');
-    } else {
-      // chargeur vide : clignote rouge / blanc toutes les 15 steps, comme le compteur d'origine
-      const blink = h.ammo === 0 && Math.floor(world.tick / 15) % 2 === 0;
-      this.ammo.setText(`${h.ammo}/${h.def.magazine}`).setColor(blink ? '#ff3030' : '#ffffff');
+    // les cartes d'accès trouvées s'affichent à droite du dernier avatar
+    const avatars = 1 + this.updateMates();
+    let cardX = AVATAR_X + (avatars - 1) * AVATAR_SPACING + 150;
+    for (const [color, icon] of this.cardIcons) {
+      const held = world.hasCard(color);
+      icon.setVisible(held).setX(cardX);
+      if (held) cardX += 62;
     }
-    this.dashPips.forEach((pip, i) => pip.setFillStyle(0x7fd3ff, i < h.dashCharges ? 1 : 0.15));
     this.objective.setText(world.objective);
 
     if (now > this.noticeUntil) this.notice.setAlpha(Math.max(0, this.notice.alpha - 0.02));
@@ -209,6 +193,5 @@ export class Hud {
     const leavingIn = Math.max(world.exitCountdown, world.zoneCountdown);
     this.countdown.setText(leavingIn > 0 ? `Leaving area :\n${Math.ceil(leavingIn / 60)}` : '');
 
-    this.updateMates();
   }
 }

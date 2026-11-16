@@ -634,7 +634,7 @@ export class World {
   }
 
   spawnBullet(def: BulletDef, owner: 'hero' | 'enemy', x: number, y: number, angle: number, ownerId = -1): void {
-    this.bullets.push({ id: this.nextId++, def, owner, ownerId, healed: 0, x, y, angle, startX: x, startY: y, speed: def.speed, lastHit: -1, steps: 0 });
+    this.bullets.push({ id: this.nextId++, def, owner, ownerId, x, y, angle, startX: x, startY: y, speed: def.speed, lastHit: -1, steps: 0 });
   }
 
   newId(): number {
@@ -717,19 +717,7 @@ export class World {
     const glass = this.collision.raycast(b.x, b.y, hx, hy, IS_WINDOW);
     if (glass) this.breakWindow(glass.obstacle.owner as WindowPane, b.angle);
 
-    // les balles des héros traversent les coéquipiers ; celle de PetBot rend au passage 1 PV à chaque
-    // coéquipier blessé qu'elle croise, une seule fois par balle (GD-041)
-    if (b.owner === 'hero' && b.def === CONFIG.heroes.PetBot.bullet) {
-      for (const h of this.living()) {
-        if (h.id === b.ownerId || (b.healed & (1 << h.id)) !== 0 || h.hp >= h.def.maxHealth) continue;
-        const t = segmentCircle(b.x, b.y, nx, ny, h.x, h.y, h.def.radius + b.def.radius);
-        if (t < 0 || t > end) continue;
-        b.healed |= 1 << h.id;
-        h.hp++;
-        this.stats.healed++;
-        this.emit({ type: 'heal', x: h.x, y: h.y });
-      }
-    }
+    // les balles des héros traversent les coéquipiers sans effet (GD-041, GD-042)
 
     if (shieldHit) {
       shieldTank(this, shieldHit);

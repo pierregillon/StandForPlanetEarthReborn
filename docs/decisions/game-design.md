@@ -828,7 +828,7 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 ## GD-041 — Retours du premier essai à deux joueurs
 
 - **Date** : 2026-11-16
-- **Statut** : Acceptée
+- **Statut** : Acceptée — modifiée par GD-042 (plus de soin par les balles de PetBot, avatars des coéquipiers)
 - **Décidée par** : l'utilisateur (retour d'essai à deux, BadaBot et PetBot) ; choix par défaut pour les points marqués « par défaut »
 
 **Contexte.** Premier essai du multijoueur (GD-040) par l'utilisateur avec un second joueur. Sept retours.
@@ -850,3 +850,21 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Le premier essai a montré ce qui manquait pour jouer vraiment à deux : se voir entièrement, ne pas se gêner, et commencer ensemble.
 
 **Conséquences.** Réglages : `teamSpacing`, `teamPushSpeed` et `exitCountdownSteps` dans `src/sim/config.ts` ; `fogReveal` dans `LIGHTING`. Le brouillard est maintenant un calque de la taille de l'écran (comme la pénombre), ce qui permet à la lumière de le percer. Vérifié à deux onglets : vignettes, tir et viseur de PetBot vus par l'autre joueur, orbe de BadaBot en charge puis tirée, faisceau qui perce le brouillard par une porte en cours d'ouverture, 60 images par seconde. **Non vu à l'écran** : l'enveloppe d'énergie et le dash d'un coéquipier, le chargeur éjecté, l'écran d'attente avec un vrai chargement lent (testé par test automatique).
+
+## GD-042 — Balles de PetBot sans soin ; HUD allégé, avatars côte à côte
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur
+
+**Contexte.** GD-041 avait gardé, par défaut, le soin d'origine des balles de PetBot (1 PV au coéquipier traversé). L'utilisateur ne savait pas que ce tir soignait et le trouve trop facile. Il demande aussi d'alléger l'affichage.
+
+**Décision.**
+
+- **Les balles de PetBot ne soignent plus.** C'est un tir simple, qui blesse les ennemis et traverse les coéquipiers sans effet, comme celui des autres robots. PetBot soigne toujours par l'explosion de ses drones (tir secondaire), qui reste le seul soin entre joueurs avec la résurrection.
+- **HUD allégé** : les chiffres de vie, d'énergie et de munitions et les indicateurs de dash sont retirés. Il reste le cadre (énergie), le portrait qui rougit (vie), le nom sous le portrait, et sur le robot la jauge de munitions à trois segments.
+- **Avatars des coéquipiers** : exactement le même que le sien (même taille, même cadre, même portrait), collé à sa droite en bas à gauche, avec le nom du joueur dessous. Les cartes d'accès trouvées s'affichent à droite du dernier avatar.
+
+**Pourquoi.** Un tir principal qui soigne sans rien coûter rendait l'équipe trop résistante. Pour l'affichage, chaque information retirée existait déjà sous une autre forme à l'écran.
+
+**Conséquences.** Écart assumé avec l'original (`obj_bullet_PetBot` soignait les alliés). Le compteur de battes de BatBot (« BATS 1/2 ») et la mention « RELOADING » disparaissent avec les chiffres : les battes se voient sur le robot, le rechargement par son animation. Vérifié à l'écran à deux onglets.

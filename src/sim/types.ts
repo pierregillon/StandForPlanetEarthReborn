@@ -316,8 +316,6 @@ export interface Bullet {
   owner: 'hero' | 'enemy';
   /** Rang du héros qui a tiré, -1 pour un ennemi ou une tourelle. */
   ownerId: number;
-  /** Balle de PetBot : coéquipiers déjà soignés par cette balle (un bit par rang de héros). */
-  healed: number;
   x: number;
   y: number;
   angle: number;
