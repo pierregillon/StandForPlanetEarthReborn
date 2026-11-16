@@ -29,6 +29,8 @@ export interface Session {
   room: string;
   /** Jeu de points d'apparition à utiliser en entrant dans la salle. */
   spawnNumber: number;
+  /** Point de sauvegarde activé : Retry y ramène au lieu de recommencer le niveau. */
+  checkpoint: { room: string; x: number; y: number } | null;
 }
 
 export function createSession(heroName: string, room = GROUND_FLOOR): Session {
@@ -40,5 +42,6 @@ export function createSession(heroName: string, room = GROUND_FLOOR): Session {
     rooms: new Map(),
     room,
     spawnNumber: 1,
+    checkpoint: null,
   };
 }

@@ -17,7 +17,7 @@ import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, GROUND_FLOOR, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
 import type { Session } from './session.ts';
 import type {
-  Bat, Bullet, Button, Card, DecorItem, Door, Drill, Drone, Explosion, Fog, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
+  Bat, Bullet, Button, Card, Chair, Checkpoint, DecorItem, Door, Drill, Drone, Explosion, Fog, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
   SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, WindowPane, Zone,
 } from './types.ts';
 
@@ -62,6 +62,8 @@ export class World {
   outlets: Outlet[] = [];
   cards: Card[] = [];
   drills: Drill[] = [];
+  chairs: Chair[] = [];
+  checkpoint: Checkpoint | null = null;
   fogs: Fog[] = [];
   boss: BossState | null = null;
   private endTimer = -1;
@@ -129,9 +131,87 @@ export class World {
       if (inst.object === 'obj_spawn1') this.spawns.set(Number(inst.props.spawnNumber ?? 1), { x: inst.x, y: inst.y });
       this.addInstance(inst);
     }
-    const spawn = this.spawnPoint(session.spawnNumber);
+    const start = this.spawnPoint(session.spawnNumber);
+    // point de sauvegarde devant le boss (GD-031) : s'il est déjà activé, on y reprend en pleine forme
+    if (level.name === DRILL_AREA) {
+      const first = this.spawnPoint(1);
+      this.checkpoint = { x: first.x - 230, y: first.y - 60, active: session.checkpoint?.room === level.name };
+    }
+    const resumed = this.checkpoint?.active === true;
+    const spawn = resumed && this.checkpoint ? { x: this.checkpoint.x + 110, y: this.checkpoint.y + 40 } : start;
     this.keepSpreadOutlets(CONFIG.outlet.keepPerRoom[level.name] ?? this.outlets.length, spawn);
     this.hero = this.createHero(CONFIG.heroes[heroName], spawn.x, spawn.y);
+    if (resumed) this.restoreHero();
+  }
+
+  private restoreHero(): void {
+    const h = this.hero;
+    h.hp = h.def.maxHealth;
+    h.energy = CONFIG.hero.maxEnergy;
+    h.overchargeHold = CONFIG.hero.overchargeHoldSteps;
+    h.ammo = h.def.magazine;
+  }
+
+  /** Le héros se connecte au point de sauvegarde en s'en approchant : régénération complète, une fois par vie. */
+  private stepCheckpoint(): void {
+    const cp = this.checkpoint;
+    const h = this.hero;
+    if (!cp || cp.active || h.state === 'dead') return;
+    if (Math.hypot(h.x - cp.x, h.y - cp.y) > CONFIG.hero.checkpointRadius) return;
+    cp.active = true;
+    this.session.checkpoint = { room: this.level.name, x: cp.x, y: cp.y };
+    this.restoreHero();
+    this.emit({ type: 'checkpoint', x: cp.x, y: cp.y });
+    this.emit({ type: 'notify', text: 'Checkpoint reached - systems fully restored' });
+  }
+
+  /** Animation de déploiement au début d'une partie (présente dans l'original, où elle était désactivée). */
+  deployHero(): void {
+    const h = this.hero;
+    const info = this.sprite(`spr_${h.def.name}_deploy`);
+    const fps = info.speedType === 0 ? info.speed : info.speed * STEPS_PER_SECOND;
+    h.deployTotal = Math.min(CONFIG.hero.maxDeploySteps, Math.max(30, Math.round((info.frames / fps) * STEPS_PER_SECOND)));
+    h.deploySteps = h.deployTotal;
+    const sound = h.def.kind === 'PetBot' ? 'snd_batBot_deploiement' : `snd_${h.def.name.charAt(0).toLowerCase()}${h.def.name.slice(1)}_deploiement`;
+    this.emit({ type: 'deploy', sound });
+  }
+
+  /** Chaises à roulettes : poussées par le héros, elles roulent puis ralentissent ; les murs les arrêtent. */
+  private stepChairs(): void {
+    const h = this.hero;
+    const cfg = CONFIG.chair;
+    for (const chair of this.chairs) {
+      const o = chair.obstacle;
+      const dx = o.cx - h.x;
+      const dy = o.cy - h.y;
+      const d = Math.hypot(dx, dy);
+      if (h.state !== 'dead' && (h.moving || h.dashing) && d > 0.01 && d < h.def.radius + cfg.radius + 6) {
+        const speed = h.def.walkSpeed * (h.dashing ? 1.6 : cfg.push);
+        chair.vx = (dx / d) * speed;
+        chair.vy = (dy / d) * speed;
+      }
+      const v = Math.hypot(chair.vx, chair.vy);
+      if (v < 0.25) {
+        chair.vx = 0;
+        chair.vy = 0;
+        continue;
+      }
+      this.nav.mark(o, -1);
+      o.active = false; // la chaise ne se heurte pas à elle-même
+      const res = this.collision.resolveCircle(o.cx + chair.vx, o.cy + chair.vy, cfg.radius, BLOCK_MOVE);
+      o.active = true;
+      this.collision.update(o, () => {
+        o.cx = res.x;
+        o.cy = res.y;
+      });
+      this.nav.mark(o, 1);
+      chair.x = res.x - chair.offsetX;
+      chair.y = res.y - chair.offsetY;
+      chair.angle += v * 0.012;
+      const keep = res.hit ? 0.4 : cfg.friction;
+      chair.vx *= keep;
+      chair.vy *= keep;
+    }
   }
 
   /** Consigne affichée au joueur (GD-010). */
@@ -208,12 +288,14 @@ export class World {
         id: this.nextId++, x: inst.x, y: inst.y, angle, scaleX: inst.scaleX, scaleY: inst.scaleY,
         sprite: spriteName ?? 'spr_murEtFenetre', broken: false, obstacle: null as unknown as Obstacle,
       };
-      pane.obstacle = this.collision.add(this.instanceBox(inst, maskName, BLOCK_MOVE | BLOCK_SIGHT | IS_WINDOW, pane));
+      pane.obstacle = this.collision.add(this.instanceBox(inst, maskName, BLOCK_MOVE | IS_WINDOW, pane));
       this.nav.mark(pane.obstacle, 1);
       this.windows.push(pane);
     } else if (inst.object === 'obj_button') {
-      this.buttons.push({ x: inst.x, y: inst.y, angle, doorId: Number(inst.props.doorId ?? -1) });
-      if (spriteName) this.addDecor(inst, spriteName);
+      this.buttons.push({
+        id: this.nextId++, sprite: spriteName ?? 'spr_button', x: inst.x, y: inst.y, angle, scaleX: inst.scaleX, scaleY: inst.scaleY,
+        doorId: Number(inst.props.doorId ?? -1), pressedSteps: -1,
+      });
     } else if (isA(level, inst.object, 'obj_localNpc')) {
       const def = CONFIG.npcs[inst.object];
       if (!def) return;
@@ -265,6 +347,13 @@ export class World {
       });
     } else if (inst.object === 'obj_endLevel') {
       this.exitZone = this.instanceBox(inst, spriteName, 0);
+    } else if (CONFIG.chair.objects.includes(inst.object)) {
+      const o = this.collision.add(this.instanceBox(inst, maskName, BLOCK_MOVE));
+      this.nav.mark(o, 1);
+      this.chairs.push({
+        id: this.nextId++, sprite: spriteName ?? '', x: inst.x, y: inst.y, angle, scaleX: inst.scaleX, scaleY: inst.scaleY, tint: inst.tint,
+        vx: 0, vy: 0, offsetX: o.cx - inst.x, offsetY: o.cy - inst.y, obstacle: o,
+      });
     } else if (isA(level, inst.object, 'obj_decor_base')) {
       // mobilier et autres obstacles fixes
       const bulletCrossed = inst.props.bulletCrossed === true;
@@ -310,6 +399,7 @@ export class World {
       hp: def.maxHealth, energy: CONFIG.hero.naturalEnergy, energyTimer: 0, energyPause: 0,
       ammo: def.magazine, reloadTimer: 0, fireTimer: 0, sinceShot: 9999,
       dashCharges: CONFIG.hero.dashCharges, dashRechargeTimer: 0, dashing: false, bump: false, targetX: x, targetY: y,
+      deploySteps: 0, deployTotal: 0,
       invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0, repairTimer: 0, linkedOutlet: -1, overchargeHold: 0, healPool: 0,
       fire2Timer: 0, fire2Was: false, fire2Hold: 0, fire2Anim: -1, speedFactor: 1,
       charge: 0, shieldUp: false, tanked: 0,
@@ -333,7 +423,9 @@ export class World {
 
   step(input: Input): void {
     this.tick++;
+    this.stepChairs();
     stepHero(this, input);
+    this.stepCheckpoint();
     this.stepButtons(input);
     this.stepCards(input);
     stepNpcs(this);
@@ -351,6 +443,8 @@ export class World {
   damageHero(amount: number, ignoreInvuln = false): boolean {
     const h = this.hero;
     if (h.hp <= 0 || h.state === 'dead') return false;
+    // intouchable pendant un dash (GD-031) et pendant le déploiement
+    if (h.dashing || h.deploySteps > 0) return false;
     if (h.invuln > 0 && !ignoreInvuln) return false;
     h.hp -= amount;
     this.stats.damageTaken += amount;
@@ -485,7 +579,7 @@ export class World {
     const hx = b.x + (nx - b.x) * end;
     const hy = b.y + (ny - b.y) * end;
     const glass = this.collision.raycast(b.x, b.y, hx, hy, IS_WINDOW);
-    if (glass) this.breakWindow(glass.obstacle.owner as WindowPane);
+    if (glass) this.breakWindow(glass.obstacle.owner as WindowPane, b.angle);
 
     if (shieldHit) {
       shieldTank(this, this.hero);
@@ -540,12 +634,12 @@ export class World {
     return out;
   }
 
-  breakWindow(pane: WindowPane): void {
+  breakWindow(pane: WindowPane, angle = 0): void {
     if (pane.broken) return;
     pane.broken = true;
     // une vitre brisée continue de bloquer le passage et la vue, comme dans l'original
     pane.obstacle.flags &= ~IS_WINDOW;
-    this.emit({ type: 'windowBroken', id: pane.id, x: pane.obstacle.cx, y: pane.obstacle.cy });
+    this.emit({ type: 'windowBroken', id: pane.id, x: pane.obstacle.cx, y: pane.obstacle.cy, angle });
   }
 
   // ---------- Portes et boutons ----------
@@ -656,6 +750,7 @@ export class World {
   }
 
   private stepButtons(input: Input): void {
+    for (const button of this.buttons) if (button.pressedSteps >= 0) button.pressedSteps++;
     const h = this.hero;
     if (!input.usePressed || h.state === 'dead') return;
     for (const button of this.buttons) {
@@ -668,6 +763,8 @@ export class World {
       for (const door of this.doors) {
         if (door.kind === 'button' && door.doorId === button.doorId && door.phase === 'closed') this.openDoor(door);
       }
+      button.pressedSteps = 0;
+      this.emit({ type: 'buttonPressed', x: button.x, y: button.y });
     }
   }
 

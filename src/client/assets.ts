@@ -22,7 +22,7 @@ export function frameKey(sprite: string, frame: number): string {
 const UI_SPRITES = [
   'spr_healthBar', 'spr_fondMenu_1', 'spr_title', 'spr_btn_play', 'spr_btn_exit', 'spr_btn_resume', 'spr_btn_retry',
   'spr_electricity1', 'spr_electricity2', 'spr_electricity3',
-  'spr_teleporteur_waiting', 'spr_teleporteur_active', 'spr_fenetre_eclats',
+  'spr_teleporteur_waiting', 'spr_teleporteur_active', 'spr_fenetre_eclats', 'spr_explosion_robot',
   'spr_membreMortHumain_sang', 'spr_membreMortRobot_huile', 'spr_doorKey_green', 'spr_doorKey_purple',
   ...Array.from({ length: 11 }, (_, i) => `spr_membreMortHumain_${i + 1}`),
   ...Array.from({ length: 11 }, (_, i) => `spr_membreMortRobot_${i + 1}`),
@@ -45,12 +45,12 @@ export function spritesNeeded(level: LevelData, manifest: SpriteManifest): strin
   return [...names].filter((n) => manifest[n]);
 }
 
-/** Familles de sprites propres à chaque héros (animations de déploiement exclues : elles ne sont pas jouées). */
+/** Familles de sprites propres à chaque héros. */
 const HERO_SPRITES: Record<HeroKind, RegExp> = {
-  PetBot: /^spr_(PetBot_(?!deploy|pointingArrow)|PetDrone|bullet_PetBot$)/,
-  EngiBot: /^spr_(EngiBot_(?!deploy|pointingArrow)|turet|bullet_pistol$)/,
-  BatBot: /^spr_(BatBot_(?!deploy|pointingArrow)|batte_BatBot|bullet2_explosion$)/,
-  BadaBot: /^spr_(BadaBot_(?!deploy|pointingArrow)|plasmaBawl_)/,
+  PetBot: /^spr_(PetBot_(?!pointingArrow)|PetDrone|bullet_PetBot$)/,
+  EngiBot: /^spr_(EngiBot_(?!pointingArrow)|turet|bullet_pistol$)/,
+  BatBot: /^spr_(BatBot_(?!pointingArrow)|batte_BatBot|bullet2_explosion$)/,
+  BadaBot: /^spr_(BadaBot_(?!pointingArrow)|plasmaBawl_)/,
 };
 
 export function heroSprites(kind: HeroKind, manifest: SpriteManifest): string[] {
@@ -81,5 +81,6 @@ export function commonSounds(sounds: SoundManifest): string[] {
 }
 
 export function heroSounds(kind: HeroKind, sounds: SoundManifest): string[] {
-  return Object.keys(sounds).filter((n) => HERO_SOUNDS[kind].test(n) && !/_deploiement$/.test(n));
+  // PetBot n'a pas de son de déploiement à lui : l'original lui donne celui de BatBot
+  return Object.keys(sounds).filter((n) => HERO_SOUNDS[kind].test(n) || (kind === 'PetBot' && n === 'snd_batBot_deploiement'));
 }

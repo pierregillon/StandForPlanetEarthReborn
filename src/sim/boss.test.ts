@@ -57,6 +57,11 @@ test('SallyBot poursuit le héros et le frappe au corps à corps', () => {
   const w = arena();
   const h = w.hero;
   assert.ok(w.boss);
+  // il attend qu'on s'approche : à l'arrivée dans la salle, il ne bouge pas
+  for (let i = 0; i < 120; i++) w.step(NO_INPUT);
+  assert.ok(!w.boss.engaged, 'le boss reste en place tant que le héros est loin');
+  h.x = w.boss.npc.x;
+  h.y = w.boss.npc.y + 500;
   for (let i = 0; i < 600 && h.hp === h.def.maxHealth; i++) w.step({ ...NO_INPUT, aimX: h.x, aimY: h.y - 100 });
   assert.ok(w.boss.engaged);
   assert.ok(h.hp < h.def.maxHealth, 'le héros immobile finit par être frappé');
@@ -69,6 +74,8 @@ test('SallyBot : transformation à mi-vie, puis invulnérable sauf quand il resp
   const npc = boss.npc;
   const h = w.hero;
   h.hp = 100000; // le héros encaisse pour la durée du test
+  h.x = npc.x;
+  h.y = npc.y + 400;
   for (let i = 0; i < 30; i++) w.step(NO_INPUT);
   // phase 1 : vulnérable hors charge
   while (boss.action === 'charge') w.step(NO_INPUT);

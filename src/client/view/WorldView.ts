@@ -7,19 +7,19 @@ import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { BLOCK_MOVE } from '../../sim/geom.ts';
 import { batHand } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
-import type { Bat, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
+import type { Bat, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
 const DEPTH = {
   background: -800, floor: -700, decal: -600, zone: -400, window: -300, outlet: -150,
-  remains: -50, legs: -1, character: 0, laser: 4, bullet: 5, fog: 100, wallThin: 200, wallThick: 300, door: 500, fx: 600, worldText: 700, darkness: 5000,
+  remains: -50, chair: -20, legs: -1, character: 0, laser: 4, bullet: 5, fog: 100, wallThin: 200, wallThick: 300, door: 500, fx: 600, worldText: 700, darkness: 5000,
 };
 /** Brouillard de guerre : gris foncé de l'original ($313131). */
 const FOG_COLOR = 0x313131;
 /** Éclairage simplifié. L'original assombrit à 60 % ; 50 % ici pour garder les combats lisibles (GD-028). */
 const LIGHTING = { ambient: 0.5, strength: 2, heroRadius: 420, heroStrength: 0.75, chargingDim: 0.22 };
 const CARD_COLORS: Record<string, number> = { green: 0x35d05a, purple: 0xb04cff };
-const MAX_REMAINS = 500;
+const MAX_REMAINS = 900;
 /** Aspect des projectiles (GD-022) : traînée jaune pour le héros, orange pour les ennemis. */
 const BULLET_STYLE = {
   heroScale: 1.2,
@@ -80,6 +80,11 @@ export class WorldView {
   private heroFx!: Phaser.GameObjects.Graphics;
   private npcFx!: Phaser.GameObjects.Graphics;
   private readonly cardGlows = new Map<number, Img>();
+  private readonly chairImgs = new Map<number, Img>();
+  private readonly buttonImgs = new Map<number, Img>();
+  private readonly alerts = new Map<number, { text: Phaser.GameObjects.Text; frames: number }>();
+  private auras: Img[] = [];
+  private checkpointImg: Img | null = null;
   private hasLamps = false;
   private cable!: Phaser.GameObjects.Graphics;
   private tracers!: Phaser.GameObjects.Graphics;
@@ -215,8 +220,13 @@ export class WorldView {
       new Phaser.Geom.Point(52, 28), new Phaser.Geom.Point(36, 52), new Phaser.Geom.Point(47, 52),
       new Phaser.Geom.Point(43, 70), new Phaser.Geom.Point(61, 44), new Phaser.Geom.Point(50, 44),
     ], true);
-    g.fillStyle(0x4dff88, 1).fillCircle(72, 22, 5);
-    g.generateTexture('outlet', 96, 96);
+    // voyant : vert tant que la borne a de la réserve, rouge une fois vidée (GD-031)
+    for (const [key, led, halo] of [['outlet', 0x4dff88, 0x1f8a45], ['outlet_empty', 0xff3030, 0x7a1010]] as const) {
+      g.fillStyle(halo, 1).fillCircle(72, 22, 10);
+      g.fillStyle(led, 1).fillCircle(72, 22, 7);
+      g.fillStyle(0xffffff, 0.7).fillCircle(70, 20, 2.5);
+      g.generateTexture(key, 96, 96);
+    }
     g.destroy();
   }
 
@@ -235,10 +245,12 @@ export class WorldView {
       if (!img) continue;
       const empty = outlet.energyLeft === 0 && outlet.repairLeft === 0;
       img.setScale(outlet.inUse ? 1.08 + Math.sin(this.scene.time.now / 80) * 0.04 : 1);
-      // borne vidée : éteinte
-      if (empty) img.setTint(0x555555).setAlpha(0.7);
+      // borne vidée : seul son voyant change, il passe au rouge
+      if (empty && img.texture.key !== 'outlet_empty') img.setTexture('outlet_empty');
     }
     this.syncNpcFx();
+    this.syncFurniture();
+    this.syncCheckpoint();
     this.world.zones.forEach((zone, i) => {
       const sprite = zone.active ? 'spr_teleporteur_active' : zone.sprite;
       if (this.scene.textures.exists(frameKey(sprite, 0))) this.setFrame(this.zoneImgs[i], sprite, 0);
@@ -274,7 +286,8 @@ export class WorldView {
       this.plasmaBall?.setVisible(false);
       return;
     }
-    legs.setVisible(true);
+    legs.setVisible(h.deploySteps === 0);
+    if (h.dashing) this.dashTrail(h, body);
     if (h.moving) {
       this.legsTime += dt;
       this.setFrame(legs, def.sprites.legs, (this.legsTime * 20) % this.info(def.sprites.legs).frames);
@@ -296,7 +309,7 @@ export class WorldView {
     const ey = m.y + Math.sin(h.angle) * 200;
     const hit = this.world.collision.raycast(m.x, m.y, ex, ey, BLOCK_MOVE);
     const t = hit ? hit.t : 1;
-    if (def.laserColor !== null) {
+    if (def.laserColor !== null && h.deploySteps === 0) {
       this.laser.lineStyle(2, def.laserColor, h.state === 'firing1' ? 0.7 : 0.4);
       this.laser.lineBetween(m.x, m.y, m.x + (ex - m.x) * t, m.y + (ey - m.y) * t);
     }
@@ -455,6 +468,12 @@ export class WorldView {
   /** Sprite et image du corps du héros selon son état. */
   private heroPose(h: Hero): { sprite: string; frame: number } {
     const def = h.def;
+    if (h.deploySteps > 0) {
+      const sprite = `spr_${def.name}_deploy`;
+      if (this.scene.textures.exists(frameKey(sprite, 0))) {
+        return { sprite, frame: (1 - h.deploySteps / Math.max(1, h.deployTotal)) * this.info(sprite).frames };
+      }
+    }
     const walkCycle = (sprite: string): { sprite: string; frame: number } => {
       // un cycle d'animation tous les 256 px parcourus
       const frames = this.info(sprite).frames;
@@ -530,7 +549,10 @@ export class WorldView {
       (d) => this.image('spr_PetDrone', d.level - 1, d.x, d.y, DEPTH.bullet),
       (img, d) => img.setPosition(d.x, d.y).setRotation(d.angle));
     this.syncPool(this.explosionImgs, world.explosions,
-      (e) => this.image(e.sprite, 0, e.x, e.y, DEPTH.fx).setRotation(e.angle).setScale(e.scale),
+      (e) => {
+        if (e.sprite === 'spr_bullet2_explosion') this.blastFx(e.x, e.y, e.radius);
+        return this.image(e.sprite, 0, e.x, e.y, DEPTH.fx).setRotation(e.angle).setScale(e.scale);
+      },
       (img, e) => this.setFrame(img, e.sprite, (e.step / e.totalSteps) * this.info(e.sprite).frames));
     this.syncPool(this.batImgs, world.bats,
       (b) => this.image(`spr_batte_BatBot_${b.side}`, 0, b.x, b.y, DEPTH.bullet),
@@ -646,6 +668,10 @@ export class WorldView {
 
   /** Effets dessinés sur le héros (GD-029) : anneau de rechargement, jauge de munitions, énergie en surcharge. */
   private drawHeroFx(h: Hero): void {
+    if (h.deploySteps > 0) {
+      this.syncAura(h);
+      return;
+    }
     const g = this.heroFx;
     const def = h.def;
     const c = Math.cos(h.angle);
@@ -688,27 +714,159 @@ export class WorldView {
       g.lineStyle(2, 0xfe00d1, 0.25).lineBetween(hand.x, hand.y, bat.x, bat.y);
     }
 
-    // surcharge d'énergie : des étincelles courent autour du robot, de plus en plus nombreuses ; halo à 12
-    if (h.energy > CONFIG.hero.naturalEnergy) {
-      const stage = Math.floor(h.energy / 3); // 1 à 4
-      const sparks = (stage - 1) * 2 + (h.energy >= CONFIG.hero.maxEnergy ? 3 : 0) + 1;
-      for (let k = 0; k < sparks; k++) {
-        let a = Math.random() * Math.PI * 2;
-        let r = def.radius + 4 + Math.random() * 14;
-        g.lineStyle(Math.random() < 0.3 ? 3 : 2, Math.random() < 0.5 ? 0xffffff : 0x8fdcff, 0.95).beginPath();
-        g.moveTo(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r);
-        for (let j = 0; j < 4; j++) {
-          a += 0.12 + Math.random() * 0.18;
-          r = def.radius + Math.random() * 20;
-          g.lineTo(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r);
+    this.syncAura(h);
+  }
+
+  /**
+   * Surcharge d'énergie (GD-031) : une enveloppe lumineuse à la forme du robot, en 3 niveaux (4 à 6, 7 à 9,
+   * 10 à 12), avec quelques étincelles. Plus discrète que le cercle d'avant.
+   */
+  private syncAura(h: Hero): void {
+    const body = this.heroBody;
+    const level = h.state === 'dead' || h.deploySteps > 0 ? 0 : Math.max(0, Math.min(3, Math.ceil((h.energy - CONFIG.hero.naturalEnergy) / 3)));
+    while (this.auras.length < 2) {
+      this.auras.push(this.scene.add.image(h.x, h.y, body.texture.key).setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x4fb8ff).setDepth(DEPTH.character - 0.5));
+    }
+    const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 160);
+    this.auras.forEach((aura, i) => {
+      aura.setVisible(level > 0);
+      if (level === 0) return;
+      if (aura.texture.key !== body.texture.key) aura.setTexture(body.texture.key);
+      aura.setOrigin(body.originX, body.originY).setPosition(h.x, h.y).setRotation(h.angle)
+        .setScale(1.06 + i * 0.07 + 0.015 * pulse)
+        .setAlpha((0.1 + 0.07 * level) * (i === 0 ? 1 : 0.55) * (0.8 + 0.2 * pulse));
+    });
+    // étincelles : une par niveau, sur le contour du corps
+    const g = this.heroFx;
+    for (let k = 0; k < level; k++) {
+      if (Math.random() < 0.45) continue;
+      let a = Math.random() * Math.PI * 2;
+      let r = h.def.radius * (0.7 + Math.random() * 0.35);
+      g.lineStyle(2, Math.random() < 0.5 ? 0xffffff : 0x8fdcff, 0.85).beginPath();
+      g.moveTo(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r);
+      for (let j = 0; j < 3; j++) {
+        a += 0.1 + Math.random() * 0.16;
+        r = h.def.radius * (0.7 + Math.random() * 0.4);
+        g.lineTo(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r);
+      }
+      g.strokePath();
+    }
+  }
+
+  /** Dash : le robot est propulsé ; il laisse des images rémanentes qui s'effacent (flou cinétique). */
+  private dashTrail(h: Hero, body: Img): void {
+    const scene = this.scene;
+    const ghost = scene.add.image(h.x, h.y, body.texture.key).setOrigin(body.originX, body.originY).setRotation(h.angle)
+      .setTintFill(0x9fd9ff).setAlpha(0.45).setDepth(DEPTH.character - 0.6).setBlendMode(Phaser.BlendModes.ADD);
+    scene.tweens.add({ targets: ghost, alpha: 0, scaleX: 0.92, scaleY: 0.92, duration: 220, onComplete: () => ghost.destroy() });
+    // flammèche du propulseur, à l'arrière
+    const back = h.moveAngle + Math.PI + (Math.random() - 0.5) * 0.5;
+    const flame = scene.add.circle(h.x + Math.cos(back) * 30, h.y + Math.sin(back) * 30, 7 + Math.random() * 6, Math.random() < 0.5 ? 0xffe36b : 0xff8a2a).setDepth(DEPTH.character - 0.7);
+    scene.tweens.add({ targets: flame, x: flame.x + Math.cos(back) * 70, y: flame.y + Math.sin(back) * 70, alpha: 0, scale: 0.3, duration: 200, onComplete: () => flame.destroy() });
+  }
+
+  /** Explosion d'une batte (GD-031) : éclair, onde de choc, braises et fumée, pour qu'on la lise comme telle. */
+  private blastFx(x: number, y: number, radius: number): void {
+    const scene = this.scene;
+    scene.cameras.main.shake(220, 0.007);
+    const flash = scene.add.circle(x, y, radius * 0.55, 0xfff3c4).setDepth(DEPTH.fx + 1).setBlendMode(Phaser.BlendModes.ADD);
+    scene.tweens.add({ targets: flash, alpha: 0, scale: 1.5, duration: 320, onComplete: () => flash.destroy() });
+    const core = scene.add.circle(x, y, radius * 0.35, 0xff7a1a).setDepth(DEPTH.fx).setAlpha(0.9);
+    scene.tweens.add({ targets: core, alpha: 0, scale: 2.2, duration: 550, onComplete: () => core.destroy() });
+    for (const [width, delay] of [[10, 0], [5, 90]] as const) {
+      const ring = scene.add.circle(x, y, radius * 0.2).setStrokeStyle(width, 0xffd9a0).setDepth(DEPTH.fx + 1);
+      scene.tweens.add({ targets: ring, scale: 5, alpha: 0, duration: 520, delay, onComplete: () => ring.destroy() });
+    }
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = radius * (0.5 + Math.random() * 0.7);
+      const ember = scene.add.circle(x, y, 3 + Math.random() * 4, Math.random() < 0.5 ? 0xffc04a : 0xff5a1f).setDepth(DEPTH.fx + 1);
+      scene.tweens.add({ targets: ember, x: x + Math.cos(a) * dist, y: y + Math.sin(a) * dist, alpha: 0, duration: 450 + Math.random() * 300, onComplete: () => ember.destroy() });
+    }
+    for (let i = 0; i < 7; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const smoke = scene.add.circle(x + Math.cos(a) * radius * 0.25, y + Math.sin(a) * radius * 0.25, radius * (0.18 + Math.random() * 0.14), 0x2a2a2a).setDepth(DEPTH.fx - 1).setAlpha(0.55);
+      scene.tweens.add({ targets: smoke, alpha: 0, scale: 1.9, x: smoke.x + Math.cos(a) * 40, y: smoke.y + Math.sin(a) * 40, duration: 900 + Math.random() * 400, onComplete: () => smoke.destroy() });
+    }
+    // trace de brûlure laissée au sol
+    this.keepRemains(scene.add.circle(x, y, radius * 0.4, 0x000000).setAlpha(0.28).setDepth(DEPTH.remains - 2) as unknown as Img);
+  }
+
+  /** Chaises à roulettes et boutons de porte : dessinés ici car ils bougent (GD-031). */
+  private syncFurniture(): void {
+    this.syncPool<Chair>(this.chairImgs, this.world.chairs,
+      (c) => this.image(c.sprite, 0, c.x, c.y, DEPTH.chair).setScale(c.scaleX, c.scaleY).setTint(tintOf(c.tint)),
+      (img, c) => img.setPosition(c.x, c.y).setRotation(c.angle));
+    this.syncPool<Button>(this.buttonImgs, this.world.buttons,
+      (b) => this.image(b.sprite, 0, b.x, b.y, DEPTH.chair).setRotation(b.angle).setScale(b.scaleX, b.scaleY),
+      (img, b) => {
+        // pressé, le bouton s'enfonce dans le mur (vers l'arrière) et reste enfoncé
+        const depth = b.pressedSteps < 0 ? 0 : Math.min(1, b.pressedSteps / 6);
+        img.setPosition(b.x - Math.cos(b.angle) * 9 * depth, b.y - Math.sin(b.angle) * 9 * depth)
+          .setScale(b.scaleX * (1 - 0.12 * depth), b.scaleY).setTint(depth > 0 ? 0x9a9a9a : 0xffffff);
+      });
+    // marqueur « ! » au-dessus d'un ennemi qui vient de repérer le héros
+    for (const npc of this.world.npcs) {
+      if (npc.behaviour !== 'surprised') continue;
+      let alert = this.alerts.get(npc.id);
+      if (!alert) {
+        const text = this.scene.add.text(npc.x, npc.y, '!', { fontFamily: 'Aldo', fontSize: '64px', color: '#ffdd33', stroke: '#b00000', strokeThickness: 8 })
+          .setOrigin(0.5, 1).setDepth(DEPTH.worldText).setScale(0.2);
+        this.scene.tweens.add({ targets: text, scale: 1, duration: 140, ease: 'Back.easeOut' });
+        alert = { text, frames: 0 };
+        this.alerts.set(npc.id, alert);
+      }
+      alert.frames = 50;
+    }
+    for (const [id, alert] of this.alerts) {
+      const npc = this.world.npcs.find((n) => n.id === id);
+      if (!npc || --alert.frames <= 0) {
+        alert.text.destroy();
+        this.alerts.delete(id);
+        continue;
+      }
+      alert.text.setPosition(npc.x, npc.y - npc.def.radius - 18).setAlpha(Math.min(1, alert.frames / 15));
+    }
+  }
+
+  /** Point de sauvegarde devant le boss : une balise, ambre tant qu'elle attend, bleue une fois activée. */
+  private syncCheckpoint(): void {
+    const cp = this.world.checkpoint;
+    if (!cp) return;
+    const scene = this.scene;
+    if (!this.checkpointImg) {
+      if (!scene.textures.exists('checkpoint')) {
+        const g = scene.make.graphics({ x: 0, y: 0 }, false);
+        g.fillStyle(0x000000, 0.4).fillCircle(64, 68, 56);
+        g.fillStyle(0x2a3140, 1).fillCircle(64, 64, 52);
+        g.lineStyle(5, 0x8b96ad, 1).strokeCircle(64, 64, 52);
+        g.fillStyle(0x151a24, 1).fillCircle(64, 64, 38);
+        g.lineStyle(4, 0x8b96ad, 1).strokeCircle(64, 64, 22);
+        for (let k = 0; k < 4; k++) {
+          const a = (k * Math.PI) / 2 + Math.PI / 4;
+          g.fillStyle(0x8b96ad, 1).fillCircle(64 + Math.cos(a) * 45, 64 + Math.sin(a) * 45, 5);
         }
-        g.strokePath();
+        g.fillStyle(0xffffff, 1).fillCircle(64, 64, 12);
+        g.generateTexture('checkpoint', 128, 128);
+        g.destroy();
       }
-      if (h.energy >= CONFIG.hero.maxEnergy) {
-        const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 110);
-        g.lineStyle(10, 0x4fb8ff, 0.12 + 0.14 * pulse).strokeCircle(h.x, h.y, def.radius + 16);
-        g.lineStyle(3, 0xbfeaff, 0.35 + 0.35 * pulse).strokeCircle(h.x, h.y, def.radius + 16);
-      }
+      this.ensureHalo();
+      this.checkpointImg = scene.add.image(cp.x, cp.y, 'checkpoint').setDepth(DEPTH.outlet);
+      scene.add.text(cp.x, cp.y + 78, 'CHECKPOINT', { fontFamily: 'Aldo', fontSize: '26px', color: '#ffffff', stroke: '#000000', strokeThickness: 5 })
+        .setOrigin(0.5, 0).setDepth(DEPTH.outlet);
+    }
+    const g = this.cable;
+    const t = this.scene.time.now / 1000;
+    const color = cp.active ? 0x7fd9ff : 0xffb347;
+    this.checkpointImg.setTint(cp.active ? 0xbfeaff : 0xffd9a0);
+    const pulse = 0.5 + 0.5 * Math.sin(t * (cp.active ? 2 : 4));
+    g.fillStyle(color, 0.12 + 0.1 * pulse).fillCircle(cp.x, cp.y, 80 + 20 * pulse);
+    g.lineStyle(4, color, 0.5 + 0.4 * pulse).strokeCircle(cp.x, cp.y, 66 + 10 * pulse);
+    if (!cp.active) g.lineStyle(2, color, 0.25).strokeCircle(cp.x, cp.y, CONFIG.hero.checkpointRadius);
+    // faisceau tournant
+    for (let k = 0; k < 2; k++) {
+      const a = t * 1.5 + k * Math.PI;
+      g.lineStyle(6, color, 0.3).lineBetween(cp.x, cp.y, cp.x + Math.cos(a) * 110, cp.y + Math.sin(a) * 110);
     }
   }
 
@@ -794,7 +952,7 @@ export class WorldView {
       this.spawnDeath(e.x, e.y, e.angle, e.sprite, e.genre);
     } else if (e.type === 'windowBroken') {
       const pane = this.world.windows.find((w) => w.id === e.id);
-      if (pane) this.breakWindow(pane, e.x, e.y);
+      if (pane) this.breakWindow(pane, e.x, e.y, e.angle);
     } else if (e.type === 'heroDead') {
       scene.cameras.main.shake(300, 0.01);
     } else if (e.type === 'heroHit') {
@@ -816,6 +974,11 @@ export class WorldView {
       }
       const ring = scene.add.circle(e.x, e.y, 40).setStrokeStyle(5, 0xffffff).setDepth(DEPTH.fx);
       scene.tweens.add({ targets: ring, scale: 2.4, alpha: 0, duration: 350, onComplete: () => ring.destroy() });
+    } else if (e.type === 'checkpoint') {
+      for (let i = 0; i < 3; i++) {
+        const ring = scene.add.circle(e.x, e.y, 40).setStrokeStyle(6, 0x7fd9ff).setDepth(DEPTH.fx);
+        scene.tweens.add({ targets: ring, scale: 7, alpha: 0, duration: 900, delay: i * 200, onComplete: () => ring.destroy() });
+      }
     } else if (e.type === 'heal') {
       const plus = scene.add.text(e.x, e.y - 50, '+1', { fontFamily: 'Aldo', fontSize: '36px', color: '#6dff8a', stroke: '#000000', strokeThickness: 5 })
         .setOrigin(0.5).setDepth(DEPTH.worldText);
@@ -829,45 +992,63 @@ export class WorldView {
     }
   }
 
-  private breakWindow(pane: WindowPane, x: number, y: number): void {
+  private breakWindow(pane: WindowPane, x: number, y: number, angle: number): void {
     const img = this.windowImgs.get(pane.id);
     if (img) this.setFrame(img, pane.sprite, 1);
     if (!this.scene.textures.exists(frameKey('spr_fenetre_eclats', 0))) return;
     const variants = this.info('spr_fenetre_eclats').frames;
-    for (let i = 0; i < 12; i++) {
-      const shard = this.image('spr_fenetre_eclats', Math.floor(Math.random() * variants), x + (Math.random() - 0.5) * 200 * Math.abs(Math.sin(pane.angle)) , y + (Math.random() - 0.5) * 200 * Math.abs(Math.cos(pane.angle)), DEPTH.remains);
-      const a = Math.random() * Math.PI * 2;
-      const speed = 300 + Math.random() * 500;
-      this.debris.push({ img: shard, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: (Math.random() - 0.5) * 10 });
+    const o = pane.obstacle;
+    // la vitre s'étend sur le grand côté de sa boîte
+    const along = o.hw >= o.hh ? { x: o.cos, y: o.sin, half: o.hw } : { x: -o.sin, y: o.cos, half: o.hh };
+    for (let i = 0; i < 22; i++) {
+      const s = (Math.random() - 0.5) * 2 * along.half * 0.9;
+      const shard = this.image('spr_fenetre_eclats', Math.floor(Math.random() * variants), x + along.x * s, y + along.y * s, DEPTH.remains)
+        .setRotation(Math.random() * Math.PI * 2).setScale(1 + Math.random() * 0.8);
+      // projetés du côté opposé au tireur, en éventail (comme dans l'original)
+      const a = angle + (Math.random() - 0.5) * 1.1;
+      const speed = 250 + Math.random() * 650;
+      this.debris.push({ img: shard, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: (Math.random() - 0.5) * 12 });
       this.keepRemains(shard);
     }
   }
 
   private spawnDeath(x: number, y: number, angle: number, sprite: string, genre: 'humain' | 'robot'): void {
     const scene = this.scene;
+    const robot = genre === 'robot';
     if (scene.textures.exists(frameKey(sprite, 0))) {
       const sp = this.info(sprite);
       const img = this.image(sprite, 0, x, y, DEPTH.character).setRotation(angle);
       this.anims.push({ img, sprite, frames: sp.frames, fps: spriteFps(sp), elapsed: 0, keepLast: false });
     }
-    const puddle = genre === 'humain' ? 'spr_membreMortHumain_sang' : 'spr_membreMortRobot_huile';
+    if (robot) {
+      // un robot détruit explose et laisse une vraie carcasse (GD-031)
+      if (sprite !== 'spr_explosion_robot' && scene.textures.exists(frameKey('spr_explosion_robot', 0))) {
+        const sp = this.info('spr_explosion_robot');
+        const boom = this.image('spr_explosion_robot', 0, x, y, DEPTH.fx).setRotation(Math.random() * Math.PI * 2).setScale(0.9);
+        this.anims.push({ img: boom, sprite: 'spr_explosion_robot', frames: sp.frames, fps: spriteFps(sp), elapsed: 0, keepLast: false });
+      }
+      this.keepRemains(scene.add.circle(x, y, 70, 0x000000).setAlpha(0.3).setDepth(DEPTH.remains - 2) as unknown as Img);
+    }
+    const puddle = robot ? 'spr_membreMortRobot_huile' : 'spr_membreMortHumain_sang';
     if (scene.textures.exists(frameKey(puddle, 0))) {
-      const count = 2 + Math.floor(Math.random() * 3);
+      const count = robot ? 4 + Math.floor(Math.random() * 3) : 2 + Math.floor(Math.random() * 3);
+      const spread = robot ? 90 : 30;
       for (let i = 0; i < count; i++) {
-        const img = this.image(puddle, Math.floor(Math.random() * this.info(puddle).frames), x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 30, DEPTH.remains - 1)
-          .setRotation(Math.random() * Math.PI * 2);
+        const img = this.image(puddle, Math.floor(Math.random() * this.info(puddle).frames), x + (Math.random() - 0.5) * spread, y + (Math.random() - 0.5) * spread, DEPTH.remains - 1)
+          .setRotation(Math.random() * Math.PI * 2).setScale(robot ? 1.3 + Math.random() * 0.7 : 1);
         this.keepRemains(img);
       }
     }
-    const prefix = genre === 'humain' ? 'spr_membreMortHumain_' : 'spr_membreMortRobot_';
-    const pieces = 4 + Math.floor(Math.random() * 8);
+    const prefix = robot ? 'spr_membreMortRobot_' : 'spr_membreMortHumain_';
+    const pieces = robot ? 14 + Math.floor(Math.random() * 9) : 4 + Math.floor(Math.random() * 8);
     for (let i = 0; i < pieces; i++) {
       const name = `${prefix}${1 + Math.floor(Math.random() * 11)}`;
       if (!scene.textures.exists(frameKey(name, 0))) continue;
-      const img = this.image(name, 0, x + (Math.random() - 0.5) * 10, y + (Math.random() - 0.5) * 10, DEPTH.remains).setRotation(Math.random() * Math.PI * 2);
+      const img = this.image(name, 0, x + (Math.random() - 0.5) * 10, y + (Math.random() - 0.5) * 10, DEPTH.remains)
+        .setRotation(Math.random() * Math.PI * 2).setScale(robot ? 1.3 + Math.random() * 0.9 : 1);
       const a = Math.random() * Math.PI * 2;
-      const speed = (20 + Math.random() * 20) * STEPS_PER_SECOND * 0.35;
-      this.debris.push({ img, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: 1 });
+      const speed = (20 + Math.random() * 20) * STEPS_PER_SECOND * (robot ? 0.5 : 0.35);
+      this.debris.push({ img, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: 1 + Math.random() * 3 });
       this.keepRemains(img);
     }
   }

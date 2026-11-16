@@ -19,13 +19,19 @@ export function stepHero(world: World, input: Input): void {
     h.moving = false;
     return;
   }
+  if (h.deploySteps > 0) {
+    // déploiement : le robot se déplie, immobile et intouchable
+    h.deploySteps--;
+    h.moving = false;
+    return;
+  }
   if (h.invuln > 0) h.invuln--;
 
   stepOutlet(world, h, input);
-  // BatBot reste immobile pendant l'animation de lancer (staticFire2 dans l'original)
-  const throwing = h.def.kind === 'BatBot' && h.fire2Anim >= 0;
-  const canMove = !h.bump && !throwing;
-  const walkSpeed = h.def.walkSpeed * h.speedFactor;
+  // GD-031 : aucun tir n'immobilise le robot ; le surplus d'énergie le rend plus rapide
+  const canMove = !h.bump;
+  const boost = 1 + CONFIG.hero.overchargeSpeedBonus * Math.max(0, h.energy - CONFIG.hero.naturalEnergy);
+  const walkSpeed = h.def.walkSpeed * h.speedFactor * boost;
 
   // --- dash : il faut être en train de marcher (pas en train de tirer) ---
   const wantsMove = input.moveX !== 0 || input.moveY !== 0;

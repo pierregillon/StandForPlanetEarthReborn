@@ -571,3 +571,38 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** Comportement du jeu d'origine, que l'utilisateur connaît ; et R devient utile pour les quatre robots.
 
 **Conséquences.** GD-023 disait qu'une batte rappelée ignorait les murs : c'était une lecture erronée de l'analyse, corrigée ici d'après le code. Dans le code d'origine, la touche du rappel est l'appui long sur le tir secondaire ; R est un ajout demandé par l'utilisateur.
+
+---
+
+## GD-031 — Deuxième série de retours : point de sauvegarde, mobilité, décor vivant, lisibilité
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — valeurs à ajuster après essai
+- **Décidée par** : l'utilisateur (retours d'essai) ; les valeurs chiffrées sont des choix par défaut
+
+**Contexte.** L'utilisateur a joué jusqu'au boss. Il trouve le parcours haletant mais ne veut pas refaire tout le niveau à chaque défaite contre le boss ; il insiste sur la mobilité (« on a peu de points de vie, il faut être très mobile ») et demande plusieurs ajustements de lisibilité et de réalisme.
+
+**Décision.**
+
+- **Point de sauvegarde devant le boss** (« un bonfire à la Dark Souls, mais dans l'univers du jeu ») : une balise à l'entrée de la zone de forage. S'en approcher (170 px) s'y connecte : vie au maximum, énergie à 12, chargeur plein, une fois par vie. Après une défaite, Retry ramène à la balise, en pleine forme ; la zone de forage est remise à neuf (boss et foreuses), le reste est gardé (cartes, autres salles). Sans balise activée, Retry recommence le niveau (GD-029). La balise est dessinée par le code : ambre tant qu'elle attend, bleue une fois activée.
+- **Boss moins pressant à l'arrivée** : il n'attaque plus dès l'entrée dans la salle (portée d'alerte 650 px au lieu de 1600). Il se réveille aussi si on le touche ou si on entame une foreuse.
+- **Mobilité** :
+  - vitesse de base +15 % pour les quatre robots (11,5 au lieu de 10 ; EngiBot 15 au lieu de 13) ;
+  - +4 % de vitesse par point d'énergie au-dessus de 3, soit +36 % à 12 ;
+  - aucun tir n'immobilise plus : BatBot peut bouger en lançant une batte ; le bouclier de BadaBot ralentit de 25 % au lieu de 50 % ;
+  - le dash rend intouchable pendant toute sa durée (l'original ne protégeait pas), avec des images rémanentes et une flammèche de propulseur.
+- **Ennemis** : les soldats pivotent deux fois plus vite (10° par step au lieu de 5) ; un « ! » jaune apparaît au-dessus d'un ennemi qui vient de repérer le héros, pendant son temps de surprise.
+- **Vitres** : on voit et on tire à travers, dans les deux sens ; elles bloquent toujours le passage. Dans l'original, elles arrêtaient le regard des ennemis. Brisée, la vitre projette ses éclats dans le sens du tir, où ils restent au sol.
+- **Chaises à roulettes** (`obj_siege_accueil`, 31 au rez-de-chaussée) : le héros les pousse en les touchant ; elles roulent, ralentissent et s'arrêtent contre les murs. Seul meuble mobile pour l'instant.
+- **Boutons de porte** : pressé, le bouton s'enfonce dans le mur et y reste, avec un son.
+- **Déploiement** : au début d'une partie, le robot se déplie avec l'animation et le son d'origine (au plus 2,2 s), immobile et intouchable. L'original contenait ces animations mais ne les jouait pas.
+- **Lisibilité** :
+  - surcharge d'énergie : une enveloppe lumineuse à la forme du robot, en 3 niveaux, remplace le cercle jugé trop fort ;
+  - borne vidée : elle garde son aspect, seul son voyant passe du vert au rouge (plus de transparence, jugée irréaliste) ; voyant agrandi ;
+  - explosion des battes : éclair, onde de choc, braises, fumée et trace au sol, sur une demi-seconde à une seconde (le sprite d'origine ne durait que 3 images) ;
+  - robot ennemi détruit : explosion, 14 à 22 débris agrandis, 4 à 6 flaques d'huile, trace au sol.
+- **Sons de synthèse**, faute de fichiers d'origine : bouton de porte, recharge sur une borne (bourdonnement dont la hauteur monte avec l'énergie), point de sauvegarde.
+
+**Pourquoi.** La difficulté doit venir des combats, pas de la répétition ni d'un manque de lisibilité. La mobilité compense le peu de points de vie.
+
+**Conséquences.** Réglages dans `src/sim/config.ts` (`heroes.*.walkSpeed`, `hero.overchargeSpeedBonus`, `hero.checkpointRadius`, `boss.aggroRange`, `npc.rotateSpeedDeg`, `chair`). Le robot plus rapide et intouchable en dash rend le niveau plus facile : l'équilibre des ennemis est à rejuger. Les chaises de cafétéria (`obj_chaise_bleu`, `obj_chaise_marron`) restent fixes.

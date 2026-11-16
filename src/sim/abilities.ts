@@ -155,7 +155,7 @@ function stepDrone(world: World, d: Drone): boolean {
 
 function breakWindows(world: World, x1: number, y1: number, x2: number, y2: number): void {
   const glass = world.collision.raycast(x1, y1, x2, y2, IS_WINDOW);
-  if (glass) world.breakWindow(glass.obstacle.owner as WindowPane);
+  if (glass) world.breakWindow(glass.obstacle.owner as WindowPane, Math.atan2(y2 - y1, x2 - x1));
 }
 
 // ---------- Explosions ----------

@@ -71,7 +71,8 @@ export function stepBoss(world: World, b: BossState): void {
   const edge = Math.hypot(dx, dy) - npc.def.radius - h.def.radius;
   const toHero = Math.atan2(dy, dx);
   if (!b.engaged) {
-    if (h.state === 'dead' || edge > B.aggroRange) return finish(b);
+    const provoked = npc.hp < npc.def.maxHealth || world.drills.some((d) => d.hp < d.maxHp);
+    if (h.state === 'dead' || (edge > B.aggroRange && !provoked)) return finish(b);
     b.engaged = true;
   }
   b.anim++;

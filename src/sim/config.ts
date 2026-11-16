@@ -130,6 +130,12 @@ export const CONFIG = {
     /** Marge par rapport aux bords de la salle. */
     roomMargin: 70,
     deathMenuDelaySteps: s(2.5),
+    // GD-031 : +4 % de vitesse par point d'énergie au-dessus de 3 (jusqu'à +36 % à 12)
+    overchargeSpeedBonus: 0.04,
+    /** Durée maximale de l'animation de déploiement au début d'une partie. */
+    maxDeploySteps: s(2.2),
+    /** Rayon d'activation du point de sauvegarde devant le boss. */
+    checkpointRadius: 170,
     /** Temps à rester dans la zone de sortie pour quitter le niveau (« Leaving area »). */
     exitCountdownSteps: s(10),
   },
@@ -138,7 +144,7 @@ export const CONFIG = {
     PetBot: {
       kind: 'PetBot',
       name: 'PetBot',
-      walkSpeed: 10,
+      walkSpeed: 11.5, // 10 dans l'original ; +15 % (GD-031)
       radius: 40,
       maxHealth: 12,
       rotateSpeedDeg: 15,
@@ -160,7 +166,7 @@ export const CONFIG = {
     EngiBot: {
       kind: 'EngiBot',
       name: 'EngiBot',
-      walkSpeed: 13,
+      walkSpeed: 15, // 13 dans l'original ; +15 % (GD-031)
       radius: 40,
       maxHealth: 12,
       rotateSpeedDeg: 15,
@@ -182,7 +188,7 @@ export const CONFIG = {
     BatBot: {
       kind: 'BatBot',
       name: 'BatBot',
-      walkSpeed: 10,
+      walkSpeed: 11.5, // 10 dans l'original ; +15 % (GD-031)
       radius: 40,
       maxHealth: 12,
       rotateSpeedDeg: 15,
@@ -204,7 +210,7 @@ export const CONFIG = {
     BadaBot: {
       kind: 'BadaBot',
       name: 'BadaBot',
-      walkSpeed: 10,
+      walkSpeed: 11.5, // 10 dans l'original ; +15 % (GD-031)
       radius: 44,
       maxHealth: 12,
       rotateSpeedDeg: 15,
@@ -284,7 +290,7 @@ export const CONFIG = {
       /** Zone protégée par le bouclier dans le repère du héros (masque de spr_BadaBot_shield). */
       shieldBox: { x0: 18, y0: -79, x1: 104, y1: 78 },
       shieldRaiseSteps: 12,
-      shieldSpeedFactor: 0.5,
+      shieldSpeedFactor: 0.75, // 0,5 dans l'original ; la mobilité prime (GD-031)
       bulletsPerEnergy: 3,
     },
   },
@@ -317,7 +323,7 @@ export const CONFIG = {
     chaseRepathSteps: s(0.5),
     waypointTimeoutSteps: s(1),
     maxWaypointFailures: 2,
-    rotateSpeedDeg: 5,
+    rotateSpeedDeg: 10, // 5 dans l'original, jugé mou (GD-031)
     // GD-029 : le robot bouclier se tourne lentement (on peut le contourner d'un dash) et son bouclier
     // se brise après 6 coups encaissés de face. Dans l'original : invulnérable de face, rotation normale.
     shieldRotateSpeedDeg: 1.5,
@@ -373,7 +379,9 @@ export const CONFIG = {
 
   /** Boss SallyBot (valeurs du code de 2019 sauf mention « remake »). */
   boss: {
-    aggroRange: 1600,
+    // 1600 dans l'original : le boss fonçait sur le héros dès son arrivée. Il attend maintenant qu'on
+    // s'approche, qu'on le touche ou qu'on entame une foreuse (GD-031).
+    aggroRange: 650,
     // 10 dans le code, la vitesse des heros ; 7 ici pour qu un joueur seul puisse prendre de la distance (GD-028)
     speed: 7,
     chargeSpeed: 20,
@@ -410,6 +418,14 @@ export const CONFIG = {
   /** Remake (GD-028) : foreuses destructibles, sans équivalent dans le code d'origine. */
   drill: {
     maxHealth: 20,
+  },
+
+  /** Chaises à roulettes : le héros les pousse en les touchant (GD-031). */
+  chair: {
+    objects: ['obj_siege_accueil'],
+    radius: 30,
+    push: 0.9,
+    friction: 0.88,
   },
 
   door: {

@@ -6,6 +6,7 @@ import { Bind, Keys } from '../keys.ts';
 import { ButtonColumn } from '../view/ButtonColumn.ts';
 import { Hud } from '../view/Hud.ts';
 import { WorldView } from '../view/WorldView.ts';
+import { Synth } from '../sfx.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { clamp } from '../../sim/geom.ts';
 import { NO_INPUT } from '../../sim/types.ts';
@@ -61,6 +62,7 @@ export class GameScene extends Phaser.Scene {
   private debugHold: Partial<Input> = {};
   private panel: { objects: Phaser.GameObjects.GameObject[]; buttons: ButtonColumn; kind: PanelKind } | null = null;
   private session!: Session;
+  private synth!: Synth;
   private leaving = false;
 
   constructor() {
@@ -104,6 +106,8 @@ export class GameScene extends Phaser.Scene {
     this.session = session;
     const arriving = (this.registry.get('arrivingHero') ?? null) as Hero | null;
     this.registry.set('arrivingHero', null);
+    // début d'une partie : le robot se déploie (GD-031)
+    const fresh = session.rooms.size === 0 && !arriving && !session.checkpoint;
     let world = session.rooms.get(session.room);
     if (!world) {
       const level = this.cache.json.get(`level:${session.room}`) as LevelData;
@@ -114,7 +118,10 @@ export class GameScene extends Phaser.Scene {
       world.enter(arriving, session.spawnNumber);
     }
     world.drainEvents();
+    if (fresh) world.deployHero();
     this.world = world;
+    this.synth = new Synth(this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.synth.stop());
     this.leaving = false;
     if (arriving) this.cameras.main.fadeIn(200, 19, 19, 19);
     this.view = new WorldView(this, this.world, floors);
@@ -204,6 +211,7 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     if (this.panel) {
+      this.synth.charge(false, 0);
       this.panel.buttons.update();
       if (this.panel.kind === 'pause' && Keys.wasPressed(...Bind.pause)) this.closePanel();
       this.hud.update();
@@ -231,10 +239,17 @@ export class GameScene extends Phaser.Scene {
       else if (e.type === 'notify') this.hud.notify(e.text);
       else if (e.type === 'changeRoom') this.changeRoom(e.room, e.spawn);
       else if (e.type === 'levelEnd') this.openPanel('end');
+      else if (e.type === 'deploy') this.playSound(e.sound, this.world.hero.x, this.world.hero.y);
+      else if (e.type === 'buttonPressed') this.synth.buttonPress();
+      else if (e.type === 'checkpoint') {
+        this.synth.checkpoint();
+        this.view.handleEvent(e);
+      }
       else this.view.handleEvent(e);
     }
     this.view.sync(delta / 1000);
     this.hud.update();
+    this.synth.charge(this.world.hero.charging, this.world.hero.energy);
     if (this.world.gameOver) this.openPanel('lose');
   }
 
@@ -264,7 +279,16 @@ export class GameScene extends Phaser.Scene {
 
   /** Retry : toute la partie recommence. */
   private retry(): void {
-    // GD-029 : on repart du début du niveau, sans carte, avec le même héros
+    const cp = this.session.checkpoint;
+    if (cp) {
+      // GD-031 : point de sauvegarde activé, on y reprend ; sa salle est remise à neuf, le reste est gardé
+      this.session.rooms.get(cp.room)?.forget();
+      this.session.room = cp.room;
+      this.session.objective = Math.min(this.session.objective, 3);
+      this.scene.restart();
+      return;
+    }
+    // GD-029 : sinon on repart du début du niveau, sans carte, avec le même héros
     this.registry.set('session', null);
     this.scene.restart();
   }

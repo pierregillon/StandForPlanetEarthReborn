@@ -145,3 +145,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 | 2026-11-16 | Boîtes bonus retirées (GD-027). Étape 4 : zone de forage, foreuses destructibles, boss SallyBot, brouillard de guerre, lumières, écran de score (GD-028). Le MVP est complet. |
 | 2026-11-16 | Retours de l'utilisateur sur le niveau complet (GD-029) : bornes à réserve limitée avec lien mobile et réparation, surplus d'énergie plus durable, bouclier des tanks qui casse, caméra vers le curseur, Retry au début du niveau, cartes redessinées, effets sur le robot, nom dans le HUD, réticule. |
 | 2026-11-16 | BatBot : R rappelle les battes, dégâts au retour, lueur sur les mains libres (GD-030). |
+| 2026-11-16 | Deuxième série de retours (GD-031) : point de sauvegarde devant le boss, vitesse et bonus d'énergie, dash intouchable, vitres traversées par le regard et les tirs, chaises à roulettes, boutons animés, déploiement, marqueur d'alerte, effets et sons de synthèse. 35 tests. |

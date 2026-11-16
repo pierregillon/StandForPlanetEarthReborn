@@ -155,6 +155,9 @@ export interface Hero {
   linkedOutlet: number;
   /** Steps pendant lesquels le surplus d'énergie ne redescend pas encore. */
   overchargeHold: number;
+  /** Steps restants de l'animation de déploiement (le héros est alors immobile et intouchable). */
+  deploySteps: number;
+  deployTotal: number;
   /** Soin fractionnaire accumulé (percentOfOneHp d'origine) : +1 PV quand il atteint 1. */
   healPool: number;
   // --- tir secondaire ---
@@ -338,10 +341,41 @@ export interface Door {
 }
 
 export interface Button {
+  id: number;
+  sprite: string;
   x: number;
   y: number;
   angle: number;
+  scaleX: number;
+  scaleY: number;
   doorId: number;
+  /** Steps écoulés depuis l'appui, -1 s'il n'a jamais été pressé. */
+  pressedSteps: number;
+}
+
+/** Chaise à roulettes : seul meuble que le héros déplace en le touchant. */
+export interface Chair {
+  id: number;
+  sprite: string;
+  x: number;
+  y: number;
+  angle: number;
+  scaleX: number;
+  scaleY: number;
+  tint: string;
+  vx: number;
+  vy: number;
+  /** Décalage entre la position de l'instance et le centre de sa boîte de collision. */
+  offsetX: number;
+  offsetY: number;
+  obstacle: Obstacle;
+}
+
+/** Point de sauvegarde : s'y connecter régénère le héros et sert de point de reprise. */
+export interface Checkpoint {
+  x: number;
+  y: number;
+  active: boolean;
 }
 
 export interface WindowPane {
@@ -448,7 +482,10 @@ export type SimEvent =
   | { type: 'heal'; x: number; y: number }
   | { type: 'turretFolded'; x: number; y: number }
   | { type: 'npcDeath'; x: number; y: number; angle: number; sprite: string; genre: 'humain' | 'robot' }
-  | { type: 'windowBroken'; id: number; x: number; y: number }
+  | { type: 'windowBroken'; id: number; x: number; y: number; angle: number }
+  | { type: 'buttonPressed'; x: number; y: number }
+  | { type: 'checkpoint'; x: number; y: number }
+  | { type: 'deploy'; sound: string }
   | { type: 'heroHit'; x: number; y: number }
   | { type: 'heroDead'; x: number; y: number }
   | { type: 'reloadStart' }
