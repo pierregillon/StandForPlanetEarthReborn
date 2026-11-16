@@ -112,6 +112,26 @@ test('une chaise à roulettes se pousse', () => {
   assert.ok(moved > 40, `la chaise a avancé de ${moved} px`);
 });
 
+test('arrivée par le véhicule : le robot attend d\'être posé, puis se déploie', () => {
+  const w = new World(ground, sprites, 'PetBot', 4);
+  const h = w.hero;
+  w.npcs = [];
+  w.deployHero(true);
+  assert.ok(w.drainEvents().some((e) => e.type === 'vehicleArrives'));
+  const total = h.arrivalTotal;
+  assert.ok(total > 120 && h.arrivalSteps === total);
+  const y0 = h.y;
+  for (let i = 0; i < total - 1; i++) w.step({ ...NO_INPUT, moveY: -1, aimX: h.x, aimY: h.y - 300 });
+  assert.equal(h.y, y0);
+  assert.equal(h.deploySteps, h.deployTotal, 'le déploiement n\'a pas commencé');
+  assert.equal(w.damageHero(1), false);
+  w.step(NO_INPUT);
+  assert.ok(w.drainEvents().some((e) => e.type === 'deploy'), 'le déploiement commence au départ du véhicule');
+  for (let i = 0; i < h.deployTotal + 2; i++) w.step(NO_INPUT);
+  w.step({ ...NO_INPUT, moveY: -1, aimX: h.x, aimY: h.y - 300 });
+  assert.ok(h.y < y0, 'puis le robot est jouable');
+});
+
 test('déploiement : le robot est immobile et intouchable, puis jouable', () => {
   const w = new World(ground, sprites, 'EngiBot', 4);
   const h = w.hero;

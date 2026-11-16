@@ -668,3 +668,27 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** Ce sont les sprites du jeu : même trait, mêmes proportions, même origine que le reste du robot.
 
 **Conséquences.** Règle pour la suite : pour une animation manquante, chercher d'abord dans les sprites existants (les animations de déploiement des quatre robots sont longues et détaillées) avant de dessiner par le code. EngiBot et BadaBot gardent leurs animations de GD-032, que l'utilisateur n'a pas critiquées.
+
+---
+
+## GD-035 — Arrivée par le véhicule de largage au début du niveau
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — durées à ajuster après essai
+- **Décidée par** : l'utilisateur
+
+**Contexte.** Le projet d'origine contient un véhicule volant à quatre pinces (`obj_spawnVehicle`, sprites `spr_spawnVehicle` et `spr_spawnVehicleShadow`) qui devait déposer les robots au début du niveau ; il y est codé mais désactivé (`usedAsHeroDrop = False`). L'utilisateur veut cette arrivée : l'appareil entre par la gauche, arrive au centre de l'écran, descend pour poser les robots, redécolle, sort par la droite, puis les robots se déploient.
+
+**Décision.** Au début d'une partie au rez-de-chaussée :
+
+1. le véhicule entre par la gauche en ralentissant (1,4 s), le robot replié dans sa pince ;
+2. il descend (0,8 s) : il rétrécit de 1,3 à 1 et son ombre se resserre sous lui ;
+3. il reste posé (0,45 s) et lâche le robot ;
+4. il remonte (0,6 s) puis sort par la droite en accélérant (1,2 s) ;
+5. le robot se déploie (GD-031), puis le joueur a la main.
+
+Repris de l'original : les sprites, l'animation des rotors, la position de la pince du joueur 1, l'ombre qui s'écarte et s'agrandit avec l'altitude. Écarts : trajectoire droite de gauche à droite au lieu du chemin et des rotations d'origine ; échelle de vol 1,3 au lieu de 1,1 pour que la descente se lise ; grondement de rotors en son de synthèse. Le robot est immobile et intouchable pendant toute la séquence.
+
+**Pourquoi.** Demande de l'utilisateur, et mise en service d'un élément que les auteurs avaient dessiné et codé sans l'activer.
+
+**Conséquences.** La partie commence environ 4,5 secondes plus tard, plus le déploiement. La séquence ne joue pas en commençant à l'étage ou au boss (menu de départ), ni après un Retry au point de sauvegarde. Réglages : `arrival` dans `src/sim/config.ts`. Quand le multijoueur existera, les trois autres pinces porteront les autres robots (positions déjà dans le code d'origine).

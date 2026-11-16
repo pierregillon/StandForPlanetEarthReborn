@@ -10,7 +10,7 @@ import type { Obstacle } from './geom.ts';
 import { NavGrid } from './nav.ts';
 import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, stepAbilityObjects } from './abilities.ts';
 import type { NewExplosion } from './abilities.ts';
-import { stepHero } from './hero.ts';
+import { deploySound, stepHero } from './hero.ts';
 import { createBoss } from './boss.ts';
 import type { BossState } from './boss.ts';
 import { createNpc, stepNpcs } from './npc.ts';
@@ -166,14 +166,21 @@ export class World {
   }
 
   /** Animation de déploiement au début d'une partie (présente dans l'original, où elle était désactivée). */
-  deployHero(): void {
+  deployHero(withVehicle = false): void {
     const h = this.hero;
     const info = this.sprite(`spr_${h.def.name}_deploy`);
     const fps = info.speedType === 0 ? info.speed : info.speed * STEPS_PER_SECOND;
     h.deployTotal = Math.min(CONFIG.hero.maxDeploySteps, Math.max(30, Math.round((info.frames / fps) * STEPS_PER_SECOND)));
     h.deploySteps = h.deployTotal;
-    const sound = h.def.kind === 'PetBot' ? 'snd_batBot_deploiement' : `snd_${h.def.name.charAt(0).toLowerCase()}${h.def.name.slice(1)}_deploiement`;
-    this.emit({ type: 'deploy', sound });
+    if (withVehicle) {
+      // le véhicule de largage l'amène d'abord ; le déploiement commence après son départ
+      const a = CONFIG.arrival;
+      h.arrivalTotal = a.flyInSteps + a.descendSteps + a.holdSteps + a.ascendSteps + a.flyOutSteps;
+      h.arrivalSteps = h.arrivalTotal;
+      this.emit({ type: 'vehicleArrives', seconds: h.arrivalTotal / STEPS_PER_SECOND });
+      return;
+    }
+    this.emit({ type: 'deploy', sound: deploySound(h) });
   }
 
   /** Chaises à roulettes : poussées par le héros, elles roulent puis ralentissent ; les murs les arrêtent. */
@@ -399,7 +406,7 @@ export class World {
       hp: def.maxHealth, energy: CONFIG.hero.naturalEnergy, energyTimer: 0, energyPause: 0,
       ammo: def.magazine, reloadTimer: 0, fireTimer: 0, sinceShot: 9999,
       dashCharges: CONFIG.hero.dashCharges, dashRechargeTimer: 0, dashing: false, bump: false, targetX: x, targetY: y,
-      deploySteps: 0, deployTotal: 0,
+      deploySteps: 0, deployTotal: 0, arrivalSteps: 0, arrivalTotal: 0,
       invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0, repairTimer: 0, linkedOutlet: -1, overchargeHold: 0, healPool: 0,
       fire2Timer: 0, fire2Was: false, fire2Hold: 0, fire2Anim: -1, speedFactor: 1,
       charge: 0, shieldUp: false, tanked: 0,

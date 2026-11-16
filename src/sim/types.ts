@@ -158,6 +158,9 @@ export interface Hero {
   /** Steps restants de l'animation de déploiement (le héros est alors immobile et intouchable). */
   deploySteps: number;
   deployTotal: number;
+  /** Steps restants de l'arrivée par le véhicule de largage, avant le déploiement. */
+  arrivalSteps: number;
+  arrivalTotal: number;
   /** Soin fractionnaire accumulé (percentOfOneHp d'origine) : +1 PV quand il atteint 1. */
   healPool: number;
   // --- tir secondaire ---
@@ -486,6 +489,7 @@ export type SimEvent =
   | { type: 'buttonPressed'; x: number; y: number }
   | { type: 'checkpoint'; x: number; y: number }
   | { type: 'deploy'; sound: string }
+  | { type: 'vehicleArrives'; seconds: number }
   | { type: 'heroHit'; x: number; y: number }
   | { type: 'heroDead'; x: number; y: number }
   | { type: 'reloadStart' }

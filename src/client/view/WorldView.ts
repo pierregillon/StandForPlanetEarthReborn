@@ -106,6 +106,7 @@ export class WorldView {
   private readonly alerts = new Map<number, { text: Phaser.GameObjects.Text; frames: number }>();
   private auras: Img[] = [];
   private checkpointImg: Img | null = null;
+  private vehicle: { body: Img; shadow: Img | null } | null = null;
   private readonly orbPos = { x: 0, y: 0 };
   private hasLamps = false;
   private cable!: Phaser.GameObjects.Graphics;
@@ -271,6 +272,7 @@ export class WorldView {
       if (empty && img.texture.key !== 'outlet_empty') img.setTexture('outlet_empty');
     }
     this.syncNpcFx();
+    this.syncVehicle();
     this.syncFurniture();
     this.syncCheckpoint();
     this.world.zones.forEach((zone, i) => {
@@ -868,6 +870,63 @@ export class WorldView {
       }
       alert.text.setPosition(npc.x, npc.y - npc.def.radius - 18).setAlpha(Math.min(1, alert.frames / 15));
     }
+  }
+
+  /**
+   * Véhicule de largage (GD-035) : il entre par la gauche avec le robot replié dans sa pince, descend, le pose,
+   * remonte et sort par la droite. Sprites et position des pinces repris de obj_spawnVehicle.
+   */
+  private syncVehicle(): void {
+    const h = this.world.hero;
+    if (h.arrivalTotal === 0 || !this.scene.textures.exists(frameKey('spr_spawnVehicle', 0))) return;
+    if (h.arrivalSteps === 0) {
+      if (this.vehicle) {
+        this.vehicle.body.destroy();
+        this.vehicle.shadow?.destroy();
+        this.vehicle = null;
+        this.heroBody.setScale(1);
+      }
+      return;
+    }
+    const a = CONFIG.arrival;
+    if (!this.vehicle) {
+      const shadow = this.scene.textures.exists(frameKey('spr_spawnVehicleShadow', 0))
+        ? this.image('spr_spawnVehicleShadow', 0, h.x, h.y, DEPTH.fx + 40).setAlpha(0.5) : null;
+      this.vehicle = { body: this.image('spr_spawnVehicle', 0, h.x, h.y, DEPTH.fx + 42), shadow };
+    }
+    const t = h.arrivalTotal - h.arrivalSteps;
+    const landed = { x: h.x - a.claw.x, y: h.y - a.claw.y };
+    const t1 = a.flyInSteps;
+    const t2 = t1 + a.descendSteps;
+    const t3 = t2 + a.holdSteps;
+    const t4 = t3 + a.ascendSteps;
+    let x = landed.x;
+    let height = 0; // 1 = en vol, 0 = posé
+    if (t < t1) {
+      const p = t / t1;
+      x = landed.x - a.travel * (1 - p) * (1 - p); // il ralentit en arrivant
+      height = 1;
+    } else if (t < t2) {
+      height = 1 - (t - t1) / a.descendSteps;
+    } else if (t < t3) {
+      height = 0;
+    } else if (t < t4) {
+      height = (t - t3) / a.ascendSteps;
+    } else {
+      const p = (t - t4) / a.flyOutSteps;
+      x = landed.x + a.travel * p * p; // il accélère en repartant
+      height = 1;
+    }
+    const scale = 1 + (a.flightScale - 1) * height;
+    const { body, shadow } = this.vehicle;
+    this.setFrame(body, 'spr_spawnVehicle', (this.scene.time.now / 60) % this.info('spr_spawnVehicle').frames);
+    body.setPosition(x, landed.y).setScale(scale);
+    // l'ombre s'écarte et s'agrandit avec l'altitude, comme dans l'original
+    shadow?.setPosition(x + (70 * height + 10) * 0.94, landed.y + (70 * height + 10) * 0.34).setScale(scale * (1 + height / 6));
+    // le robot reste dans la pince jusqu'à ce que le véhicule soit posé
+    const carried = t < t3;
+    if (carried) this.heroBody.setPosition(x + a.claw.x * scale, landed.y + a.claw.y * scale).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
+    else this.heroBody.setPosition(h.x, h.y).setScale(1).setDepth(DEPTH.character);
   }
 
   /** Point de sauvegarde devant le boss : une balise, ambre tant qu'elle attend, bleue une fois activée. */

@@ -23,6 +23,7 @@ const UI_SPRITES = [
   'spr_healthBar', 'spr_fondMenu_1', 'spr_title', 'spr_btn_play', 'spr_btn_exit', 'spr_btn_resume', 'spr_btn_retry',
   'spr_electricity1', 'spr_electricity2', 'spr_electricity3',
   'spr_teleporteur_waiting', 'spr_teleporteur_active', 'spr_fenetre_eclats', 'spr_explosion_robot',
+  'spr_spawnVehicle', 'spr_spawnVehicleShadow',
   'spr_membreMortHumain_sang', 'spr_membreMortRobot_huile', 'spr_doorKey_green', 'spr_doorKey_purple',
   ...Array.from({ length: 11 }, (_, i) => `spr_membreMortHumain_${i + 1}`),
   ...Array.from({ length: 11 }, (_, i) => `spr_membreMortRobot_${i + 1}`),

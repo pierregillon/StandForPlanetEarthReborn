@@ -118,7 +118,8 @@ export class GameScene extends Phaser.Scene {
       world.enter(arriving, session.spawnNumber);
     }
     world.drainEvents();
-    if (fresh) world.deployHero();
+    // au rez-de-chaussée, le véhicule de largage amène le robot (GD-035)
+    if (fresh) world.deployHero(session.room === 'rm_world2');
     this.world = world;
     this.synth = new Synth(this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.synth.stop());
@@ -240,6 +241,7 @@ export class GameScene extends Phaser.Scene {
       else if (e.type === 'changeRoom') this.changeRoom(e.room, e.spawn);
       else if (e.type === 'levelEnd') this.openPanel('end');
       else if (e.type === 'deploy') this.playSound(e.sound, this.world.hero.x, this.world.hero.y);
+      else if (e.type === 'vehicleArrives') this.synth.vehicle(e.seconds);
       else if (e.type === 'buttonPressed') this.synth.buttonPress();
       else if (e.type === 'checkpoint') {
         this.synth.checkpoint();

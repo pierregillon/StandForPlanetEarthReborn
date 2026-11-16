@@ -420,6 +420,23 @@ export const CONFIG = {
     maxHealth: 20,
   },
 
+  /**
+   * Arrivée par le véhicule de largage au début du niveau (GD-035), en steps : il entre par la gauche,
+   * descend, lâche le robot, remonte et repart par la droite ; le robot se déploie ensuite.
+   */
+  arrival: {
+    flyInSteps: s(1.4),
+    descendSteps: s(0.8),
+    holdSteps: s(0.45),
+    ascendSteps: s(0.6),
+    flyOutSteps: s(1.2),
+    /** Pince du joueur 1, par rapport à l'origine du sprite du véhicule (scr_arrayOfSpawnPositionRelativeToSprite). */
+    claw: { x: 72, y: -95 },
+    /** Échelle du véhicule en vol (1,1 dans l'original ; accentuée pour qu'on lise la descente). */
+    flightScale: 1.3,
+    travel: 1900,
+  },
+
   /** Chaises à roulettes : le héros les pousse en les touchant (GD-031). */
   chair: {
     objects: ['obj_siege_accueil'],

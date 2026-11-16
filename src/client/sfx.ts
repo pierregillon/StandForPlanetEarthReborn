@@ -72,6 +72,16 @@ export class Synth {
     this.boost = 1;
   }
 
+  /** Véhicule de largage : grondement de rotors pendant son passage, plus aigu au décollage. */
+  vehicle(seconds: number): void {
+    this.boost = 1.6;
+    this.tone('sawtooth', 62, 48, seconds * 0.55, 0.11);
+    this.tone('triangle', 124, 96, seconds * 0.55, 0.07);
+    this.tone('sawtooth', 50, 95, seconds * 0.45, 0.11, seconds * 0.55);
+    this.tone('triangle', 100, 190, seconds * 0.45, 0.06, seconds * 0.55);
+    this.boost = 1;
+  }
+
   /** Point de sauvegarde : trois notes montantes. */
   checkpoint(): void {
     this.tone('sine', 523, 523, 0.25, 0.14);

@@ -11,12 +11,24 @@ export function muzzlePosition(h: Hero): { x: number; y: number } {
   return localToWorld(h.x, h.y, h.angle, h.def.muzzle.x, h.def.muzzle.y);
 }
 
+/** Son de déploiement du héros. PetBot n'en a pas à lui : l'original lui donne celui de BatBot. */
+export function deploySound(h: Hero): string {
+  const name = h.def.kind === 'PetBot' ? 'batBot' : h.def.name.charAt(0).toLowerCase() + h.def.name.slice(1);
+  return `snd_${name}_deploiement`;
+}
+
 export function stepHero(world: World, input: Input): void {
   const h = world.hero;
   h.sinceShot++;
   if (h.state === 'dead') {
     h.deadSteps++;
     h.moving = false;
+    return;
+  }
+  if (h.arrivalSteps > 0) {
+    // le véhicule de largage amène le robot, encore replié
+    h.moving = false;
+    if (--h.arrivalSteps === 0) world.emit({ type: 'deploy', sound: deploySound(h) });
     return;
   }
   if (h.deploySteps > 0) {
