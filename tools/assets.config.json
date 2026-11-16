@@ -1,10 +1,31 @@
 {
-  "rooms": ["rm_world2", "rm_world2_1", "rm_world2_2"],
-  "excludeSprites": [
-    "BadaBot", "BatBot", "EngiBot", "NanoBot", "RamBot", "SallyBot",
-    "^spr_hero[14]_", "^spr_foreuse_(contours|faisceau)$", "^spr_sapin", "^spri?_car", "^spr_tapisRoulant_",
-    "^spr_robot_atelier", "^spr_table_usine", "^spr_plasmaBawl_", "^spr_turet", "^spr_btn_map", "^spr_fondMenu_2$"
+  "rooms": [
+    "rm_world2",
+    "rm_world2_1",
+    "rm_world2_2"
   ],
-  "includeSprites": ["^spr_fondMenu_1$", "^spri_car_van$"],
-  "excludeSounds": ["BadaBot", "BatBot", "EngiBot", "NanoBot", "RamBot", "SallyBot", "^snd_music_room1$"]
+  "excludeSprites": [
+    "NanoBot",
+    "RamBot",
+    "SallyBot",
+    "^spr_hero[14]_",
+    "^spr_foreuse_(contours|faisceau)$",
+    "^spr_sapin",
+    "^spri?_car",
+    "^spr_tapisRoulant_",
+    "^spr_robot_atelier",
+    "^spr_table_usine",
+    "^spr_btn_map",
+    "^spr_fondMenu_2$"
+  ],
+  "includeSprites": [
+    "^spr_fondMenu_1$",
+    "^spri_car_van$"
+  ],
+  "excludeSounds": [
+    "NanoBot",
+    "RamBot",
+    "SallyBot",
+    "^snd_music_room1$"
+  ]
 }

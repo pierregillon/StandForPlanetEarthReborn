@@ -128,7 +128,7 @@ function pushCircleOut(o: Obstacle, x: number, y: number, r: number): boolean {
 }
 
 /** Paramètre t dans [0, 1] de l'entrée du segment dans la boîte, ou -1. */
-function segmentBox(o: Obstacle, x1: number, y1: number, x2: number, y2: number): number {
+export function segmentBox(o: Obstacle, x1: number, y1: number, x2: number, y2: number): number {
   const ax = x1 - o.cx;
   const ay = y1 - o.cy;
   const bx = x2 - o.cx;
@@ -177,6 +177,34 @@ export function segmentCircle(x1: number, y1: number, x2: number, y2: number, cx
   if (disc < 0) return -1;
   const t = (-b - Math.sqrt(disc)) / (2 * a);
   return t >= 0 && t <= 1 ? t : -1;
+}
+
+/** Normale (dans le monde) de la face de la boite la plus proche du point. */
+export function boxNormal(o: Obstacle, x: number, y: number): { x: number; y: number } {
+  const dx = x - o.cx;
+  const dy = y - o.cy;
+  const lx = dx * o.cos + dy * o.sin;
+  const ly = -dx * o.sin + dy * o.cos;
+  let nx = 0;
+  let ny = 0;
+  if (o.hw - Math.abs(lx) < o.hh - Math.abs(ly)) nx = lx >= 0 ? 1 : -1;
+  else ny = ly >= 0 ? 1 : -1;
+  return { x: nx * o.cos - ny * o.sin, y: nx * o.sin + ny * o.cos };
+}
+
+/** Direction apres rebond sur une surface de normale (nx, ny). */
+export function reflectAngle(angle: number, nx: number, ny: number): number {
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  const dot = dx * nx + dy * ny;
+  return Math.atan2(dy - 2 * dot * ny, dx - 2 * dot * nx);
+}
+
+/** Distance d'un point (repere local) a un rectangle aligne ; 0 a l'interieur. */
+export function distanceToRect(lx: number, ly: number, x0: number, y0: number, x1: number, y1: number): number {
+  const qx = lx < x0 ? x0 : lx > x1 ? x1 : lx;
+  const qy = ly < y0 ? y0 : ly > y1 ? y1 : ly;
+  return Math.hypot(lx - qx, ly - qy);
 }
 
 export interface RayHit {

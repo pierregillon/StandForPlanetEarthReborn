@@ -4,15 +4,17 @@ import { CONFIG, STEPS_PER_SECOND } from './config.ts';
 import type { BulletDef, HeroDef } from './config.ts';
 import {
   BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, BLOCK_SOUND, IS_WINDOW,
-  CollisionWorld, Rng, angleDiff, clamp, gmAngleToRad, localToWorld, makeBox, segmentCircle,
+  CollisionWorld, Rng, angleDiff, boxNormal, clamp, gmAngleToRad, localToWorld, makeBox, reflectAngle, segmentCircle,
 } from './geom.ts';
 import type { Obstacle } from './geom.ts';
 import { NavGrid } from './nav.ts';
+import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, stepAbilityObjects } from './abilities.ts';
+import type { NewExplosion } from './abilities.ts';
 import { stepHero } from './hero.ts';
 import { createNpc, stepNpcs } from './npc.ts';
 import type {
-  Bullet, Button, DecorItem, Door, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
-  SimEvent, SpriteInfo, SpriteManifest, Stats, WindowPane, Zone,
+  Bat, Bullet, Button, DecorItem, Door, Drone, Explosion, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
+  SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, WindowPane, Zone,
 } from './types.ts';
 
 const FALLBACK_SPRITE: SpriteInfo = {
@@ -38,6 +40,10 @@ export class World {
   hero: Hero;
   npcs: Npc[] = [];
   bullets: Bullet[] = [];
+  drones: Drone[] = [];
+  explosions: Explosion[] = [];
+  bats: Bat[] = [];
+  turret: Turret | null = null;
   doors: Door[] = [];
   buttons: Button[] = [];
   windows: WindowPane[] = [];
@@ -173,7 +179,11 @@ export class World {
       hp: def.maxHealth, energy: CONFIG.hero.naturalEnergy, energyTimer: 0, energyPause: 0,
       ammo: def.magazine, reloadTimer: 0, fireTimer: 0, sinceShot: 9999,
       dashCharges: CONFIG.hero.dashCharges, dashRechargeTimer: 0, dashing: false, bump: false, targetX: x, targetY: y,
-      invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0,
+      invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0, healPool: 0,
+      fire2Timer: 0, fire2Was: false, fire2Hold: 0, fire2Anim: -1, speedFactor: 1,
+      charge: 0, shieldUp: false, tanked: 0,
+      bats: 2, swingRight: true, swing: 'd', swingSteps: 0, swingHit: new Set(), recallDone: false,
+      placingTurret: 0,
     };
   }
 
@@ -197,6 +207,7 @@ export class World {
     stepNpcs(this);
     this.stepDoors();
     this.stepBullets();
+    stepAbilityObjects(this);
     this.stepZones();
   }
 
@@ -218,7 +229,14 @@ export class World {
       h.dashing = false;
       h.bump = false;
       h.charging = false;
+      h.shieldUp = false;
+      h.charge = 0;
+      h.fire2Anim = -1;
+      h.placingTurret = 0;
+      h.speedFactor = 1;
       h.deadSteps = 0;
+      // les battes lancées sont perdues à la mort du BatBot, comme dans l'original
+      this.bats.length = 0;
       this.emit({ type: 'heroDead', x: h.x, y: h.y });
     }
     return true;
@@ -250,7 +268,28 @@ export class World {
   }
 
   spawnBullet(def: BulletDef, owner: 'hero' | 'enemy', x: number, y: number, angle: number): void {
-    this.bullets.push({ id: this.nextId++, def, owner, x, y, angle, startX: x, startY: y });
+    this.bullets.push({ id: this.nextId++, def, owner, x, y, angle, startX: x, startY: y, speed: def.speed, lastHit: -1, steps: 0 });
+  }
+
+  newId(): number {
+    return this.nextId++;
+  }
+
+  addExplosion(e: NewExplosion): void {
+    this.explosions.push({
+      ...e, id: this.nextId++, angle: this.rng.range(0, Math.PI * 2), step: 0, totalSteps: explosionSteps(this, e.sprite), hit: new Set(),
+    });
+  }
+
+  /** Explosion de la boule de plasma de BadaBot. */
+  private plasmaExplosion(x: number, y: number): void {
+    const cfg = CONFIG.abilities.badaBot;
+    const info = this.sprite('spr_BadaBot_plasmaBoom');
+    this.addExplosion({
+      x, y, sprite: 'spr_BadaBot_plasmaBoom', radius: cfg.explosionRadius, damage: cfg.explosionDamage, healFromStep: -1,
+      scale: (cfg.explosionRadius * 2) / (info.bbox[2] - info.bbox[0] + 1),
+    });
+    this.emit({ type: 'sound', name: `snd_badaBot_explosion${this.rng.int(1, 3)}`, x, y });
   }
 
   private stepBullets(): void {
@@ -262,16 +301,25 @@ export class World {
 
   /** Avance une balle d'un step. Retourne true si elle disparaît. */
   private stepBullet(b: Bullet): boolean {
-    const nx = b.x + Math.cos(b.angle) * b.def.speed;
-    const ny = b.y + Math.sin(b.angle) * b.def.speed;
+    b.steps++;
+    const bounce = b.def.kind === 'bounce';
+    if (bounce) {
+      // balle d'EngiBot : ralentit et disparaît quand elle n'avance plus
+      b.speed -= CONFIG.abilities.engiBot.bulletDeceleration;
+      if (b.speed < CONFIG.abilities.engiBot.bulletMinSpeed) return true;
+    }
+    const nx = b.x + Math.cos(b.angle) * b.speed;
+    const ny = b.y + Math.sin(b.angle) * b.speed;
     const wall = this.collision.raycast(b.x, b.y, nx, ny, BLOCK_BULLET);
     let limit = wall ? wall.t : 2;
 
-    // personnage touché avant le décor ?
+    // personnage (ou bouclier de BadaBot) touché avant le décor ?
     let target: Npc | null = null;
     let heroHit = false;
+    let shieldHit = false;
     if (b.owner === 'hero') {
       for (const npc of this.npcs) {
+        if (npc.id === b.lastHit) continue;
         const t = segmentCircle(b.x, b.y, nx, ny, npc.x, npc.y, npc.def.radius + b.def.radius);
         if (t >= 0 && t < limit) {
           limit = t;
@@ -284,18 +332,43 @@ export class World {
         limit = t;
         heroHit = true;
       }
+      const ts = shieldIntercept(this.hero, b.x, b.y, nx, ny);
+      if (ts >= 0 && ts <= limit) {
+        limit = ts;
+        heroHit = false;
+        shieldHit = true;
+      }
     }
 
     // les vitres traversées avant l'impact se brisent, sans arrêter la balle
     const end = Math.min(limit, 1);
-    const glass = this.collision.raycast(b.x, b.y, b.x + (nx - b.x) * end, b.y + (ny - b.y) * end, IS_WINDOW);
-    if (glass) this.breakWindow(glass.obstacle.owner as WindowPane);
-
     const hx = b.x + (nx - b.x) * end;
     const hy = b.y + (ny - b.y) * end;
-    if (target) {
-      this.bulletHitsNpc(b, target, hx, hy);
+    const glass = this.collision.raycast(b.x, b.y, hx, hy, IS_WINDOW);
+    if (glass) this.breakWindow(glass.obstacle.owner as WindowPane);
+
+    if (shieldHit) {
+      shieldTank(this, this.hero);
+      this.emit({ type: 'impact', x: hx, y: hy, angle: b.angle, surface: 'shield' });
       return true;
+    }
+    if (target) {
+      const blocked = blockedByFrontShield(target, b.x, b.y);
+      this.emit({ type: 'impact', x: hx, y: hy, angle: b.angle, surface: blocked ? 'shield' : 'npc' });
+      if (b.def.kind === 'plasma') {
+        this.plasmaExplosion(hx, hy);
+        return true;
+      }
+      if (!blocked) target.hp -= b.def.damage;
+      if (!bounce || blocked) return true;
+      // rebond sur le PNJ : la balle perd les trois quarts de sa vitesse
+      const n = Math.hypot(hx - target.x, hy - target.y) || 1;
+      b.angle = reflectAngle(b.angle, (hx - target.x) / n, (hy - target.y) / n);
+      b.speed /= 4;
+      b.lastHit = target.id;
+      b.x = hx;
+      b.y = hy;
+      return false;
     }
     if (heroHit) {
       this.damageHero(b.def.damage);
@@ -303,25 +376,26 @@ export class World {
     }
     if (wall) {
       this.emit({ type: 'impact', x: hx, y: hy, angle: b.angle, surface: 'wall' });
-      return true;
+      if (b.def.kind === 'plasma') {
+        this.plasmaExplosion(hx, hy);
+        return true;
+      }
+      if (!bounce) return true;
+      // rebond sur le décor : vitesse divisée par deux, recul de 20 px
+      const normal = boxNormal(wall.obstacle, hx, hy);
+      b.x = hx - Math.cos(b.angle) * 20;
+      b.y = hy - Math.sin(b.angle) * 20;
+      b.angle = reflectAngle(b.angle, normal.x, normal.y);
+      b.speed /= 2;
+      b.lastHit = -1;
+      return false;
     }
     b.x = nx;
     b.y = ny;
-    if (Math.hypot(b.x - b.startX, b.y - b.startY) > b.def.maxDistance) return true;
-    return b.x < 0 || b.y < 0 || b.x > this.width || b.y > this.height;
-  }
-
-  private bulletHitsNpc(b: Bullet, npc: Npc, hx: number, hy: number): void {
-    if (npc.def.kind === 'soldier' && npc.def.frontShield) {
-      // dégâts seulement si l'impact vient de l'arrière (cône de ±40°)
-      const toBullet = Math.atan2(b.y - npc.y, b.x - npc.x);
-      if (Math.abs(angleDiff(npc.angle, toBullet)) <= (140 * Math.PI) / 180) {
-        this.emit({ type: 'impact', x: hx, y: hy, angle: b.angle, surface: 'shield' });
-        return;
-      }
-    }
-    this.emit({ type: 'impact', x: hx, y: hy, angle: b.angle, surface: 'npc' });
-    npc.hp -= b.def.damage;
+    const out = Math.hypot(b.x - b.startX, b.y - b.startY) > b.def.maxDistance
+      || b.x < 0 || b.y < 0 || b.x > this.width || b.y > this.height;
+    if (out && b.def.kind === 'plasma') this.plasmaExplosion(b.x, b.y);
+    return out;
   }
 
   breakWindow(pane: WindowPane): void {

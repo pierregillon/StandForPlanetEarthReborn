@@ -1,7 +1,8 @@
 // Logique du héros : déplacement, visée, dash, tir principal, rechargement, énergie, prises de courant.
 // Référence : objects/obj_localPlayer et scripts scr_moveAndCollision, scr_aimHero, scr_dashCheck,
 // scr_bumpCheck, scr_fire1Check du projet GameMaker de 2019.
-import { CONFIG, STEPS_PER_SECOND } from './config.ts';
+import { stepWeapons } from './abilities.ts';
+import { CONFIG } from './config.ts';
 import { BLOCK_MOVE, DEG, angleDiff, localToWorld, rotateToward } from './geom.ts';
 import type { Hero, Input } from './types.ts';
 import type { World } from './world.ts';
@@ -21,7 +22,10 @@ export function stepHero(world: World, input: Input): void {
   if (h.invuln > 0) h.invuln--;
 
   stepOutlet(world, h, input);
-  const canMove = !h.bump && !h.charging;
+  // BatBot reste immobile pendant l'animation de lancer (staticFire2 dans l'original)
+  const throwing = h.def.kind === 'BatBot' && h.fire2Anim >= 0;
+  const canMove = !h.bump && !h.charging && !throwing;
+  const walkSpeed = h.def.walkSpeed * h.speedFactor;
 
   // --- dash : il faut être en train de marcher (pas en train de tirer) ---
   const wantsMove = input.moveX !== 0 || input.moveY !== 0;
@@ -64,9 +68,9 @@ export function stepHero(world: World, input: Input): void {
     }
   } else if (canMove && wantsMove) {
     h.moveAngle = Math.atan2(input.moveY, input.moveX);
-    moveHero(world, h, h.moveAngle, h.def.walkSpeed, true);
+    moveHero(world, h, h.moveAngle, walkSpeed, true);
     h.moving = true;
-    h.walkDist += h.def.walkSpeed;
+    h.walkDist += walkSpeed;
   }
   const clamped = world.clampToRoom(h.x, h.y, CONFIG.hero.roomMargin);
   if (clamped.x !== h.x || clamped.y !== h.y) {
@@ -83,9 +87,19 @@ export function stepHero(world: World, input: Input): void {
   }
 
   stepEnergy(h);
-  stepWeapon(world, h, input);
+  stepWeapons(world, h, input);
 
-  if (h.state !== 'firing1') h.state = h.moving ? 'walking' : 'standing';
+  // soin fractionnaire : +1 PV chaque fois qu'un point entier est accumulé
+  if (h.healPool >= 1) {
+    h.healPool = 0;
+    if (h.hp < h.def.maxHealth) {
+      h.hp++;
+      world.stats.healed++;
+      world.emit({ type: 'heal', x: h.x, y: h.y });
+    }
+  }
+
+  if (h.state !== 'firing1' && h.state !== 'firing2') h.state = h.moving ? 'walking' : 'standing';
 }
 
 /** Déplace le héros en glissant le long des obstacles. Retourne true s'il a heurté le décor. */
@@ -152,42 +166,6 @@ function stepOutlet(world: World, h: Hero, input: Input): void {
     h.chargeTimer = 0;
     h.energy++;
     world.emit({ type: 'outletTick', x: outlet.x, y: outlet.y });
-  }
-}
-
-function stepWeapon(world: World, h: Hero, input: Input): void {
-  // rechargement manuel (GD-005)
-  if (h.reloadTimer > 0) {
-    if (--h.reloadTimer === 0) {
-      h.ammo = h.def.magazine;
-      world.emit({ type: 'reloadEnd' });
-    }
-  } else if (input.reloadPressed && h.ammo < h.def.magazine) {
-    h.reloadTimer = h.def.reloadSteps;
-    world.emit({ type: 'reloadStart' });
-  }
-
-  if (h.fireTimer > 0) h.fireTimer--;
-  const canFire = input.fire1 && !h.dashing && !h.bump && !h.charging && h.reloadTimer === 0;
-  if (canFire && h.ammo > 0) h.state = 'firing1';
-  else if (canFire && h.ammo === 0 && h.fireTimer === 0) {
-    h.fireTimer = Math.round(STEPS_PER_SECOND / h.def.shotsPerSecond);
-    world.emit({ type: 'emptyClick' });
-  }
-
-  if (h.state === 'firing1') {
-    if (h.fireTimer === 0 && canFire && h.ammo > 0) {
-      const m = muzzlePosition(h);
-      const spread = world.rng.range(-h.def.precisionDeg, h.def.precisionDeg) * DEG;
-      world.fireBullet(h.def.bullet, 'hero', h.x, h.y, m.x, m.y, h.angle + spread);
-      world.emit({ type: 'sound', name: h.def.sounds.fire1, x: h.x, y: h.y });
-      h.ammo--;
-      world.stats.ammoUsed++;
-      h.fireTimer = Math.round(STEPS_PER_SECOND / h.def.shotsPerSecond);
-      h.sinceShot = 0;
-    } else if (h.fireTimer === 0) {
-      h.state = 'standing';
-    }
   }
 }
 

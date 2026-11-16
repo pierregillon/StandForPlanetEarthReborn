@@ -6,7 +6,11 @@
 export const STEPS_PER_SECOND = 60;
 const s = (seconds: number): number => Math.round(seconds * STEPS_PER_SECOND);
 
+export type HeroKind = 'PetBot' | 'EngiBot' | 'BatBot' | 'BadaBot';
+
 export interface HeroDef {
+  /** Choisit la logique des tirs (src/sim/abilities.ts). */
+  kind: HeroKind;
   name: string;
   walkSpeed: number;
   /** Rayon de collision (masque elliptique du sprite d'origine). */
@@ -17,12 +21,17 @@ export interface HeroDef {
   precisionDeg: number;
   muzzle: { x: number; y: number };
   bullet: BulletDef;
-  /** Remake (GD-005) : munitions illimitées, chargeur à recharger avec R. */
+  /** Remake (GD-005) : munitions illimitées, chargeur à recharger avec R. 0 = pas de munitions (BatBot). */
   magazine: number;
   reloadSteps: number;
-  sprites: { stand: string; move: string; shot: string; legs: string; dead: string; portrait: string };
-  sounds: { fire1: string };
-  laserColor: number;
+  /** Délai minimal entre deux tirs secondaires (alarm[7] d'origine). */
+  fire2CooldownSteps: number;
+  sprites: { stand: string; move: string; shot: string; fire2: string | null; legs: string; dead: string; portrait: string; select: string };
+  sounds: { fire1: string[]; fire2: string[] };
+  /** Couleur du viseur laser, ou null s'il n'y en a pas. */
+  laserColor: number | null;
+  /** Résumé affiché à l'écran de choix du héros. */
+  blurb: string;
 }
 
 export interface BulletDef {
@@ -32,6 +41,10 @@ export interface BulletDef {
   damage: number;
   /** Rayon de contact contre les personnages. */
   radius: number;
+  /** « bounce » : rebondit et ralentit (EngiBot) ; « plasma » : explose à l'impact (BadaBot). */
+  kind?: 'bounce' | 'plasma';
+  /** Échelle d'affichage du sprite. */
+  scale?: number;
 }
 
 export interface SoldierDef {
@@ -107,6 +120,7 @@ export const CONFIG = {
 
   heroes: {
     PetBot: {
+      kind: 'PetBot',
       name: 'PetBot',
       walkSpeed: 10,
       radius: 40,
@@ -118,18 +132,144 @@ export const CONFIG = {
       bullet: { sprite: 'spr_bullet_PetBot', speed: 20, maxDistance: 1500, damage: 1, radius: 6 },
       magazine: 24, // remake : un quart de l'ancien stock de 99
       reloadSteps: s(1.2), // remake
+      fire2CooldownSteps: 0,
       sprites: {
-        stand: 'spr_PetBot_move',
-        move: 'spr_PetBot_move',
-        shot: 'spr_PetBot_shot',
-        legs: 'spr_PetBot_jambes2',
-        dead: 'spr_PetBot_mort',
-        portrait: 'spr_cadre_PetBot',
+        stand: 'spr_PetBot_move', move: 'spr_PetBot_move', shot: 'spr_PetBot_shot', fire2: null,
+        legs: 'spr_PetBot_jambes2', dead: 'spr_PetBot_mort', portrait: 'spr_cadre_PetBot', select: 'spr_selectionPetBot',
       },
-      sounds: { fire1: 'snd_petBot_fire1' },
+      sounds: { fire1: ['snd_petBot_fire1'], fire2: [] },
       laserColor: 0x00ff00,
-    } satisfies HeroDef,
+      blurb: 'Healer. Right click: 3 drones that explode, hurt enemies and heal you.',
+    },
+    EngiBot: {
+      kind: 'EngiBot',
+      name: 'EngiBot',
+      walkSpeed: 13,
+      radius: 40,
+      maxHealth: 12,
+      rotateSpeedDeg: 15,
+      shotsPerSecond: 5,
+      precisionDeg: 10,
+      muzzle: { x: 43, y: 57 },
+      bullet: { sprite: 'spr_EngiBot_bullet', speed: 40, maxDistance: 1500, damage: 1, radius: 6, kind: 'bounce' },
+      magazine: 25, // remake : un quart de l'ancien stock de 100
+      reloadSteps: s(1.4), // remake
+      fire2CooldownSteps: s(0.5),
+      sprites: {
+        stand: 'spr_EngiBot_shot', move: 'spr_EngiBot_move', shot: 'spr_EngiBot_shot', fire2: 'spr_EngiBot_shotTuret',
+        legs: 'spr_EngiBot_jambes', dead: 'spr_EngiBot_mort', portrait: 'spr_cadre_EngiBot', select: 'spr_selectionEngiBot',
+      },
+      sounds: { fire1: ['snd_engiBot_tourelleFire_3'], fire2: ['snd_engiBot_fire2'] },
+      laserColor: 0xff0000,
+      blurb: 'Fast gunner, bouncing bullets. Right click: drops a turret (3 energy).',
+    },
+    BatBot: {
+      kind: 'BatBot',
+      name: 'BatBot',
+      walkSpeed: 10,
+      radius: 40,
+      maxHealth: 12,
+      rotateSpeedDeg: 15,
+      shotsPerSecond: 3,
+      precisionDeg: 2,
+      muzzle: { x: 65, y: 0 },
+      bullet: { sprite: 'spr_batte_BatBot_d', speed: 25, maxDistance: 1500, damage: 3, radius: 20 },
+      magazine: 0,
+      reloadSteps: 0,
+      fire2CooldownSteps: s(0.5),
+      sprites: {
+        stand: 'spr_BatBot_move_2', move: 'spr_BatBot_move_2', shot: 'spr_BatBot_fire1_d', fire2: 'spr_BatBot_fire2_d',
+        legs: 'spr_BatBot_jambes2', dead: 'spr_BatBot_mort_2', portrait: 'spr_cadre_BatBot', select: 'spr_selectionBatBot',
+      },
+      sounds: { fire1: ['snd_batBot_fire1_1'], fire2: ['snd_batBot_fire2_1'] },
+      laserColor: null,
+      blurb: 'Melee with two bats. Right click: throw a bat. Hold: call the bats back.',
+    },
+    BadaBot: {
+      kind: 'BadaBot',
+      name: 'BadaBot',
+      walkSpeed: 10,
+      radius: 44,
+      maxHealth: 12,
+      rotateSpeedDeg: 15,
+      shotsPerSecond: 10,
+      precisionDeg: 3,
+      muzzle: { x: 28, y: 0 },
+      bullet: { sprite: 'spr_BadaBot_bullet', speed: 40, maxDistance: 1500, damage: 0, radius: 8, kind: 'plasma', scale: 0.25 },
+      magazine: 25, // remake : un quart de l'ancien stock de 100
+      reloadSteps: s(1.5), // remake
+      fire2CooldownSteps: s(0.25),
+      sprites: {
+        stand: 'spr_BadaBot_stand', move: 'spr_BadaBot_move', shot: 'spr_BadaBot_stand', fire2: 'spr_BadaBot_fire2',
+        legs: 'spr_BadaBot_jambes', dead: 'spr_BadaBot_mort', portrait: 'spr_cadre_BadaBot', select: 'spr_selectionBadaBot',
+      },
+      sounds: { fire1: ['snd_badaBot_fire1_1', 'snd_badaBot_fire1_2', 'snd_badaBot_fire1_3'], fire2: ['snd_badaBot_fire2_1', 'snd_badaBot_fire2_2', 'snd_badaBot_fire2_3'] },
+      laserColor: 0xa000ff,
+      blurb: 'Tank. Hold left click to charge up to 3 plasma balls. Right click: shield.',
+    },
   } as Record<string, HeroDef>,
+
+  /** Tirs secondaires et particularités de chaque héros (valeurs du code de 2019 sauf mention « remake »). */
+  abilities: {
+    petBot: {
+      energyCost: 3,
+      droneRanges: [550, 700, 850],
+      droneMaxSpeed: 15,
+      droneAcceleration: 0.5,
+      droneSpreadDeg: 10,
+      droneRadius: 16,
+      explosionDamage: 3,
+      /** Rayon de l'explosion par niveau (demi-largeur du masque de spr_PetDrone_explosion1..4). */
+      explosionRadius: [98, 113, 150, 185],
+      /** Soin de zone : 4 PV par seconde d'exposition, à partir de l'image 7 de l'explosion. */
+      healPerStep: 4 / STEPS_PER_SECOND,
+      healFromFrame: 7,
+    },
+    engiBot: {
+      turretCost: 3,
+      foldDistance: 20,
+      turretThrowSpeed: 40,
+      turretThrowDeceleration: 2,
+      turretRange: 1000,
+      turretRotateDeg: 6,
+      turretPrecisionDeg: 5,
+      turretRadius: 40,
+      turretMuzzle: 60,
+      turretBullet: { sprite: 'spr_bullet_pistol', speed: 40, maxDistance: 1500, damage: 1, radius: 4 } as BulletDef,
+      placeAnimSteps: s(0.5),
+      bulletDeceleration: 0.2,
+      bulletMinSpeed: 1,
+    },
+    batBot: {
+      swingSteps: 10,
+      swingDamage: 1,
+      /** Zone du coup de batte dans le repère du héros (masque de spr_bullet_BatBot_d). */
+      swingBox: { x0: 32, y0: -98, x1: 126, y1: 95 },
+      holdStepsForRecall: 15,
+      recallCost: 1,
+      throwAnimSteps: s(0.5),
+      /** Par niveau de batte (1 à 4) : explosion éventuelle et batte perçante. */
+      levels: [
+        { explosionRadius: 0, explosionDamage: 0, pierce: false },
+        { explosionRadius: 250, explosionDamage: 4, pierce: false },
+        { explosionRadius: 500, explosionDamage: 7, pierce: false },
+        { explosionRadius: 500, explosionDamage: 7, pierce: true },
+      ],
+      pickupDistance: 30,
+    },
+    badaBot: {
+      fullChargeSteps: 60,
+      chargePerBall: 20,
+      precisionPerBallDeg: 3,
+      explosionRadius: 50,
+      explosionDamage: 20,
+      /** Zone protégée par le bouclier dans le repère du héros (masque de spr_BadaBot_shield). */
+      shieldBox: { x0: 18, y0: -79, x1: 104, y1: 78 },
+      shieldRaiseSteps: 12,
+      shieldSpeedFactor: 0.5,
+      bulletsPerEnergy: 3,
+    },
+  },
 
   /** Remake (GD-006) : prises de courant. */
   outlet: {

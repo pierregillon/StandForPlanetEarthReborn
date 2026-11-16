@@ -73,7 +73,7 @@ function heroVisible(world: World, npc: Npc, range: number): boolean {
 /** Un héros est entendu s'il tire à portée d'ouïe sans mur épais entre les deux. */
 function heroHeard(world: World, x: number, y: number): boolean {
   const h = world.hero;
-  if (h.state !== 'firing1') return false;
+  if (h.state !== 'firing1' && h.state !== 'firing2') return false;
   if (Math.hypot(h.x - x, h.y - y) > N.hearRange) return false;
   return !world.soundBlocked(x, y, h.x, h.y);
 }

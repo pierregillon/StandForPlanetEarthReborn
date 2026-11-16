@@ -116,7 +116,7 @@ export const NO_INPUT: Input = {
 
 // ---------- Entités ----------
 
-export type HeroState = 'standing' | 'walking' | 'firing1' | 'dead';
+export type HeroState = 'standing' | 'walking' | 'firing1' | 'firing2' | 'dead';
 
 export interface Hero {
   def: HeroDef;
@@ -150,6 +150,90 @@ export interface Hero {
   /** Branché sur une prise de courant. */
   charging: boolean;
   chargeTimer: number;
+  /** Soin fractionnaire accumulé (percentOfOneHp d'origine) : +1 PV quand il atteint 1. */
+  healPool: number;
+  // --- tir secondaire ---
+  fire2Timer: number;
+  fire2Was: boolean;
+  /** Steps depuis lesquels le tir secondaire est maintenu. */
+  fire2Hold: number;
+  /** Steps écoulés depuis le début de l'animation du tir secondaire, -1 si aucune. */
+  fire2Anim: number;
+  /** Facteur de vitesse de marche (bouclier de BadaBot). */
+  speedFactor: number;
+  // BadaBot
+  /** Charge du tir de plasma (0 = pas de charge en cours). */
+  charge: number;
+  shieldUp: boolean;
+  tanked: number;
+  // BatBot
+  bats: number;
+  swingRight: boolean;
+  /** Bras du coup en cours : droite, gauche, ou gauche seule (une batte en main). */
+  swing: 'd' | 'g' | 'gg';
+  swingSteps: number;
+  swingHit: Set<number>;
+  recallDone: boolean;
+  // EngiBot
+  /** Steps avant que la tourelle en cours de pose soit lâchée, 0 si aucune. */
+  placingTurret: number;
+}
+
+export interface Drone {
+  id: number;
+  x: number;
+  y: number;
+  angle: number;
+  speed: number;
+  range: number;
+  level: number;
+  startX: number;
+  startY: number;
+}
+
+export interface Explosion {
+  id: number;
+  x: number;
+  y: number;
+  angle: number;
+  sprite: string;
+  /** Échelle d'affichage du sprite. */
+  scale: number;
+  radius: number;
+  damage: number;
+  step: number;
+  totalSteps: number;
+  /** Step à partir duquel l'explosion soigne les héros, -1 si elle ne soigne pas. */
+  healFromStep: number;
+  hit: Set<number>;
+}
+
+export interface Turret {
+  id: number;
+  x: number;
+  y: number;
+  angle: number;
+  moveAngle: number;
+  speed: number;
+  state: 'flying' | 'deploying' | 'deployed';
+  level: number;
+  timer: number;
+  fireTimer: number;
+}
+
+export interface Bat {
+  id: number;
+  x: number;
+  y: number;
+  angle: number;
+  side: 'd' | 'g';
+  /** 1 à 4 : énergie dépensée au lancer. */
+  level: number;
+  state: 'flying' | 'stopped' | 'returning';
+  startX: number;
+  startY: number;
+  hit: Set<number>;
+  steps: number;
 }
 
 export type NpcBehaviour = 'none' | 'surprised' | 'chase' | 'attack' | 'runaway';
@@ -206,6 +290,11 @@ export interface Bullet {
   angle: number;
   startX: number;
   startY: number;
+  /** Vitesse courante (les balles d'EngiBot ralentissent). */
+  speed: number;
+  /** Dernier PNJ touché : une balle qui rebondit ne le retouche pas aussitôt. */
+  lastHit: number;
+  steps: number;
 }
 
 export type DoorKind = 'auto' | 'button' | 'card';
@@ -304,6 +393,8 @@ export interface Stats {
 export type SimEvent =
   | { type: 'sound'; name: string; x: number; y: number }
   | { type: 'impact'; x: number; y: number; angle: number; surface: 'wall' | 'npc' | 'shield' }
+  | { type: 'heal'; x: number; y: number }
+  | { type: 'turretFolded'; x: number; y: number }
   | { type: 'npcDeath'; x: number; y: number; angle: number; sprite: string; genre: 'humain' | 'robot' }
   | { type: 'windowBroken'; id: number; x: number; y: number }
   | { type: 'heroHit'; x: number; y: number }
