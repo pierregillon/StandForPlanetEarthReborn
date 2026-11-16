@@ -244,14 +244,14 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
   - *prédiction* : le robot du joueur est déplacé tout de suite avec le même code que le serveur (`steerHero`) ; à chaque instantané, on repart de l'état du serveur et on rejoue les entrées qu'il n'a pas encore jouées ;
   - *glissement* : les autres personnages glissent de leur position affichée à la dernière reçue ;
   - *extrapolation* : les balles volent seules entre deux nouvelles ; les compteurs d'animation avancent d'un par step.
-- **Changement de salle** : le serveur annonce la salle, chaque client la charge puis répond « prêt » ; le jeu reprend quand tous ont répondu (20 s au plus). Chaque salle a un numéro d'ordre, pour ignorer ce qui concerne la précédente.
+- **Changement de salle** : le serveur annonce la salle, chaque client la charge puis répond « prêt » ; le jeu reprend quand tous ont répondu, sans limite de temps ; les clients s'envoient l'avancement de leur chargement par le serveur (GD-041). Chaque salle a un numéro d'ordre, pour ignorer ce qui concerne la précédente.
 
 **Pourquoi.** Un serveur qui fait autorité évite les désaccords entre joueurs et la triche, et réutilise la simulation testée. Les pistes écartées : faire tourner la simulation à l'identique chez chacun en n'échangeant que les entrées (très peu de trafic, mais le moindre écart de calcul entre navigateurs désynchronise la partie, et chaque commande attend le réseau) ; envoyer l'état complet à chaque fois (des dizaines de ko/s).
 
 **Conséquences.**
 
 - **Trafic mesuré** (deux joueurs en local, compression comprise) : environ 1,5 ko/s envoyés et 0,5 à 0,8 ko/s reçus par joueur, soit de l'ordre de 8 Mo par heure et par joueur. Le serveur l'affiche toutes les 10 s pendant une partie. En revanche chaque nouveau joueur télécharge une fois les images et les sons (87 Mo au total, au fil des salles) par la connexion de l'hôte : voir ADR-012.
-- 5 tests sans navigateur : `src/net/net.test.ts` fait jouer un salon et deux clients simulés (prédiction, miroir, changement de salle, Retry, départ d'un joueur).
+- 6 tests sans navigateur : `src/net/net.test.ts` fait jouer un salon et deux clients simulés (prédiction, miroir, changement de salle, Retry, départ d'un joueur).
 - Ajouter un champ à une entité le synchronise d'office ; s'il change à chaque step sans servir à l'affichage, l'ajouter aux exclusions de `LISTS` (`lobby.traffic()` donne les champs les plus envoyés).
 - Outil de développement : `sfpeDebug.teleport` fonctionne en réseau si le serveur est lancé avec `SFPE_DEBUG=1` ; à ne jamais activer sur un serveur ouvert.
 - À faire pour un serveur public : plusieurs salons à la fois, reconnexion, et limiter ce qu'un client peut envoyer.

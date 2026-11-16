@@ -634,7 +634,7 @@ export class World {
   }
 
   spawnBullet(def: BulletDef, owner: 'hero' | 'enemy', x: number, y: number, angle: number, ownerId = -1): void {
-    this.bullets.push({ id: this.nextId++, def, owner, ownerId, x, y, angle, startX: x, startY: y, speed: def.speed, lastHit: -1, steps: 0 });
+    this.bullets.push({ id: this.nextId++, def, owner, ownerId, healed: 0, x, y, angle, startX: x, startY: y, speed: def.speed, lastHit: -1, steps: 0 });
   }
 
   newId(): number {
@@ -683,8 +683,6 @@ export class World {
     let target: Npc | null = null;
     let heroHit: Hero | null = null;
     let shieldHit: Hero | null = null;
-    /** Coéquipier touché par une balle de PetBot : elle le soigne et s'arrête sur lui (obj_bullet_PetBot). */
-    let healed: Hero | null = null;
     if (b.owner === 'hero') {
       for (const npc of this.npcs) {
         if (npc.id === b.lastHit) continue;
@@ -692,17 +690,6 @@ export class World {
         if (t >= 0 && t < limit) {
           limit = t;
           target = npc;
-        }
-      }
-      if (b.def === CONFIG.heroes.PetBot.bullet) {
-        for (const h of this.living()) {
-          if (h.id === b.ownerId) continue;
-          const t = segmentCircle(b.x, b.y, nx, ny, h.x, h.y, h.def.radius + b.def.radius);
-          if (t >= 0 && t < limit) {
-            limit = t;
-            target = null;
-            healed = h;
-          }
         }
       }
     } else {
@@ -730,17 +717,23 @@ export class World {
     const glass = this.collision.raycast(b.x, b.y, hx, hy, IS_WINDOW);
     if (glass) this.breakWindow(glass.obstacle.owner as WindowPane, b.angle);
 
+    // les balles des héros traversent les coéquipiers ; celle de PetBot rend au passage 1 PV à chaque
+    // coéquipier blessé qu'elle croise, une seule fois par balle (GD-041)
+    if (b.owner === 'hero' && b.def === CONFIG.heroes.PetBot.bullet) {
+      for (const h of this.living()) {
+        if (h.id === b.ownerId || (b.healed & (1 << h.id)) !== 0 || h.hp >= h.def.maxHealth) continue;
+        const t = segmentCircle(b.x, b.y, nx, ny, h.x, h.y, h.def.radius + b.def.radius);
+        if (t < 0 || t > end) continue;
+        b.healed |= 1 << h.id;
+        h.hp++;
+        this.stats.healed++;
+        this.emit({ type: 'heal', x: h.x, y: h.y });
+      }
+    }
+
     if (shieldHit) {
       shieldTank(this, shieldHit);
       this.emit({ type: 'impact', x: hx, y: hy, angle: b.angle, surface: 'shield' });
-      return true;
-    }
-    if (healed) {
-      if (healed.hp < healed.def.maxHealth) {
-        healed.hp++;
-        this.stats.healed++;
-        this.emit({ type: 'heal', x: healed.x, y: healed.y });
-      }
       return true;
     }
     if (target) {

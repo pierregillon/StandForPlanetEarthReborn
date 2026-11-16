@@ -31,12 +31,12 @@ interface Player {
   ack: number;
   /** Steps écoulés sans entrée reçue. */
   starved: number;
+  /** Avancement du chargement de la salle en cours, de 0 à 1. */
+  progress: number;
 }
 
 type Phase = 'closed' | 'lobby' | 'playing' | 'lost' | 'won';
 
-/** Steps d'attente au plus pour qu'un client ait chargé une salle (20 s). */
-const READY_TIMEOUT_STEPS = 20 * 60;
 /** Sans entrée reçue depuis ce nombre de steps, le robot s'arrête (onglet masqué, connexion figée). */
 const STARVED_STEPS = 12;
 const MAX_QUEUE = 6;
@@ -51,7 +51,6 @@ export class Lobby {
   private epoch = 0;
   /** Joueurs dont on attend qu'ils aient chargé la salle. */
   private readonly waiting = new Set<number>();
-  private waitSteps = 0;
   /** Rangs des héros dont le joueur est parti. */
   private readonly gone = new Set<number>();
   private events: SimEvent[] = [];
@@ -105,7 +104,7 @@ export class Lobby {
   }
 
   private addPlayer(peer: Peer): void {
-    this.players.push({ peer, hero: null, slot: -1, queue: [], last: NO_INPUT, ack: 0, starved: 0 });
+    this.players.push({ peer, hero: null, slot: -1, queue: [], last: NO_INPUT, ack: 0, starved: 0, progress: 0 });
   }
 
   handle(peer: Peer, msg: ClientMessage): void {
@@ -139,10 +138,17 @@ export class Lobby {
         if (this.players.some((p) => p.hero === null)) return send(peer, { t: 'error', text: 'Every player must pick a robot first.' });
         return this.startMatch();
       case 'ready':
-        if (me && msg.epoch === this.epoch) this.waiting.delete(peer.id);
+        if (me && msg.epoch === this.epoch && this.waiting.delete(peer.id)) this.sendWaiting();
+        return;
+      case 'loading':
+        if (me && msg.epoch === this.epoch && this.waiting.has(peer.id)) {
+          me.progress = Math.max(0, Math.min(1, Number(msg.p) || 0));
+          this.sendWaiting();
+        }
         return;
       case 'i':
-        if (me && this.phase === 'playing' && msg.e === this.epoch && Array.isArray(msg.v)) me.queue.push({ q: Number(msg.q) || 0, input: unpackInput(msg.v) });
+        // tant que quelqu'un charge la salle, le jeu est à l'arrêt : les entrées ne s'accumulent pas
+        if (me && this.phase === 'playing' && this.waiting.size === 0 && msg.e === this.epoch && Array.isArray(msg.v)) me.queue.push({ q: Number(msg.q) || 0, input: unpackInput(msg.v) });
         return;
       case 'retry':
         if (!me || this.phase !== 'lost' || peer.id !== this.hostId || !this.session) return;
@@ -169,7 +175,7 @@ export class Lobby {
     const me = this.player(peer);
     if (!me) return;
     this.players = this.players.filter((p) => p !== me);
-    this.waiting.delete(peer.id);
+    if (this.waiting.delete(peer.id)) this.sendWaiting();
     if (me.slot >= 0) {
       this.gone.add(me.slot);
       this.world?.removeHero(me.slot);
@@ -217,7 +223,6 @@ export class Lobby {
     this.encoder.reset();
     this.events = [];
     this.epoch++;
-    this.waitSteps = 0;
     this.waiting.clear();
     const playerNames: string[] = [];
     for (const p of this.players) playerNames[p.slot] = p.peer.name;
@@ -225,6 +230,7 @@ export class Lobby {
       p.queue = [];
       p.starved = 0;
       p.ack = 0;
+      p.progress = 0;
       this.waiting.add(p.peer.id);
       const start: RoomStart = {
         t: 'room', room: session.room, spawn: session.spawnNumber, heroNames: session.heroNames, playerNames,
@@ -232,6 +238,13 @@ export class Lobby {
       };
       send(p.peer, start);
     }
+    this.sendWaiting();
+  }
+
+  /** Dit à tous qui charge encore la salle : le jeu ne reprend que quand tout le monde est prêt (GD-041). */
+  private sendWaiting(): void {
+    const players = this.players.filter((p) => this.waiting.has(p.peer.id)).map((p) => ({ name: p.peer.name, progress: p.progress }));
+    this.broadcast({ t: 'wait', players });
   }
 
   /** Un step de simulation. Appelé 60 fois par seconde par l'horloge du serveur. */
@@ -239,8 +252,7 @@ export class Lobby {
     const world = this.world;
     const session = this.session;
     if (this.phase !== 'playing' || !world || !session) return;
-    if (this.waiting.size > 0 && ++this.waitSteps < READY_TIMEOUT_STEPS) return;
-    this.waiting.clear();
+    if (this.waiting.size > 0) return;
 
     const inputs: Input[] = [];
     for (const p of this.players) inputs[p.slot] = this.nextInput(p);

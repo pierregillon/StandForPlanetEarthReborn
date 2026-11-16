@@ -28,6 +28,8 @@ const LIGHTING = {
   heroStrength: 0.75,
   /** La lueur du héros est recalculée dès qu'il s'est déplacé de cette distance. */
   heroRebakeDistance: 3,
+  /** Part du brouillard de guerre retirée là où une lumière entre dans une pièce encore cachée. */
+  fogReveal: 0.9,
   chargingDim: 0.22,
   /** Les lampes sont pré-dessinées à cette fraction de leur taille : assez pour un dégradé, léger pour la carte graphique. */
   bakeScale: 0.35,
@@ -111,6 +113,20 @@ function tintOf(hex: string): number {
   return parseInt(hex.replace('#', ''), 16);
 }
 
+/** Images et état d'affichage d'un héros : tous les robots de l'équipe sont dessinés de la même façon (GD-041). */
+interface HeroParts {
+  body: Img;
+  legs: Img;
+  legsTime: number;
+  /** Orbe de BadaBot, et l'endroit où elle est dessinée. */
+  orb: Img | null;
+  orbX: number;
+  orbY: number;
+  auras: Img[];
+  /** Nom du joueur, au-dessus des coéquipiers. */
+  tag: Phaser.GameObjects.Text | null;
+}
+
 export class WorldView {
   private readonly scene: Phaser.Scene;
   private readonly world: World;
@@ -120,13 +136,13 @@ export class WorldView {
   private readonly explosionImgs = new Map<number, Img>();
   private readonly batImgs = new Map<number, Img>();
   private turretImg: Img | null = null;
-  private readonly fogRects = new Map<number, Phaser.GameObjects.Rectangle>();
+  private fogLayer!: Phaser.GameObjects.RenderTexture;
   private readonly drillParts = new Map<number, { contours: Img | null; beam: Img | null }>();
   private drillBars!: Phaser.GameObjects.Graphics;
   private darkness: Phaser.GameObjects.RenderTexture | null = null;
-  private heroLamp: Lamp | null = null;
+  /** Lueur de chaque héros, par rang. */
+  private readonly heroLamps = new Map<number, Lamp>();
   private lights: Lamp[] = [];
-  private plasmaBall: Img | null = null;
   private readonly doorImgs = new Map<number, Img>();
   private readonly windowImgs = new Map<number, Img>();
   private readonly outletImgs = new Map<number, Img>();
@@ -135,10 +151,7 @@ export class WorldView {
   private readonly anims: PlayingAnim[] = [];
   private readonly debris: Debris[] = [];
   private readonly remains: Img[] = [];
-  private heroBody!: Img;
-  private heroLegs!: Img;
-  /** Coéquipiers d'une partie à plusieurs, par rang de héros. */
-  private readonly mates = new Map<number, { body: Img; legs: Img; orb: Img | null; tag: Phaser.GameObjects.Text; legsTime: number }>();
+  private readonly parts = new Map<number, HeroParts>();
   /** Noms des joueurs, par rang de héros (partie en réseau). */
   playerNames: string[] = [];
   private laser!: Phaser.GameObjects.Graphics;
@@ -148,14 +161,11 @@ export class WorldView {
   private readonly chairImgs = new Map<number, Img>();
   private readonly buttonImgs = new Map<number, Img>();
   private readonly alerts = new Map<number, { text: Phaser.GameObjects.Text; frames: number }>();
-  private auras: Img[] = [];
   private checkpointImg: Img | null = null;
   private vehicle: { body: Img; shadow: Img | null } | null = null;
-  private readonly orbPos = { x: 0, y: 0 };
   private hasLamps = false;
   private cable!: Phaser.GameObjects.Graphics;
   private tracers!: Phaser.GameObjects.Graphics;
-  private legsTime = 0;
 
   constructor(scene: Phaser.Scene, world: World, floors: FloorManifest) {
     this.scene = scene;
@@ -255,18 +265,15 @@ export class WorldView {
     for (const zone of world.zones) {
       this.zoneImgs.push(this.image(zone.sprite, 0, zone.x, zone.y, DEPTH.zone));
     }
-    const def = world.hero.def;
-    this.heroLegs = this.image(def.sprites.legs, 0, world.hero.x, world.hero.y, DEPTH.legs);
-    this.heroBody = this.image(def.sprites.stand, 0, world.hero.x, world.hero.y, DEPTH.character);
+    for (const h of world.heroes) this.partsOf(h);
     this.laser = scene.add.graphics().setDepth(DEPTH.laser);
     this.heroFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
     this.npcFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
     this.cable = scene.add.graphics().setDepth(DEPTH.laser);
     this.tracers = scene.add.graphics().setDepth(DEPTH.bullet + 1);
     this.drillBars = scene.add.graphics().setDepth(DEPTH.worldText);
-    for (const fog of world.fogs) {
-      this.fogRects.set(fog.id, scene.add.rectangle(fog.x, fog.y, fog.w, fog.h, FOG_COLOR).setOrigin(0, 0).setDepth(DEPTH.fog).setAlpha(fog.alpha));
-    }
+    // brouillard de guerre : un calque de la taille de l'écran, que la lumière peut percer (GD-041)
+    this.fogLayer = scene.add.renderTexture(0, 0, VIEW.width, VIEW.height).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.fog);
     for (const drill of world.drills) {
       const part = (sprite: string): Img | null => (scene.textures.exists(frameKey(sprite, 0)) ? this.image(sprite, 0, drill.x, drill.y, DEPTH.character - 2) : null);
       this.drillParts.set(drill.id, { contours: part('spr_foreuse_contours'), beam: part('spr_foreuse_faisceau') });
@@ -299,14 +306,13 @@ export class WorldView {
 
   /** Met l'affichage à jour d'après l'état du monde. `dt` en secondes. */
   sync(dt: number): void {
-    this.syncHero(dt);
-    this.syncMates(dt);
+    this.syncHeroes(dt);
     this.syncNpcs();
     this.syncBullets();
     this.syncAbilityObjects();
-    this.syncFogs();
     this.syncDrills();
     this.syncLights();
+    this.syncFogs();
     for (const door of this.world.doors) this.syncDoor(door);
     for (const outlet of this.world.outlets) {
       const img = this.outletImgs.get(outlet.id);
@@ -336,37 +342,65 @@ export class WorldView {
     this.stepDebris(dt);
   }
 
-  private syncHero(dt: number): void {
-    const h = this.world.hero;
-    const def = h.def;
-    const body = this.heroBody;
-    const legs = this.heroLegs;
-    body.setPosition(h.x, h.y).setRotation(h.angle);
-    legs.setPosition(h.x, h.y).setRotation(h.moveAngle);
+  /** Tous les robots de l'équipe, avec toutes leurs animations, chez tous les joueurs (GD-041). */
+  private syncHeroes(dt: number): void {
     this.laser.clear();
     this.cable.clear();
     this.heroFx.clear();
+    for (const h of this.world.heroes) this.syncHero(h, this.partsOf(h), dt);
+    this.drawOutlets();
+  }
 
-    if (h.state === 'dead') {
-      const dead = def.kind === 'BatBot' ? `spr_BatBot_mort_${h.bats}` : def.sprites.dead;
-      this.setFrame(body, dead, (h.deadSteps / STEPS_PER_SECOND) * spriteFps(this.info(dead)));
+  private partsOf(h: Hero): HeroParts {
+    let p = this.parts.get(h.id);
+    if (!p) {
+      p = {
+        legs: this.image(h.def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
+        body: this.image(h.def.sprites.stand, 0, h.x, h.y, DEPTH.character),
+        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null,
+      };
+      this.parts.set(h.id, p);
+    }
+    return p;
+  }
+
+  private syncHero(h: Hero, p: HeroParts, dt: number): void {
+    const def = h.def;
+    const { body, legs } = p;
+    const local = h === this.world.hero;
+    const dead = h.state === 'dead';
+    // le véhicule de largage ne montre dans sa pince que le robot du joueur ; les coéquipiers apparaissent une fois posés
+    const a = CONFIG.arrival;
+    const carried = !local && h.arrivalSteps > 0 && h.arrivalTotal - h.arrivalSteps < a.flyInSteps + a.descendSteps + a.holdSteps;
+    const shown = !h.gone && !carried;
+    body.setVisible(shown);
+    legs.setVisible(shown && !dead && h.deploySteps === 0);
+    if (!shown || dead) {
+      p.orb?.setVisible(false);
+      for (const aura of p.auras) aura.setVisible(false);
+    }
+    this.syncTag(h, p, shown && !local);
+    if (!shown) return;
+    body.setPosition(h.x, h.y).setRotation(h.angle);
+    legs.setPosition(h.x, h.y).setRotation(h.moveAngle);
+
+    if (dead) {
+      const sprite = def.kind === 'BatBot' ? `spr_BatBot_mort_${h.bats}` : def.sprites.dead;
+      this.setFrame(body, sprite, (h.deadSteps / STEPS_PER_SECOND) * spriteFps(this.info(sprite)));
       body.setAlpha(1).clearTint();
-      legs.setVisible(false);
-      this.plasmaBall?.setVisible(false);
       return;
     }
-    legs.setVisible(h.deploySteps === 0);
     if (h.dashing) this.dashTrail(h, body);
     if (h.moving) {
-      this.legsTime += dt;
-      this.setFrame(legs, def.sprites.legs, (this.legsTime * 20) % this.info(def.sprites.legs).frames);
+      p.legsTime += dt;
+      this.setFrame(legs, def.sprites.legs, (p.legsTime * 20) % this.info(def.sprites.legs).frames);
     } else {
       this.setFrame(legs, def.sprites.legs, 0);
     }
 
     const pose = this.heroPose(h);
     this.setFrame(body, pose.sprite, pose.frame);
-    this.syncPlasmaBall(h, pose.sprite, pose.frame);
+    this.syncPlasmaBall(h, p, pose.sprite, pose.frame);
 
     // invulnérabilité après un dégât : le héros clignote (effet « glitch » de l'original, simplifié)
     if (h.invuln > 0) body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
@@ -382,9 +416,25 @@ export class WorldView {
       this.laser.lineStyle(2, def.laserColor, h.state === 'firing1' ? 0.7 : 0.4);
       this.laser.lineBetween(m.x, m.y, m.x + (ex - m.x) * t, m.y + (ey - m.y) * t);
     }
-    this.drawHeroFx(h);
+    this.drawHeroFx(h, p, local);
+  }
 
-    // bornes de recharge : zone d'action visible à l'approche, arc électrique pendant la recharge (GD-022)
+  /** Nom du joueur au-dessus d'un coéquipier. */
+  private syncTag(h: Hero, p: HeroParts, show: boolean): void {
+    if (!show) {
+      p.tag?.setVisible(false);
+      return;
+    }
+    p.tag ??= this.scene.add.text(h.x, h.y, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#9fe8ff', stroke: '#000000', strokeThickness: 5 })
+      .setOrigin(0.5, 1).setDepth(DEPTH.worldText);
+    const name = this.playerNames[h.id] ?? h.def.name;
+    const dead = h.state === 'dead';
+    p.tag.setVisible(true).setPosition(h.x, h.y - h.def.radius - 40).setText(dead ? `${name} - DOWN` : name).setColor(dead ? '#ff6b6b' : '#9fe8ff');
+  }
+
+  /** Bornes de recharge : zone d'action visible à l'approche, arc électrique pendant la recharge (GD-022). */
+  private drawOutlets(): void {
+    const h = this.world.hero;
     const range = CONFIG.outlet.range;
     const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 300);
     for (const outlet of this.world.outlets) {
@@ -410,67 +460,6 @@ export class WorldView {
       } else if (d < range * 2.5) {
         const inside = d <= range;
         this.cable.lineStyle(inside ? 3 : 2, inside ? 0xffe36b : 0x7fd9ff, (inside ? 0.35 : 0.12) + 0.15 * pulse).strokeCircle(outlet.x, outlet.y, range);
-      }
-    }
-  }
-
-  /**
-   * Coéquipiers (GD-040) : corps, jambes, orbe de BadaBot et nom du joueur. Le robot du joueur local garde
-   * seul l'affichage complet (viseur, jauges, effets de rechargement).
-   */
-  private syncMates(dt: number): void {
-    const world = this.world;
-    const a = CONFIG.arrival;
-    for (const h of world.heroes) {
-      if (h === world.hero) continue;
-      const def = h.def;
-      let m = this.mates.get(h.id);
-      if (!m) {
-        const tag = this.scene.add.text(h.x, h.y, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#9fe8ff', stroke: '#000000', strokeThickness: 5 })
-          .setOrigin(0.5, 1).setDepth(DEPTH.worldText);
-        m = {
-          legs: this.image(def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
-          body: this.image(def.sprites.stand, 0, h.x, h.y, DEPTH.character),
-          orb: def.kind === 'BadaBot' ? this.image('spr_plasmaBawl_idle', 0, h.x, h.y, DEPTH.character + 1) : null,
-          tag, legsTime: 0,
-        };
-        this.mates.set(h.id, m);
-      }
-      // tant que le véhicule de largage le porte, on ne le voit pas : il apparaît quand il est posé
-      const carried = h.arrivalSteps > 0 && h.arrivalTotal - h.arrivalSteps < a.flyInSteps + a.descendSteps + a.holdSteps;
-      const shown = !h.gone && !carried;
-      const dead = h.state === 'dead';
-      m.body.setVisible(shown);
-      m.legs.setVisible(shown && !dead && h.deploySteps === 0);
-      m.orb?.setVisible(false);
-      m.tag.setVisible(shown);
-      if (!shown) continue;
-      const name = this.playerNames[h.id] ?? def.name;
-      m.body.setPosition(h.x, h.y).setRotation(h.angle);
-      m.legs.setPosition(h.x, h.y).setRotation(h.moveAngle);
-      m.tag.setPosition(h.x, h.y - def.radius - 40).setText(dead ? `${name} - DOWN` : name).setColor(dead ? '#ff6b6b' : '#9fe8ff');
-      if (dead) {
-        const sprite = def.kind === 'BatBot' ? `spr_BatBot_mort_${h.bats}` : def.sprites.dead;
-        this.setFrame(m.body, sprite, (h.deadSteps / STEPS_PER_SECOND) * spriteFps(this.info(sprite)));
-        m.body.setAlpha(1).clearTint();
-        continue;
-      }
-      if (h.moving) {
-        m.legsTime += dt;
-        this.setFrame(m.legs, def.sprites.legs, (m.legsTime * 20) % this.info(def.sprites.legs).frames);
-      } else {
-        this.setFrame(m.legs, def.sprites.legs, 0);
-      }
-      const pose = this.heroPose(h);
-      this.setFrame(m.body, pose.sprite, pose.frame);
-      if (h.invuln > 0) m.body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
-      else m.body.setAlpha(1).clearTint();
-      if (m.orb && h.deploySteps === 0) {
-        const local = orbOffset(pose.sprite, pose.frame);
-        const c = Math.cos(h.angle);
-        const s = Math.sin(h.angle);
-        m.orb.setVisible(true).setPosition(h.x + local.x * c - local.y * s, h.y + local.x * s + local.y * c).setRotation(h.angle)
-          .setScale(h.charge > 0 ? 1 + 0.6 * Math.min(1, h.charge / CONFIG.abilities.badaBot.fullChargeSteps) : 1);
       }
     }
   }
@@ -653,19 +642,19 @@ export class WorldView {
   }
 
   /** Boule de plasma de BadaBot : au repos, en charge, chargée, ou juste tirée. */
-  private syncPlasmaBall(h: Hero, bodySprite: string, bodyFrame: number): void {
+  private syncPlasmaBall(h: Hero, p: HeroParts, bodySprite: string, bodyFrame: number): void {
     if (h.def.kind !== 'BadaBot') return;
-    if (!this.plasmaBall) this.plasmaBall = this.image('spr_plasmaBawl_idle', 0, h.x, h.y, DEPTH.character + 1);
-    const ball = this.plasmaBall;
+    p.orb ??= this.image('spr_plasmaBawl_idle', 0, h.x, h.y, DEPTH.character + 1);
+    const ball = p.orb;
     const now = this.scene.time.now / 1000;
     const full = CONFIG.abilities.badaBot.fullChargeSteps;
     // la tête de BadaBot bouge d'une image à l'autre : l'orbe la suit (GD-033)
     const local = orbOffset(bodySprite, bodyFrame);
     const c = Math.cos(h.angle);
     const s = Math.sin(h.angle);
-    this.orbPos.x = h.x + local.x * c - local.y * s;
-    this.orbPos.y = h.y + local.x * s + local.y * c;
-    ball.setVisible(true).setPosition(this.orbPos.x, this.orbPos.y).setRotation(h.angle);
+    p.orbX = h.x + local.x * c - local.y * s;
+    p.orbY = h.y + local.x * s + local.y * c;
+    ball.setVisible(true).setPosition(p.orbX, p.orbY).setRotation(h.angle);
     // rechargement de BadaBot : l'orbe se vide puis se reforme (GD-032)
     const reload = h.reloadTimer > 0 ? 1 - h.reloadTimer / Math.max(1, h.def.reloadSteps) : 1;
     ball.setScale(0.3 + 0.7 * reload).setAlpha(0.45 + 0.55 * reload);
@@ -750,17 +739,36 @@ export class WorldView {
 
   // ---------- Brouillard, foreuses, lumières ----------
 
+  /**
+   * Brouillard de guerre. La lumière qui entre dans une pièce encore cachée (porte qui s'ouvre, vitre) perce
+   * le brouillard là où elle éclaire : on entrevoit la pièce sans la découvrir entièrement (GD-041).
+   */
   private syncFogs(): void {
-    const alive = new Map<number, Fog>();
-    for (const fog of this.world.fogs) alive.set(fog.id, fog);
-    for (const [id, rect] of this.fogRects) {
-      const fog = alive.get(id);
-      if (fog) rect.setAlpha(Math.max(0, fog.alpha));
-      else {
-        rect.destroy();
-        this.fogRects.delete(id);
-      }
+    const rt = this.fogLayer;
+    const cam = this.scene.cameras.main;
+    let any = false;
+    rt.clear();
+    for (const fog of this.world.fogs) {
+      const x = fog.x - cam.scrollX;
+      const y = fog.y - cam.scrollY;
+      if (fog.alpha <= 0 || x > VIEW.width || y > VIEW.height || x + fog.w < 0 || y + fog.h < 0) continue;
+      rt.fill(FOG_COLOR, Math.min(1, fog.alpha), x, y, fog.w, fog.h);
+      any = true;
     }
+    rt.setVisible(any);
+    if (!any) return;
+    const pierce = (lamp: Lamp): void => {
+      const sx = lamp.x - cam.scrollX;
+      const sy = lamp.y - cam.scrollY;
+      const r = lamp.radius;
+      if (sx < -r || sy < -r || sx > VIEW.width + r || sy > VIEW.height + r) return;
+      // une lampe encore sous le brouillard ne révèle pas sa propre pièce
+      if (this.underFog(lamp.x, lamp.y)) return;
+      lamp.stamp.setAlpha(LIGHTING.fogReveal);
+      rt.erase(lamp.stamp, sx, sy);
+    };
+    for (const lamp of this.lights) pierce(lamp);
+    for (const [id, lamp] of this.heroLamps) if (!this.world.heroes[id]?.gone) pierce(lamp);
   }
 
   private syncDrills(): void {
@@ -823,9 +831,9 @@ export class WorldView {
   }
 
   /** Effets dessinés sur le héros (GD-029) : anneau de rechargement, jauge de munitions, énergie en surcharge. */
-  private drawHeroFx(h: Hero): void {
+  private drawHeroFx(h: Hero, p: HeroParts, local: boolean): void {
     if (h.deploySteps > 0) {
-      this.syncAura(h);
+      this.syncAura(h, p);
       return;
     }
     const g = this.heroFx;
@@ -839,7 +847,8 @@ export class WorldView {
     if (reloading) this.drawReload(h, progress, at);
 
     // jauge masquée quand le chargeur est plein : moins de choses à l'écran (GD-032)
-    if (def.magazine > 0 && (reloading || h.ammo < def.magazine)) {
+    // (seulement sur son propre robot : celle des coéquipiers ne ferait qu'encombrer l'écran)
+    if (local && def.magazine > 0 && (reloading || h.ammo < def.magazine)) {
       // trois segments le long de l'arme : vert, jaune, rouge ; ils clignotent à vide et se remplissent au rechargement
       const level = reloading ? Math.floor(progress * 3) : Math.ceil((h.ammo / def.magazine) * 3);
       const color = reloading ? 0xffe36b : level >= 3 ? 0x5dff7a : level === 2 ? 0xffd23c : 0xff4040;
@@ -857,7 +866,7 @@ export class WorldView {
 
     // BatBot rappelle ses battes : une lueur magenta pulse sur la main qui attend chaque batte,
     // comme les particules de scr_createReturningBatteParticules dans l'original
-    for (const bat of this.world.bats) {
+    for (const bat of def.kind === 'BatBot' ? this.world.bats : []) {
       if (bat.state !== 'returning') continue;
       const hand = batHand(h, bat.side);
       const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 70);
@@ -866,21 +875,21 @@ export class WorldView {
       g.lineStyle(2, 0xfe00d1, 0.25).lineBetween(hand.x, hand.y, bat.x, bat.y);
     }
 
-    this.syncAura(h);
+    this.syncAura(h, p);
   }
 
   /**
    * Surcharge d'énergie (GD-031) : une enveloppe lumineuse à la forme du robot, en 3 niveaux (4 à 6, 7 à 9,
    * 10 à 12), avec quelques étincelles. Plus discrète que le cercle d'avant.
    */
-  private syncAura(h: Hero): void {
-    const body = this.heroBody;
+  private syncAura(h: Hero, p: HeroParts): void {
+    const body = p.body;
     const level = h.state === 'dead' || h.deploySteps > 0 ? 0 : Math.max(0, Math.min(3, Math.ceil((h.energy - CONFIG.hero.naturalEnergy) / 3)));
-    while (this.auras.length < 2) {
-      this.auras.push(this.scene.add.image(h.x, h.y, body.texture.key).setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x4fb8ff).setDepth(DEPTH.character - 0.5));
+    while (p.auras.length < 2) {
+      p.auras.push(this.scene.add.image(h.x, h.y, body.texture.key).setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x4fb8ff).setDepth(DEPTH.character - 0.5));
     }
     const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 160);
-    this.auras.forEach((aura, i) => {
+    p.auras.forEach((aura, i) => {
       aura.setVisible(level > 0);
       if (level === 0) return;
       if (aura.texture.key !== body.texture.key) aura.setTexture(body.texture.key);
@@ -994,7 +1003,7 @@ export class WorldView {
         this.vehicle.body.destroy();
         this.vehicle.shadow?.destroy();
         this.vehicle = null;
-        this.heroBody.setScale(1);
+        this.partsOf(h).body.setScale(1);
       }
       return;
     }
@@ -1035,8 +1044,14 @@ export class WorldView {
     shadow?.setPosition(x + (70 * height + 10) * 0.94, landed.y + (70 * height + 10) * 0.34).setScale(scale * (1 + height / 6));
     // le robot reste dans la pince jusqu'à ce que le véhicule soit posé
     const carried = t < t3;
-    if (carried) this.heroBody.setPosition(x + a.claw.x * scale, landed.y + a.claw.y * scale).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
-    else this.heroBody.setPosition(h.x, h.y).setScale(1).setDepth(DEPTH.character);
+    const carriedBody = this.partsOf(h).body;
+    if (carried) carriedBody.setPosition(x + a.claw.x * scale, landed.y + a.claw.y * scale).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
+    else carriedBody.setPosition(h.x, h.y).setScale(1).setDepth(DEPTH.character);
+  }
+
+  private nearView(x: number, y: number): boolean {
+    const cam = this.scene.cameras.main;
+    return x > cam.scrollX - 200 && x < cam.scrollX + VIEW.width + 200 && y > cam.scrollY - 200 && y < cam.scrollY + VIEW.height + 200;
   }
 
   /** Ce point est-il masqué par un brouillard de guerre encore opaque ? */
@@ -1088,7 +1103,8 @@ export class WorldView {
   /** Endroit de l'arme où se loge la munition, dans le monde : la fiole de PetBot, le tambour d'EngiBot, l'orbe de BadaBot. */
   private weaponSlot(h: Hero): { x: number; y: number } {
     // l'orbe de BadaBot : là où elle est réellement dessinée
-    if (h.def.kind === 'BadaBot' && this.plasmaBall) return { x: this.orbPos.x, y: this.orbPos.y };
+    const p = this.parts.get(h.id);
+    if (h.def.kind === 'BadaBot' && p?.orb) return { x: p.orbX, y: p.orbY };
     const local = RELOAD_SLOT[h.def.kind] ?? { x: 30, y: 0 };
     const c = Math.cos(h.angle);
     const s = Math.sin(h.angle);
@@ -1117,8 +1133,7 @@ export class WorldView {
   }
 
   /** Début du rechargement : la munition usée est éjectée sur le côté et reste au sol ; l'orbe de BadaBot se disperse. */
-  private ejectClip(): void {
-    const h = this.world.hero;
+  private ejectClip(h: Hero): void {
     const scene = this.scene;
     const slot = this.weaponSlot(h);
     if (h.def.kind === 'BadaBot') {
@@ -1211,8 +1226,11 @@ export class WorldView {
       scene.add.image(lamp.x, lamp.y, lamp.key).setScale(1 / LIGHTING.bakeScale).setBlendMode(Phaser.BlendModes.ADD)
         .setTint(color.color).setAlpha(Math.min(1, intensity * sat * LIGHTING.colorStrength)).setDepth(DEPTH.fog - 1);
     });
-    const h = world.hero;
-    this.heroLamp = this.makeLamp('lamp:hero', h.x, h.y, LIGHTING.heroRadius, LIGHTING.heroStrength, LIGHTING.heroBakeScale, world.doors);
+    // chaque robot porte sa lueur : on voit celle des coéquipiers et ce qu'elle éclaire (GD-041)
+    for (const h of world.heroes) {
+      const lamp = this.makeLamp(`lamp:hero:${h.id}`, h.x, h.y, LIGHTING.heroRadius, LIGHTING.heroStrength, LIGHTING.heroBakeScale, world.doors);
+      if (lamp) this.heroLamps.set(h.id, lamp);
+    }
   }
 
   private makeLamp(key: string, x: number, y: number, radius: number, strength: number, scale: number, doors: Door[]): Lamp | null {
@@ -1269,13 +1287,16 @@ export class WorldView {
   private syncLights(): void {
     const rt = this.darkness;
     if (!rt) return;
+    const world = this.world;
     const cam = this.scene.cameras.main;
-    const h = this.world.hero;
+    const h = world.hero;
     // pendant une recharge, la lumière baisse et tremble autour du robot (idée de l'utilisateur, GD-029)
     const flicker = h.charging ? 0.45 + Math.random() * 0.4 : 1;
     const ambient = (this.hasLamps ? LIGHTING.ambient : 0) + (h.charging ? LIGHTING.chargingDim * (0.6 + Math.random() * 0.6) : 0);
-    rt.setVisible(ambient > 0);
-    if (ambient <= 0) return;
+    const dark = ambient > 0;
+    rt.setVisible(dark);
+    // sans pénombre ni brouillard à percer, les zones éclairées ne servent à rien : on ne les calcule pas
+    if (!dark && world.fogs.length === 0) return;
 
     // une porte qui bouge près d'une lampe change ce qu'elle éclaire : on ne recalcule que ces lampes-là
     let bakes = 0;
@@ -1285,13 +1306,18 @@ export class WorldView {
       this.bakeLamp(lamp);
       bakes++;
     }
-    // la lueur du héros le suit : elle est recalculée quand il se déplace ou qu'une porte bouge
-    const own = this.heroLamp;
-    if (own && (Math.hypot(h.x - own.x, h.y - own.y) > LIGHTING.heroRebakeDistance || this.doorState(own.doors) !== own.doorState)) {
-      own.x = h.x;
-      own.y = h.y;
-      this.bakeLamp(own);
+    // la lueur d'un héros le suit : elle est recalculée quand il se déplace ou qu'une porte bouge.
+    // Celle des coéquipiers l'est un peu moins souvent : ils sont vus de plus loin.
+    for (const [id, lamp] of this.heroLamps) {
+      const o = world.heroes[id];
+      if (!o || o.gone) continue;
+      const slack = LIGHTING.heroRebakeDistance * (o === h ? 1 : 3);
+      if (Math.hypot(o.x - lamp.x, o.y - lamp.y) <= slack && this.doorState(lamp.doors) === lamp.doorState) continue;
+      lamp.x = o.x;
+      lamp.y = o.y;
+      this.bakeLamp(lamp);
     }
+    if (!dark) return;
 
     rt.clear();
     rt.fill(0x000000, Math.min(0.85, ambient));
@@ -1304,7 +1330,11 @@ export class WorldView {
       rt.erase(lamp.stamp, sx, sy);
     };
     for (const lamp of this.lights) erase(lamp, lamp.strength * flicker);
-    if (own) erase(own, own.strength * (h.charging ? 0.7 + Math.random() * 0.3 : 1));
+    for (const [id, lamp] of this.heroLamps) {
+      const o = world.heroes[id];
+      if (!o || o.gone || o.arrivalSteps > 0) continue;
+      erase(lamp, lamp.strength * (o.charging ? 0.7 + Math.random() * 0.3 : 1) * (o.state === 'dead' ? 0.45 : 1));
+    }
   }
 
   private syncDoor(door: Door): void {
@@ -1332,16 +1362,19 @@ export class WorldView {
       const pane = this.world.windows.find((w) => w.id === e.id);
       if (pane) this.breakWindow(pane, e.x, e.y, e.angle);
     } else if (e.type === 'reloadStart') {
-      this.ejectClip();
+      const h = this.world.heroes[e.hero];
+      if (h && !h.gone) this.ejectClip(h);
     } else if (e.type === 'reloadEnd') {
-      const h = this.world.hero;
+      const h = this.world.heroes[e.hero] ?? this.world.hero;
       const slot = this.weaponSlot(h);
       const flash = scene.add.circle(slot.x, slot.y, 10, h.def.kind === 'BadaBot' ? 0xd9a0ff : 0xffffff).setDepth(DEPTH.fx).setBlendMode(Phaser.BlendModes.ADD);
       scene.tweens.add({ targets: flash, scale: h.def.kind === 'BadaBot' ? 5 : 3, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
     } else if (e.type === 'heroDead') {
-      scene.cameras.main.shake(300, 0.01);
+      // l'écran ne tremble que pour ce qui arrive près de soi
+      if (this.nearView(e.x, e.y)) scene.cameras.main.shake(300, 0.01);
     } else if (e.type === 'heroHit') {
-      scene.cameras.main.shake(90, 0.004);
+      const mine = this.world.hero;
+      if (Math.hypot(e.x - mine.x, e.y - mine.y) < 4) scene.cameras.main.shake(90, 0.004);
     } else if (e.type === 'drillDestroyed') {
       scene.cameras.main.shake(400, 0.012);
       if (scene.textures.exists(frameKey('spr_explosion_robot', 0))) {

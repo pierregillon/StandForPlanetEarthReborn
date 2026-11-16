@@ -8,6 +8,17 @@ import type { World } from '../../sim/world.ts';
 const DEPTH = 10000;
 const OUTLINE = { stroke: '#000000', strokeThickness: 6 };
 
+interface MateCard {
+  bar: Phaser.GameObjects.Image | null;
+  portrait: Phaser.GameObjects.Image | null;
+  damage: Phaser.GameObjects.Image | null;
+  label: Phaser.GameObjects.Text;
+}
+/** Vignettes des coéquipiers : taille par rapport à la sienne, position de la première, écart entre deux. */
+const MATE_SCALE = 0.55;
+const MATE_X = 640;
+const MATE_SPACING = 200;
+
 export class Hud {
   private readonly scene: Phaser.Scene;
   private readonly world: World;
@@ -21,7 +32,8 @@ export class Hud {
   private readonly notice: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
   private readonly countdown: Phaser.GameObjects.Text;
-  private readonly team: Phaser.GameObjects.Text;
+  /** Vignettes des coéquipiers, par rang de héros. */
+  private readonly mateCards = new Map<number, MateCard>();
   /** Noms des joueurs, par rang de héros (partie en réseau). */
   playerNames: string[] = [];
   private readonly bossBar: Phaser.GameObjects.Graphics;
@@ -68,9 +80,6 @@ export class Hud {
       fontFamily: 'Aldo', fontSize: '24px', color: '#ffe36b', wordWrap: { width: 500 }, ...OUTLINE, strokeThickness: 4,
     }).setScrollFactor(0).setDepth(DEPTH);
     this.bossBar = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH);
-    this.team = scene.add.text(width - 40, 40, '', {
-      fontFamily: 'Aldo', fontSize: '26px', color: '#9fe8ff', stroke: '#000000', strokeThickness: 5, align: 'right', lineSpacing: 6,
-    }).setOrigin(1, 0).setScrollFactor(0).setDepth(10000);
     // compte à rebours de sortie du niveau, en haut de l'écran comme obj_countdown_GUI
     this.countdown = scene.add.text(width / 2, height / 8, '', {
       fontFamily: 'Aldo', fontSize: '60px', color: '#e04348', align: 'center', ...OUTLINE,
@@ -78,6 +87,52 @@ export class Hud {
     this.hint = scene.add.text(width / 2, height - 190, '', {
       fontFamily: 'Blank', fontStyle: 'bold', fontSize: '30px', color: '#ffe400', ...OUTLINE,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH);
+  }
+
+  /**
+   * Vignettes des coéquipiers (GD-041), à droite de la sienne : le même cadre en plus petit, avec le portrait
+   * qui rougit à mesure que la vie baisse, l'énergie sur le cadre, et le nom du joueur dessous.
+   */
+  private updateMates(): void {
+    const world = this.world;
+    const scene = this.scene;
+    const y = scene.scale.height - 96;
+    let rank = 0;
+    for (const o of world.heroes) {
+      if (o === world.hero) continue;
+      let card = this.mateCards.get(o.id);
+      if (!card && !o.gone) {
+        const image = (sprite: string, depth: number): Phaser.GameObjects.Image | null => {
+          if (!scene.textures.exists(frameKey(sprite, 0))) return null;
+          const sp = world.sprite(sprite);
+          return scene.add.image(0, y, frameKey(sprite, 0)).setOrigin(sp.ox / sp.w, sp.oy / sp.h).setScale(MATE_SCALE).setScrollFactor(0).setDepth(depth);
+        };
+        card = {
+          bar: image('spr_healthBar', DEPTH),
+          portrait: image(o.def.sprites.portrait, DEPTH + 1),
+          damage: image(o.def.sprites.portrait, DEPTH + 2)?.setTint(0xff0000).setAlpha(0.8) ?? null,
+          label: scene.add.text(0, y + 44, '', { fontFamily: 'Aldo', fontSize: '20px', color: '#ffffff', align: 'center', ...OUTLINE, strokeThickness: 4 })
+            .setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH + 3),
+        };
+        this.mateCards.set(o.id, card);
+      }
+      if (!card) continue;
+      const shown = !o.gone;
+      for (const part of [card.bar, card.portrait, card.damage, card.label]) part?.setVisible(shown);
+      if (!shown) continue;
+      const x = MATE_X + rank * MATE_SPACING;
+      rank++;
+      const dead = o.state === 'dead';
+      card.bar?.setX(x).setTexture(frameKey('spr_healthBar', Math.max(0, Math.min(12, o.energy))));
+      card.portrait?.setX(x).setTint(dead ? 0x555555 : 0xffffff);
+      if (card.portrait && card.damage) {
+        const missing = dead ? 0 : 1 - o.hp / o.def.maxHealth;
+        const fh = card.portrait.height;
+        card.damage.setX(x).setVisible(missing > 0).setCrop(0, fh * (1 - missing), card.portrait.width, fh * missing);
+      }
+      const name = (this.playerNames[o.id] ?? o.def.name).toUpperCase();
+      card.label.setX(x - 3).setText(`${name}\n${dead ? 'DOWN' : `HP ${o.hp}/${o.def.maxHealth}   EN ${o.energy}`}`).setColor(dead ? '#ff6b6b' : '#ffffff');
+    }
   }
 
   notify(text: string): void {
@@ -154,11 +209,6 @@ export class Hud {
     const leavingIn = Math.max(world.exitCountdown, world.zoneCountdown);
     this.countdown.setText(leavingIn > 0 ? `Leaving area :\n${Math.ceil(leavingIn / 60)}` : '');
 
-    // état des coéquipiers (partie à plusieurs)
-    const mates = world.heroes.filter((o) => o !== h && !o.gone);
-    this.team.setText(mates.map((o) => {
-      const name = this.playerNames[o.id] ?? o.def.name;
-      return o.state === 'dead' ? `${name}  ${o.def.name}  DOWN` : `${name}  ${o.def.name}  HP ${o.hp}/${o.def.maxHealth}  EN ${o.energy}`;
-    }).join('\n'));
+    this.updateMates();
   }
 }

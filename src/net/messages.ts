@@ -13,6 +13,11 @@ export interface LobbyPlayer {
   hero: string | null;
 }
 
+export interface LoadingPlayer {
+  name: string;
+  progress: number;
+}
+
 /** État du salon, envoyé à tous les navigateurs connectés (y compris ceux restés au menu). */
 export interface LobbyState {
   t: 'lobby';
@@ -43,6 +48,8 @@ export type ServerMessage =
   | LobbyState
   | RoomStart
   | { t: 's'; epoch: number; ack: number; snap: Snapshot; ev?: SimEvent[] }
+  /** Joueurs qui chargent encore la salle, avec leur avancement (0 à 1). Liste vide : le jeu reprend. */
+  | { t: 'wait'; players: LoadingPlayer[] }
   | { t: 'over' }
   | { t: 'won'; stats: Stats }
   | { t: 'error'; text: string };
@@ -54,6 +61,8 @@ export type ClientMessage =
   | { t: 'pick'; hero: string | null }
   | { t: 'start' }
   | { t: 'ready'; epoch: number }
+  /** Avancement du chargement de la salle, de 0 à 1. */
+  | { t: 'loading'; epoch: number; p: number }
   | { t: 'i'; e: number; q: number; v: number[] }
   | { t: 'retry' }
   | { t: 'leave' }

@@ -137,7 +137,13 @@ export const CONFIG = {
     /** Rayon d'activation du point de sauvegarde devant le boss. */
     checkpointRadius: 170,
     /** Temps à rester dans la zone de sortie pour quitter le niveau (« Leaving area »). */
-    exitCountdownSteps: s(10),
+    exitCountdownSteps: s(5),
+    /**
+     * Collision légère entre héros (GD-041) : deux robots plus proches que cette part de la somme de leurs
+     * rayons s'écartent, d'au plus `teamPushSpeed` px par step. On peut donc se croiser, pas rester superposés.
+     */
+    teamSpacing: 0.9,
+    teamPushSpeed: 4,
   },
 
   heroes: {

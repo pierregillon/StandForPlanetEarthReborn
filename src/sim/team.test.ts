@@ -29,7 +29,6 @@ test('chaque héros a son point d\'apparition et obéit à son joueur', () => {
   for (let i = 0; i < 10; i++) w.step([NO_INPUT, right]);
   assert.equal(w.heroes[0].x, before[0], 'le premier n\'a pas bougé');
   assert.ok(w.heroes[1].x > before[1] + 50, 'le deuxième a avancé');
-  assert.equal(w.heroes[2].x, before[2]);
 });
 
 test('en solo, une seule entrée suffit toujours', () => {
@@ -116,15 +115,41 @@ test('passage entre salles : toute l\'équipe part aussitôt, la moitié déclen
   assert.equal(left, true);
 });
 
-test('une balle de PetBot soigne le coéquipier qu\'elle touche', () => {
+test('une balle de PetBot traverse le coéquipier et le soigne au passage, une fois', () => {
   const w = team('PetBot', 'BatBot');
   const [pet, ally] = w.heroes;
   ally.hp = 5;
   const aim: Input = { ...NO_INPUT, aimX: ally.x, aimY: ally.y };
   for (let i = 0; i < 40; i++) w.step([aim]);
-  for (let i = 0; i < 40 && ally.hp === 5; i++) w.step([{ ...aim, fire1: true }]);
-  assert.ok(ally.hp > 5, 'le coéquipier a été soigné');
-  assert.ok(pet.ammo < pet.def.magazine);
+  // une seule balle, tirée à la main vers le coéquipier
+  w.spawnBullet(pet.def.bullet, 'hero', pet.x + 60, pet.y, 0, pet.id);
+  for (let i = 0; i < 20; i++) w.step([aim]);
+  assert.equal(ally.hp, 6, 'soigné d\'un point, pas plus');
+  assert.equal(w.bullets.length, 1, 'la balle continue sa route');
+  assert.ok(w.bullets[0].x > ally.x + 100, 'elle a dépassé le coéquipier');
+  // les balles des autres robots traversent aussi, sans soigner
+  ally.hp = 5;
+  w.bullets.length = 0;
+  w.spawnBullet(w.heroes[1].def.bullet, 'hero', pet.x - 200, pet.y, 0, 1);
+  for (let i = 0; i < 12; i++) w.step([aim]);
+  assert.equal(w.bullets.length, 1);
+  assert.equal(pet.hp, pet.def.maxHealth);
+});
+
+test('collision légère : deux robots superposés s\'écartent, sans se bloquer', () => {
+  const w = team('PetBot', 'BadaBot');
+  const [a, b] = w.heroes;
+  b.x = a.x;
+  b.y = a.y;
+  for (let i = 0; i < 40; i++) w.step([]);
+  const min = (a.def.radius + b.def.radius) * CONFIG.hero.teamSpacing;
+  assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= min - 1, 'ils ne se chevauchent plus');
+  // on peut traverser un coéquipier en marchant : il gêne, il ne bloque pas
+  b.x = a.x + 150;
+  b.y = a.y;
+  const start = a.x;
+  for (let i = 0; i < 60; i++) w.step([{ ...NO_INPUT, moveX: 1, aimX: a.x + 500, aimY: a.y }]);
+  assert.ok(a.x > start + 350, `il est passé (${Math.round(a.x - start)} px)`);
 });
 
 test('en changeant de salle, un robot à terre est relevé et chacun garde son état', () => {

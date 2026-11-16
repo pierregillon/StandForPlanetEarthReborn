@@ -768,7 +768,7 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 ## GD-039 — Règles du jeu à plusieurs héros (jusqu'à 4)
 
 - **Date** : 2026-11-16
-- **Statut** : Acceptée
+- **Statut** : Acceptée — modifiée par GD-041 (balles de PetBot, collision entre héros, compte à rebours de 5 s)
 - **Décidée par** : l'utilisateur pour le cadre (multijoueur jusqu'à 4, un robot ne peut être pris qu'une fois, résurrection d'origine, chacun sa caméra, link remis à plus tard) ; choix par défaut pour les points marqués « par défaut »
 
 **Contexte.** L'utilisateur lance le multijoueur (GD-002 le remettait à plus tard). Le jeu d'origine est un coop local à 4 ; ses règles à plusieurs existent dans le code, mais la mort y est désactivée (`canDie = False`). La simulation ne connaissait qu'un héros.
@@ -820,7 +820,33 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Conséquences.** Limites de cette première version, à connaître avant d'essayer :
 
 - Le robot du joueur réagit tout de suite à ses commandes, mais **ses tirs partent quand le serveur les a joués** : avec ngrok, ils apparaissent avec le délai d'un aller-retour.
-- **Affichage des coéquipiers simplifié** : corps, jambes, orbe de BadaBot et nom ; pas de viseur laser, d'aura d'énergie ni d'effets de rechargement.
+- ~~Affichage des coéquipiers simplifié~~ : levé par GD-041, tous les robots ont toutes leurs animations.
 - **Arrivée par le véhicule** : chacun ne voit que son propre robot dans la pince ; les coéquipiers apparaissent une fois posés.
 - **Résurrection, mort et balles soignantes n'ont pas été essayées à l'écran**, seulement par tests automatiques.
 - Le link entre héros reste à concevoir avec l'utilisateur.
+
+## GD-041 — Retours du premier essai à deux joueurs
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (retour d'essai à deux, BadaBot et PetBot) ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** Premier essai du multijoueur (GD-040) par l'utilisateur avec un second joueur. Sept retours.
+
+**Décision.**
+
+- **Vignettes des coéquipiers** : en bas à gauche, à droite de la sienne, la vignette de chaque autre joueur, en plus petit : même cadre (énergie), portrait qui rougit avec les dégâts, nom du joueur, PV et énergie en chiffres. Elle remplace la liste en haut à droite.
+- **Collision légère entre robots** : deux robots qui se chevauchent s'écartent doucement (4 px par step au plus, en dessous de 90 % de la somme de leurs rayons). Rien ne bloque : on se croise dans un couloir.
+  - *Par défaut* : un dash traverse un coéquipier ; un robot à terre ne repousse personne (il faut pouvoir s'en approcher pour le relever).
+- **Les balles traversent les alliés.** Cela remplace la règle d'origine reprise dans GD-039, où les balles de PetBot s'arrêtaient sur un coéquipier.
+  - *Par défaut, à confirmer* : la balle de PetBot rend toujours 1 PV au coéquipier blessé qu'elle traverse, une seule fois par balle et par coéquipier. PetBot reste le soigneur de l'équipe, mais soigne désormais sans perdre sa balle.
+- **Toutes les animations de tous les robots chez tous les joueurs** : les coéquipiers sont dessinés par le même code que son propre robot (orbe de BadaBot au repos, en charge, au tir et au rechargement, enveloppe d'énergie, traînée de dash, viseur laser, chargeur éjecté de PetBot et d'EngiBot, effets de rechargement).
+  - *Par défaut* : la jauge de munitions le long de l'arme n'est dessinée que sur son propre robot, et les bruitages de rechargement ne jouent que pour le sien.
+- **La lumière perce le brouillard de guerre** : quand une lumière entre dans une pièce encore cachée (porte qui s'ouvre, vitre), le brouillard s'efface là où elle éclaire, en s'estompant avec la distance. On entrevoit la pièce sans la découvrir. Une lampe située dans la pièce cachée ne la révèle pas.
+- **« Leaving area » : 5 s** au lieu de 10, pour les passages entre salles comme pour la sortie du niveau (solo compris, GD-010 disait 10 s).
+- **La lueur de chaque joueur est visible** par tous, avec ses ombres portées, et perce elle aussi le brouillard.
+- **Chargement synchronisé** : à chaque nouvelle salle (début de partie, étage, zone de forage, Retry), le jeu reste à l'arrêt pour tout le monde tant qu'un joueur charge. L'écran de chargement et l'écran d'attente indiquent qui charge encore, avec son avancement. Il n'y a plus de limite de temps ; un joueur qui quitte pendant son chargement ne bloque pas les autres.
+
+**Pourquoi.** Le premier essai a montré ce qui manquait pour jouer vraiment à deux : se voir entièrement, ne pas se gêner, et commencer ensemble.
+
+**Conséquences.** Réglages : `teamSpacing`, `teamPushSpeed` et `exitCountdownSteps` dans `src/sim/config.ts` ; `fogReveal` dans `LIGHTING`. Le brouillard est maintenant un calque de la taille de l'écran (comme la pénombre), ce qui permet à la lumière de le percer. Vérifié à deux onglets : vignettes, tir et viseur de PetBot vus par l'autre joueur, orbe de BadaBot en charge puis tirée, faisceau qui perce le brouillard par une porte en cours d'ouverture, 60 images par seconde. **Non vu à l'écran** : l'enveloppe d'énergie et le dash d'un coéquipier, le chargeur éjecté, l'écran d'attente avec un vrai chargement lent (testé par test automatique).

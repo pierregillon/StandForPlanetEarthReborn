@@ -1,6 +1,6 @@
 // Connexion du navigateur au serveur de partie (ADR-014) : une WebSocket, gardée d'une scène à l'autre.
 import Phaser from 'phaser';
-import type { ClientMessage, LobbyState, RoomStart, ServerMessage } from '../../net/messages.ts';
+import type { ClientMessage, LoadingPlayer, LobbyState, RoomStart, ServerMessage } from '../../net/messages.ts';
 
 const REGISTRY_KEY = 'connection';
 
@@ -10,6 +10,8 @@ export class Connection {
   lobby: LobbyState | null = null;
   /** Dernière salle annoncée par le serveur : la scène de jeu s'ouvre dessus. */
   room: RoomStart | null = null;
+  /** Joueurs qui chargent encore cette salle : tant qu'il en reste, le jeu est à l'arrêt pour tout le monde. */
+  waiting: LoadingPlayer[] = [];
   /** Messages de jeu reçus depuis cette annonce, à traiter par la scène de jeu. */
   private inbox: ServerMessage[] = [];
   /** Dernier refus du serveur (partie pleine, déjà commencée...). */
@@ -27,6 +29,7 @@ export class Connection {
       const msg = JSON.parse(String(event.data)) as ServerMessage;
       if (msg.t === 'lobby') this.lobby = msg;
       else if (msg.t === 'error') this.error = msg.text;
+      else if (msg.t === 'wait') this.waiting = msg.players;
       else if (msg.t === 'room') {
         // nouvelle salle : ce qui restait à traiter concernait la précédente
         this.room = msg;

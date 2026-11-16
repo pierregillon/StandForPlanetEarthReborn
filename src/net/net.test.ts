@@ -24,6 +24,9 @@ class FakeClient implements Peer {
   mirror: Mirror | null = null;
   over = false;
   bytes = 0;
+  /** Répond « prêt » dès que la salle est annoncée (un vrai client charge d'abord ses images). */
+  autoReady = true;
+  waiting: { name: string; progress: number }[] = [];
   private readonly server: Lobby;
 
   constructor(id: number, server: Lobby) {
@@ -40,11 +43,12 @@ class FakeClient implements Peer {
     else if (msg.t === 'room') this.enter(msg);
     else if (msg.t === 's' && this.mirror && msg.epoch === this.mirror.epoch) this.mirror.receive(msg.snap, msg.ack, msg.ev);
     else if (msg.t === 'over') this.over = true;
+    else if (msg.t === 'wait') this.waiting = msg.players;
   }
 
   private enter(start: RoomStart): void {
     this.mirror = new Mirror(levels[start.room], sprites, start);
-    this.say({ t: 'ready', epoch: start.epoch });
+    if (this.autoReady) this.say({ t: 'ready', epoch: start.epoch });
   }
 
   say(msg: ClientMessage): void {
@@ -236,4 +240,44 @@ test('la téléportation de développement est refusée par défaut', () => {
   const x = server.currentWorld?.heroes[0].x;
   a.say({ t: 'teleport', x: 100, y: 100 });
   assert.equal(server.currentWorld?.heroes[0].x, x);
+});
+
+test('chargement d\'une salle : le jeu attend que tous les joueurs soient prêts, et dit qui charge', () => {
+  const { server, clients: [a, b] } = setup(2);
+  b.autoReady = false;
+  a.say({ t: 'create' });
+  b.say({ t: 'join' });
+  a.say({ t: 'pick', hero: 'PetBot' });
+  b.say({ t: 'pick', hero: 'BatBot' });
+  a.say({ t: 'start' });
+  const world = server.currentWorld;
+  assert.ok(world && a.mirror && b.mirror);
+  // bien plus longtemps que l'ancienne limite de 20 s : on attend toujours
+  for (let i = 0; i < 3000; i++) {
+    a.play({ ...NO_INPUT, moveX: 1 });
+    server.tick();
+  }
+  assert.equal(world.tick, 0, 'le jeu n\'a pas commencé');
+  assert.deepEqual(a.waiting, [{ name: 'P2', progress: 0 }]);
+  b.say({ t: 'loading', epoch: b.mirror.epoch, p: 0.6 });
+  assert.deepEqual(a.waiting, [{ name: 'P2', progress: 0.6 }]);
+  b.say({ t: 'ready', epoch: b.mirror.epoch });
+  assert.deepEqual(a.waiting, []);
+  const x = world.heroes[0].x;
+  for (let i = 0; i < 10; i++) server.tick();
+  assert.equal(world.tick, 10);
+  assert.equal(world.heroes[0].x, x, 'les entrées envoyées pendant l\'attente n\'ont pas été gardées');
+
+  // un joueur qui part pendant son chargement ne bloque pas les autres
+  const { server: s2, clients: [c, d] } = setup(2);
+  d.autoReady = false;
+  c.say({ t: 'create' });
+  d.say({ t: 'join' });
+  c.say({ t: 'pick', hero: 'PetBot' });
+  d.say({ t: 'pick', hero: 'BatBot' });
+  c.say({ t: 'start' });
+  s2.disconnect(d);
+  assert.deepEqual(c.waiting, []);
+  s2.tick();
+  assert.equal(s2.currentWorld?.tick, 1);
 });

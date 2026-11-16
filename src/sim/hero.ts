@@ -171,6 +171,30 @@ export function steerHero(world: World, h: Hero, input: Input): void {
     h.dashing = false;
     h.bump = false;
   }
+  separateHero(world, h);
+}
+
+/**
+ * Collision légère entre héros (GD-041) : deux robots qui se chevauchent s'écartent doucement. Rien ne
+ * bloque : on peut se croiser dans un couloir, et un dash traverse un coéquipier.
+ */
+function separateHero(world: World, h: Hero): void {
+  if (h.dashing || h.bump) return;
+  for (const o of world.heroes) {
+    if (o === h || o.gone || o.state === 'dead' || o.dashing || o.arrivalSteps > 0) continue;
+    const min = (h.def.radius + o.def.radius) * CONFIG.hero.teamSpacing;
+    const dx = h.x - o.x;
+    const dy = h.y - o.y;
+    const d = Math.hypot(dx, dy);
+    if (d >= min) continue;
+    // exactement superposés : chacun part de son côté, selon son rang
+    const ux = d > 0.01 ? dx / d : h.id < o.id ? -1 : 1;
+    const uy = d > 0.01 ? dy / d : 0;
+    const push = Math.min(CONFIG.hero.teamPushSpeed, (min - d) / 2);
+    const res = world.collision.resolveCircle(h.x + ux * push, h.y + uy * push, h.def.radius, BLOCK_MOVE);
+    h.x = res.x;
+    h.y = res.y;
+  }
 }
 
 /** Déplace le héros en glissant le long des obstacles. Retourne true s'il a heurté le décor. */

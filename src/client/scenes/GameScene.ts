@@ -71,6 +71,8 @@ export class GameScene extends Phaser.Scene {
   /** Partie en réseau : la connexion au serveur et le monde miroir qu'il tient à jour (null en solo). */
   private conn: Connection | null = null;
   private mirror: Mirror | null = null;
+  private waitShade!: Phaser.GameObjects.Rectangle;
+  private waitText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Game');
@@ -103,8 +105,28 @@ export class GameScene extends Phaser.Scene {
       }
     }
     const { width, height } = this.scale;
-    const label = this.add.text(width / 2, height / 2, `Loading ${heroes.map((h) => h.name).join(', ')}...`, { fontFamily: 'Aldo', fontSize: '48px', color: '#cfd8ff' }).setOrigin(0.5).setScrollFactor(0);
-    this.load.once('complete', () => label.destroy());
+    const title = `Loading ${heroes.map((h) => h.name).join(', ')}...`;
+    const label = this.add.text(width / 2, height / 2, title, { fontFamily: 'Aldo', fontSize: '48px', color: '#cfd8ff', align: 'center', lineSpacing: 10 }).setOrigin(0.5).setScrollFactor(0);
+    let told = -1;
+    const onProgress = (p: number): void => {
+      // en réseau, les autres joueurs voient où en est ce chargement, et on voit le leur
+      if (net && p - told >= 0.05) {
+        told = p;
+        net.conn.send({ t: 'loading', epoch: net.start.epoch, p });
+      }
+      label.setText(`${title}  ${Math.round(p * 100)}%${net ? this.waitingLines(net.conn, net.start.playerNames[net.start.you]) : ''}`);
+    };
+    this.load.on('progress', onProgress);
+    this.load.once('complete', () => {
+      this.load.off('progress', onProgress);
+      label.destroy();
+    });
+  }
+
+  /** Lignes « qui charge encore », pour l'écran de chargement et l'écran d'attente. */
+  private waitingLines(conn: Connection, except = ''): string {
+    const others = conn.waiting.filter((p) => p.name !== except);
+    return others.length === 0 ? '' : `\n\n${others.map((p) => `${p.name}   loading ${Math.round(p.progress * 100)}%`).join('\n')}`;
   }
 
   private heroName(): string {
@@ -158,6 +180,12 @@ export class GameScene extends Phaser.Scene {
     this.acc = 0;
     this.panel = null;
     this.debugHold = {};
+    // écran d'attente : tant qu'un joueur charge la salle, le jeu est à l'arrêt pour tout le monde (GD-041)
+    const { width, height } = this.scale;
+    this.waitShade = this.add.rectangle(width / 2, height / 2, width, height, 0x040c29, 0.82).setScrollFactor(0).setDepth(PANEL_DEPTH + 10).setVisible(false);
+    this.waitText = this.add.text(width / 2, height / 2, '', {
+      fontFamily: 'Aldo', fontSize: '44px', color: '#ffffff', align: 'center', lineSpacing: 12, stroke: '#000000', strokeThickness: 6,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(PANEL_DEPTH + 11).setVisible(false);
 
     const target = this.cameraGoal();
     this.camX = target.x;
@@ -293,7 +321,12 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.acc = Math.min(this.acc + delta, STEP_MS * 5);
+    // un joueur charge encore la salle : rien ne bouge, on affiche qui l'on attend
+    const waiting = conn !== null && conn.waiting.length > 0;
+    this.waitShade.setVisible(waiting);
+    this.waitText.setVisible(waiting);
+    if (waiting && conn) this.waitText.setText(`Waiting for all players...${this.waitingLines(conn)}`);
+    this.acc = waiting ? 0 : Math.min(this.acc + delta, STEP_MS * 5);
     let first = true;
     while (this.acc >= STEP_MS) {
       this.acc -= STEP_MS;
@@ -331,13 +364,11 @@ export class GameScene extends Phaser.Scene {
         this.synth.checkpoint();
         this.hud.notify('Robot back online');
       } else if (e.type === 'reloadStart') {
-        // les bruitages et effets de rechargement ne concernent que son propre robot
-        if (!mine(e)) continue;
-        this.synth.reloadStart(world.hero.def.kind, world.hero.def.reloadSteps / STEPS_PER_SECOND);
+        // le chargeur éjecté se voit chez tout le monde ; le bruitage ne joue que pour son propre robot
+        if (mine(e)) this.synth.reloadStart(world.hero.def.kind, world.hero.def.reloadSteps / STEPS_PER_SECOND);
         this.view.handleEvent(e);
       } else if (e.type === 'reloadEnd') {
-        if (!mine(e)) continue;
-        this.synth.reloadEnd(world.hero.def.kind);
+        if (mine(e)) this.synth.reloadEnd(world.hero.def.kind);
         this.view.handleEvent(e);
       } else if (e.type === 'emptyClick') {
         if (mine(e)) this.view.handleEvent(e);
