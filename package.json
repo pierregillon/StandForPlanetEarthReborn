@@ -1,0 +1,27 @@
+{
+  "name": "stand-for-planet-earth-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Remake web du jeu GameMaker « Stand For Planet Earth »",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node tools/build.ts --watch --serve",
+    "build": "node tools/build.ts",
+    "start": "node tools/build.ts && node server/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "convert-rooms": "node tools/convert-rooms.ts",
+    "extract-assets": "node tools/extract-assets.ts"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "~5.9.3"
+  }
+}

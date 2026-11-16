@@ -1,0 +1,42 @@
+{
+  "name": "rm_world2_2", "width": 13000, "height": 8000,
+  "background": { "sprite": "spr_texture_gris_full", "color": "#ffffff", "tiled": true },
+  "layers": [
+    { "name": "layer_doors", "type": "instances", "depth": -500, "visible": true },
+    { "name": "layer_murs", "type": "instances", "depth": -400, "visible": true },
+    { "name": "tiles_mur_epais", "type": "tiles", "depth": -300, "visible": true },
+    { "name": "tiles_mur_fin", "type": "tiles", "depth": -200, "visible": true },
+    { "name": "layer_warFog", "type": "instances", "depth": -100, "visible": false },
+    { "name": "layer_npc", "type": "instances", "depth": 0, "visible": true },
+    { "name": "layer_lumiere", "type": "instances", "depth": 100, "visible": true },
+    { "name": "layer_code", "type": "instances", "depth": 200, "visible": true },
+    { "name": "layer_deco", "type": "instances", "depth": 300, "visible": true },
+    { "name": "layer_fenetre", "type": "instances", "depth": 400, "visible": true },
+    { "name": "layer_nextRoomInstances", "type": "instances", "depth": 500, "visible": true },
+    { "name": "tiles_element_graphiques", "type": "assets", "depth": 600, "visible": true },
+    { "name": "layer_textureGenerator", "type": "instances", "depth": 700, "visible": true },
+    { "name": "Background", "type": "background", "depth": 800, "visible": true }
+  ],
+  "objects": {
+    "obj_foreuse": { "sprite": "spr_foreuse_socle", "mask": "spr_foreuse_masqueCollision", "parents": ["obj_mobilier_parent", "obj_decor_base"], "visible": true },
+    "obj_sallyBot": { "sprite": "spr_sallyBot_1_standing", "mask": null, "parents": ["obj_localNpc_soldier", "obj_localNpc"], "visible": true },
+    "obj_spawn1": { "sprite": null, "mask": null, "parents": [], "visible": true },
+    "obj_spawn2": { "sprite": null, "mask": null, "parents": [], "visible": true },
+    "obj_spawn3": { "sprite": null, "mask": null, "parents": [], "visible": true },
+    "obj_spawn4": { "sprite": null, "mask": null, "parents": [], "visible": true }
+  },
+  "instances": [
+    { "id": "inst_46690401", "object": "obj_spawn1", "layer": "layer_code", "depth": 200, "x": 6161.887, "y": 7276.131, "angle": 76.62383, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "spawnNumber": 1 } },
+    { "id": "inst_6A62D375", "object": "obj_spawn2", "layer": "layer_code", "depth": 200, "x": 6290.116, "y": 7290.177, "angle": 76.62383, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "spawnNumber": 1 } },
+    { "id": "inst_1DFA28BF", "object": "obj_spawn3", "layer": "layer_code", "depth": 200, "x": 6402.779, "y": 7300.521, "angle": 76.62383, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "spawnNumber": 1 } },
+    { "id": "inst_2B5ED1DA", "object": "obj_spawn4", "layer": "layer_code", "depth": 200, "x": 6522.846, "y": 7279.734, "angle": 76.62383, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "spawnNumber": 1 } },
+    { "id": "inst_7985D11", "object": "obj_foreuse", "layer": "layer_deco", "depth": 300, "x": 10304, "y": 2656, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
+    { "id": "inst_3CD5C6A0", "object": "obj_foreuse", "layer": "layer_deco", "depth": 300, "x": 4224, "y": 2656, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
+    { "id": "inst_45556D69", "object": "obj_foreuse", "layer": "layer_deco", "depth": 300, "x": 7936, "y": 2688, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
+    { "id": "inst_7CB3A9CC", "object": "obj_sallyBot", "layer": "layer_npc", "depth": 0, "x": 6560, "y": 6208, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "normalSpd": 10, "maxHealth": 100, "hearRange": 1000, "viewRange": 800, "genre": "robot", "patrolRange": 1500, "patrolPauseTime": 2, "patrolSpeed": 5, "patrolType": "random", "spdChase": 10, "attack_range_min": 1, "attack_range_max": 20, "shot1_bullet_count": 1, "shot1PerSecMax": 2, "shot1_bullet_type": "obj_bulletNPC", "amoQuantity": 10, "precision": 3, "canReload": false, "reloadingTime": 2, "fire1Sound": "snd_pistolBot_fire1", "reactionTime": "1/room_speed" } }
+  ],
+  "walls": [],
+  "wallRects": [],
+  "floors": [],
+  "decals": []
+}

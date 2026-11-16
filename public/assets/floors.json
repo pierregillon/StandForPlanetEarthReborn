@@ -1,0 +1,11 @@
+{
+  "til_sol_accueil": { "image": "floors/til_sol_accueil.png", "srcX": 0, "srcY": 0, "periodW": 512, "periodH": 256, "cellSize": 16 },
+  "til_sol_beton": { "image": "floors/til_sol_beton.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
+  "til_sol_cafet": { "image": "floors/til_sol_cafet.png", "srcX": 0, "srcY": 0, "periodW": 512, "periodH": 256, "cellSize": 16 },
+  "til_sol_carrelage": { "image": "floors/til_sol_carrelage.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
+  "til_sol_grille": { "image": "floors/til_sol_grille.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
+  "til_sol_moquette1": { "image": "floors/til_sol_moquette1.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
+  "til_sol_moquette2": { "image": "floors/til_sol_moquette2.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
+  "til_sol_parquet": { "image": "floors/til_sol_parquet.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
+  "til_sol_pave": { "image": "floors/til_sol_pave.png", "srcX": 0, "srcY": 0, "periodW": 168, "periodH": 168, "cellSize": 8 }
+}

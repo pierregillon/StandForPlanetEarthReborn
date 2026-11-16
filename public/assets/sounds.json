@@ -1,0 +1,6 @@
+{
+  "snd_human_explosion": { "file": "sounds/snd_human_explosion.wav", "bytes": 177880 },
+  "snd_petBot_fire1": { "file": "sounds/snd_petBot_fire1.wav", "bytes": 344664 },
+  "snd_pistolBot_fire1": { "file": "sounds/snd_pistolBot_fire1.wav", "bytes": 264146 },
+  "snd_rm_world2": { "file": "sounds/snd_rm_world2.mp3", "bytes": 3254069 }
+}
