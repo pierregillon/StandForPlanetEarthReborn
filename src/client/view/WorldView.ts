@@ -20,6 +20,12 @@ const FOG_COLOR = 0x313131;
 const LIGHTING = { ambient: 0.5, strength: 2, heroRadius: 420, heroStrength: 0.75, chargingDim: 0.22 };
 const CARD_COLORS: Record<string, number> = { green: 0x35d05a, purple: 0xb04cff };
 const MAX_REMAINS = 900;
+/** Logement de la munition sur l'arme de chaque robot, dans le repère de son sprite. */
+const RELOAD_SLOT: Record<string, { x: number; y: number }> = {
+  PetBot: { x: 52, y: 23 },
+  EngiBot: { x: 14, y: 57 },
+  BadaBot: { x: 22, y: 0 },
+};
 /** Aspect des projectiles (GD-022) : traînée jaune pour le héros, orange pour les ennemis. */
 const BULLET_STYLE = {
   heroScale: 1.2,
@@ -496,6 +502,10 @@ export class WorldView {
       if (h.fire2Anim >= 0 && def.sprites.fire2) return { sprite: def.sprites.fire2, frame: Math.min(2, h.fire2Anim / 6) };
       return h.moving ? walkCycle(def.sprites.move) : { sprite: def.sprites.stand, frame: 0 };
     }
+    // rechargement d'EngiBot : son canon tourne à vide (animation « preShot » d'origine)
+    if (def.kind === 'EngiBot' && h.reloadTimer > 0 && this.scene.textures.exists(frameKey('spr_EngiBot_preShot', 0))) {
+      return { sprite: 'spr_EngiBot_preShot', frame: Math.floor(h.reloadTimer / 3) % this.info('spr_EngiBot_preShot').frames };
+    }
     if (def.kind === 'EngiBot' && h.fire2Anim >= 0 && def.sprites.fire2) {
       return { sprite: def.sprites.fire2, frame: (h.fire2Anim / CONFIG.abilities.engiBot.placeAnimSteps) * this.info(def.sprites.fire2).frames };
     }
@@ -513,7 +523,11 @@ export class WorldView {
     const now = this.scene.time.now / 1000;
     const full = CONFIG.abilities.badaBot.fullChargeSteps;
     ball.setVisible(true).setPosition(h.x, h.y).setRotation(h.angle);
-    if (h.charge >= full) this.setFrame(ball, 'spr_plasmaBawl_loaded', (now * 10) % this.info('spr_plasmaBawl_loaded').frames);
+    // rechargement de BadaBot : l'orbe se vide puis se reforme (GD-032)
+    const reload = h.reloadTimer > 0 ? 1 - h.reloadTimer / Math.max(1, h.def.reloadSteps) : 1;
+    ball.setScale(0.3 + 0.7 * reload).setAlpha(0.45 + 0.55 * reload);
+    if (h.reloadTimer > 0) this.setFrame(ball, 'spr_plasmaBawl_loading', reload * this.info('spr_plasmaBawl_loading').frames);
+    else if (h.charge >= full) this.setFrame(ball, 'spr_plasmaBawl_loaded', (now * 10) % this.info('spr_plasmaBawl_loaded').frames);
     else if (h.charge > 0) this.setFrame(ball, 'spr_plasmaBawl_loading', (h.charge / full) * this.info('spr_plasmaBawl_loading').frames);
     else if (h.sinceShot < 15) this.setFrame(ball, 'spr_plasmaBawl_shot', h.sinceShot / 3);
     else this.setFrame(ball, 'spr_plasmaBawl_idle', (now * 20) % this.info('spr_plasmaBawl_idle').frames);
@@ -680,14 +694,10 @@ export class WorldView {
     const reloading = h.reloadTimer > 0;
     const progress = reloading ? 1 - h.reloadTimer / Math.max(1, def.reloadSteps) : 0;
 
-    if (reloading) {
-      g.lineStyle(8, 0x000000, 0.45).strokeCircle(h.x, h.y, 68);
-      g.lineStyle(6, 0xffe36b, 1).beginPath();
-      g.arc(h.x, h.y, 68, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-      g.strokePath();
-    }
+    if (reloading) this.drawReload(h, progress, at);
 
-    if (def.magazine > 0) {
+    // jauge masquée quand le chargeur est plein : moins de choses à l'écran (GD-032)
+    if (def.magazine > 0 && (reloading || h.ammo < def.magazine)) {
       // trois segments le long de l'arme : vert, jaune, rouge ; ils clignotent à vide et se remplissent au rechargement
       const level = reloading ? Math.floor(progress * 3) : Math.ceil((h.ammo / def.magazine) * 3);
       const color = reloading ? 0xffe36b : level >= 3 ? 0x5dff7a : level === 2 ? 0xffd23c : 0xff4040;
@@ -870,6 +880,93 @@ export class WorldView {
     }
   }
 
+  /** Endroit de l'arme où se loge la munition, dans le monde : la fiole de PetBot, le tambour d'EngiBot, l'orbe de BadaBot. */
+  private weaponSlot(h: Hero): { x: number; y: number } {
+    const local = RELOAD_SLOT[h.def.kind] ?? { x: 30, y: 0 };
+    const c = Math.cos(h.angle);
+    const s = Math.sin(h.angle);
+    return { x: h.x + local.x * c - local.y * s, y: h.y + local.x * s + local.y * c };
+  }
+
+  private clipTexture(kind: string): string {
+    const key = `clip:${kind}`;
+    if (this.scene.textures.exists(key)) return key;
+    const g = this.scene.make.graphics({ x: 0, y: 0 }, false);
+    if (kind === 'EngiBot') {
+      // chargeur tambour : disque sombre garni de cartouches
+      g.fillStyle(0x1c1c1c, 1).fillCircle(14, 14, 13);
+      g.lineStyle(2, 0xb04040, 1).strokeCircle(14, 14, 13);
+      for (let k = 0; k < 6; k++) g.fillStyle(0xffd23c, 1).fillCircle(14 + Math.cos(k * 1.047) * 8, 14 + Math.sin(k * 1.047) * 8, 2.5);
+      g.fillStyle(0x666666, 1).fillCircle(14, 14, 3);
+    } else {
+      // fiole : tube vert à embout blanc
+      g.fillStyle(0x1f4d2a, 1).fillRoundedRect(0, 8, 28, 12, 4);
+      g.fillStyle(0x7dff9a, 1).fillRoundedRect(2, 10, 18, 8, 3);
+      g.fillStyle(0xffffff, 1).fillRect(21, 9, 6, 10);
+    }
+    g.generateTexture(key, 28, 28);
+    g.destroy();
+    return key;
+  }
+
+  /** Début du rechargement : la munition usée est éjectée sur le côté et reste au sol ; l'orbe de BadaBot se disperse. */
+  private ejectClip(): void {
+    const h = this.world.hero;
+    const scene = this.scene;
+    const slot = this.weaponSlot(h);
+    if (h.def.kind === 'BadaBot') {
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const dot = scene.add.circle(slot.x, slot.y, 3 + Math.random() * 4, 0xc060ff).setDepth(DEPTH.fx).setBlendMode(Phaser.BlendModes.ADD);
+        scene.tweens.add({ targets: dot, x: slot.x + Math.cos(a) * 70, y: slot.y + Math.sin(a) * 70, alpha: 0, duration: 300, onComplete: () => dot.destroy() });
+      }
+      return;
+    }
+    if (h.def.magazine === 0) return;
+    const img = scene.add.image(slot.x, slot.y, this.clipTexture(h.def.kind)).setDepth(DEPTH.remains).setRotation(h.angle).setTint(0x9a9a9a);
+    const side = h.angle + Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+    this.debris.push({ img, vx: Math.cos(side) * 320, vy: Math.sin(side) * 320, spin: 9 });
+    this.keepRemains(img);
+  }
+
+  /**
+   * Rechargement dessiné sur le robot, propre à chacun (GD-032) : PetBot engage une fiole neuve, EngiBot un
+   * tambour ; l'orbe de BadaBot se reforme en aspirant de l'énergie.
+   */
+  private drawReload(h: Hero, progress: number, at: (lx: number, ly: number) => Phaser.Geom.Point): void {
+    const g = this.heroFx;
+    const kind = h.def.kind;
+    const slot = RELOAD_SLOT[kind] ?? { x: 30, y: 0 };
+    if (kind === 'BadaBot') {
+      // filaments d'énergie aspirés vers l'orbe
+      const p = this.weaponSlot(h);
+      for (let k = 0; k < 6; k++) {
+        const a = k * 1.047 + this.scene.time.now / 260;
+        const r = 26 + 46 * (1 - ((progress * 3 + k / 6) % 1));
+        g.fillStyle(k % 2 ? 0xd9a0ff : 0x9b5cff, 0.85).fillCircle(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 4);
+      }
+      g.lineStyle(3, 0xc060ff, 0.5).strokeCircle(p.x, p.y, 10 + 22 * progress);
+      return;
+    }
+    // la munition neuve part du corps du robot et vient s'engager dans l'arme
+    const travel = Math.min(1, Math.max(0, (progress - 0.25) / 0.6));
+    const from = { x: slot.x - 46, y: slot.y - 26 };
+    const lx = from.x + (slot.x - from.x) * travel;
+    const ly = from.y + (slot.y - from.y) * travel;
+    if (progress < 0.25) return;
+    if (kind === 'EngiBot') {
+      const c = at(lx, ly);
+      const spin = progress * 14;
+      g.fillStyle(0x1c1c1c, 1).fillCircle(c.x, c.y, 12);
+      g.lineStyle(2, 0xff5a5a, 1).strokeCircle(c.x, c.y, 12);
+      for (let k = 0; k < 6; k++) g.fillStyle(0xffd23c, 1).fillCircle(c.x + Math.cos(spin + k * 1.047) * 7, c.y + Math.sin(spin + k * 1.047) * 7, 2.4);
+    } else {
+      g.fillStyle(0x1f4d2a, 1).fillPoints([at(lx - 14, ly - 6), at(lx + 14, ly - 6), at(lx + 14, ly + 6), at(lx - 14, ly + 6)], true);
+      g.fillStyle(0x7dff9a, 1).fillPoints([at(lx - 12, ly - 4), at(lx + 6, ly - 4), at(lx + 6, ly + 4), at(lx - 12, ly + 4)], true);
+      g.fillStyle(0xffffff, 1).fillPoints([at(lx + 7, ly - 5), at(lx + 13, ly - 5), at(lx + 13, ly + 5), at(lx + 7, ly + 5)], true);
+    }
+  }
+
   /** Bouclier des robots à bouclier : un arc devant eux, un segment par coup encore encaissable (GD-029). */
   private syncNpcFx(): void {
     const g = this.npcFx;
@@ -953,6 +1050,13 @@ export class WorldView {
     } else if (e.type === 'windowBroken') {
       const pane = this.world.windows.find((w) => w.id === e.id);
       if (pane) this.breakWindow(pane, e.x, e.y, e.angle);
+    } else if (e.type === 'reloadStart') {
+      this.ejectClip();
+    } else if (e.type === 'reloadEnd') {
+      const h = this.world.hero;
+      const slot = this.weaponSlot(h);
+      const flash = scene.add.circle(slot.x, slot.y, 10, h.def.kind === 'BadaBot' ? 0xd9a0ff : 0xffffff).setDepth(DEPTH.fx).setBlendMode(Phaser.BlendModes.ADD);
+      scene.tweens.add({ targets: flash, scale: h.def.kind === 'BadaBot' ? 5 : 3, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
     } else if (e.type === 'heroDead') {
       scene.cameras.main.shake(300, 0.01);
     } else if (e.type === 'heroHit') {

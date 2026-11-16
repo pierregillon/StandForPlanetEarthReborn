@@ -33,6 +33,22 @@ export interface Session {
   checkpoint: { room: string; x: number; y: number } | null;
 }
 
+/**
+ * Partie commencée ailleurs qu'au début du niveau (menu de choix du départ, GD-032) : le héros a déjà ce
+ * qu'il aurait en arrivant là en jouant. Dans la zone de forage, il part du point de sauvegarde.
+ */
+export function createSessionAt(heroName: string, room: string): Session {
+  const session = createSession(heroName, room);
+  if (room === UPPER_FLOOR) {
+    session.carried.add('green');
+  } else if (room === DRILL_AREA) {
+    session.carried.add('green').add('purple');
+    session.objective = 3;
+    session.checkpoint = { room, x: 0, y: 0 };
+  }
+  return session;
+}
+
 export function createSession(heroName: string, room = GROUND_FLOOR): Session {
   return {
     heroName,

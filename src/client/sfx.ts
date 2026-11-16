@@ -34,6 +34,35 @@ export class Synth {
     this.tone('triangle', 900, 500, 0.05, 0.08, 0.07);
   }
 
+  /** Début de rechargement, propre à chaque robot (GD-032). `seconds` = durée du rechargement. */
+  reloadStart(kind: string, seconds: number): void {
+    if (kind === 'PetBot') {
+      // la fiole usée est éjectée : déclic puis chuintement
+      this.tone('square', 340, 170, 0.06, 0.12);
+      this.tone('sawtooth', 1100, 260, 0.2, 0.045, 0.07);
+    } else if (kind === 'EngiBot') {
+      // le chargeur tambour se dégage : trois crans
+      for (let i = 0; i < 3; i++) this.tone('square', 230, 110, 0.045, 0.13, i * 0.1);
+    } else if (kind === 'BadaBot') {
+      // l'orbe se reforme : montée continue pendant toute la recharge
+      this.tone('sine', 110, 640, seconds, 0.09);
+      this.tone('triangle', 220, 1280, seconds, 0.03);
+    }
+  }
+
+  /** Fin de rechargement : l'arme est verrouillée. */
+  reloadEnd(kind: string): void {
+    if (kind === 'PetBot') {
+      this.tone('triangle', 620, 1150, 0.08, 0.13);
+      this.tone('square', 200, 120, 0.04, 0.1, 0.07);
+    } else if (kind === 'EngiBot') {
+      this.tone('square', 170, 80, 0.09, 0.18);
+      this.tone('triangle', 800, 420, 0.05, 0.08, 0.08);
+    } else if (kind === 'BadaBot') {
+      this.tone('sine', 700, 330, 0.28, 0.15);
+    }
+  }
+
   /** Point de sauvegarde : trois notes montantes. */
   checkpoint(): void {
     this.tone('sine', 523, 523, 0.25, 0.14);

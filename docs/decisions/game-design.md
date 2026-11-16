@@ -606,3 +606,28 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** La difficulté doit venir des combats, pas de la répétition ni d'un manque de lisibilité. La mobilité compense le peu de points de vie.
 
 **Conséquences.** Réglages dans `src/sim/config.ts` (`heroes.*.walkSpeed`, `hero.overchargeSpeedBonus`, `hero.checkpointRadius`, `boss.aggroRange`, `npc.rotateSpeedDeg`, `chair`). Le robot plus rapide et intouchable en dash rend le niveau plus facile : l'équilibre des ennemis est à rejuger. Les chaises de cafétéria (`obj_chaise_bleu`, `obj_chaise_marron`) restent fixes.
+
+---
+
+## GD-032 — Rechargement propre à chaque robot, jauge masquée à plein, choix du point de départ
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — animations à remplacer par de vrais sprites si l'on en dessine
+- **Décidée par** : l'utilisateur
+
+**Contexte.** L'utilisateur n'aime pas l'anneau de progression du rechargement (GD-029) : il veut une animation propre à chaque robot, cohérente avec son arme, avec un bruitage ; par exemple sur l'orbe de BadaBot, qui n'a pas d'arme. Il veut aussi moins d'éléments à l'écran quand le chargeur est plein, et pouvoir aller directement au boss depuis le menu.
+
+**Décision.**
+
+- **Jauge de munitions** : masquée quand le chargeur est plein ; elle réapparaît au premier tir.
+- **Rechargement**, à la place de l'anneau :
+  - PetBot : la fiole usée est éjectée sur le côté et reste au sol ; une fiole neuve part du corps et s'engage dans l'arme.
+  - EngiBot : le tambour usé tombe au sol ; un tambour neuf, qui tourne, vient se loger sur le canon, pendant que le canon tourne à vide (animation `spr_EngiBot_preShot` d'origine).
+  - BadaBot : son orbe se disperse, puis se reforme en grossissant, en aspirant des filaments d'énergie.
+  - BatBot : rien, il n'a pas de munitions (R rappelle ses battes, GD-030).
+  - Un éclair marque la fin du rechargement. Chaque robot a son bruitage de début et de fin, en sons de synthèse.
+- **Choix du point de départ** : après le choix du héros, un écran propose « Ground floor » (le niveau entier), « Upper floor » (à l'étage, avec la carte verte) et « Drilling area - Boss » (au point de sauvegarde, en pleine forme, avec les deux cartes). L'original proposait de la même façon de choisir sa salle après son héros.
+
+**Pourquoi.** Lisibilité et cohérence avec chaque robot ; et pouvoir travailler le combat de boss sans refaire le niveau.
+
+**Conséquences.** Les munitions animées (fiole, tambour) sont dessinées par le code, pas par un graphiste : ce ne sont pas des sprites dans le style d'origine. Si de vraies animations sont dessinées, elles remplaceront `drawReload` et `clipTexture` dans `src/client/view/WorldView.ts`. Le départ direct au boss saute l'animation de déploiement.

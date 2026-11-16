@@ -52,8 +52,7 @@ export class HeroSelectScene extends Phaser.Scene {
 
   private confirm(): void {
     this.registry.set('hero', ORDER[this.selected]);
-    this.registry.set('session', null); // nouvelle partie
-    this.scene.start('Game');
+    this.scene.start('LevelSelect');
   }
 
   update(): void {

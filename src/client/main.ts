@@ -3,6 +3,7 @@ import { CONFIG } from '../sim/config.ts';
 import { BootScene } from './scenes/BootScene.ts';
 import { MenuScene } from './scenes/MenuScene.ts';
 import { HeroSelectScene } from './scenes/HeroSelectScene.ts';
+import { LevelSelectScene } from './scenes/LevelSelectScene.ts';
 import { GameScene } from './scenes/GameScene.ts';
 
 const game = new Phaser.Game({
@@ -14,7 +15,7 @@ const game = new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   render: { antialias: true, roundPixels: false, powerPreference: 'high-performance' },
   disableContextMenu: true,
-  scene: [BootScene, MenuScene, HeroSelectScene, GameScene],
+  scene: [BootScene, MenuScene, HeroSelectScene, LevelSelectScene, GameScene],
 });
 
 // accès depuis la console du navigateur, pour le débogage

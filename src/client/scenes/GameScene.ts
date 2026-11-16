@@ -245,7 +245,13 @@ export class GameScene extends Phaser.Scene {
         this.synth.checkpoint();
         this.view.handleEvent(e);
       }
-      else this.view.handleEvent(e);
+      else if (e.type === 'reloadStart') {
+        this.synth.reloadStart(this.world.hero.def.kind, this.world.hero.def.reloadSteps / STEPS_PER_SECOND);
+        this.view.handleEvent(e);
+      } else if (e.type === 'reloadEnd') {
+        this.synth.reloadEnd(this.world.hero.def.kind);
+        this.view.handleEvent(e);
+      } else this.view.handleEvent(e);
     }
     this.view.sync(delta / 1000);
     this.hud.update();
