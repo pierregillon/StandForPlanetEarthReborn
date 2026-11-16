@@ -213,45 +213,47 @@ const BODY: Record<string, { size: number; ox: number; oy: number }> = {
 
 /**
  * Posture de lancement d'un ulti : 16 images à 8 par seconde, soit les 2 s du lancement. Le robot prend la
- * pose puis la tient, presque immobile : il « respire » à peine (1,5 % d'échelle), sans gesticuler.
- * `sequence` : pour chaque image, le sprite d'origine et son numéro d'image.
+ * pose en quelques images puis la tient, parfaitement immobile (GD-048) : un robot ne respire pas, c'est
+ * l'énergie autour de lui qui s'anime. `sequence` : pour chaque image, le sprite d'origine et son numéro d'image.
  */
 function castPose(name: string, sequence: [string, number][]): Made {
   const first = BODY[sequence[0][0]];
   const pad = 12;
   const size = first.size + pad * 2;
-  const frames = sequence.map(([sprite, frame], i) => {
+  const frames = sequence.map(([sprite, frame]) => {
     const body = BODY[sprite];
     const img = canvas(size, size);
-    const breath = 1 + 0.015 * Math.sin((i / sequence.length) * TAU * 2);
-    blit(img, loadFrame(sprite, frame), { x: first.ox + pad, y: first.oy + pad, ox: body.ox, oy: body.oy, scale: breath });
+    blit(img, loadFrame(sprite, frame), { x: first.ox + pad, y: first.oy + pad, ox: body.ox, oy: body.oy, scale: 1 });
     return img;
   });
   return { name, width: size, height: size, ox: first.ox + pad, oy: first.oy + pad, fps: 8, frames };
 }
 
-/** BatBot : battes levées, prêt à frapper (l'armé de son coup de batte), tenues en oscillant à peine. */
+/** La même image tenue `count` fois. */
+function held(sprite: string, frame: number, count: number): [string, number][] {
+  return Array.from({ length: count }, (): [string, number] => [sprite, frame]);
+}
+
+/** BatBot : il lève ses battes, prêt à frapper (l'armé de son coup de batte), et ne bouge plus. */
 function batBotCast(): Made {
-  const hold: [string, number][] = [3, 4, 5, 5, 4, 3, 3, 4, 5, 5, 4, 3, 4, 5].map((f) => ['spr_BatBot_fire1_d', f]);
-  return castPose('spr_BatBot_ulti_cast', [['spr_BatBot_deploy', 33], ['spr_BatBot_fire1_d', 3], ...hold]);
+  return castPose('spr_BatBot_ulti_cast', [['spr_BatBot_deploy', 33], ['spr_BatBot_fire1_d', 3], ...held('spr_BatBot_fire1_d', 4, 14)]);
 }
 
-/** PetBot : il tient sa position, l'arme qui se verrouille et se réarme lentement. */
+/** PetBot : il tient sa position, immobile ; ce sont ses mini-bots qui s'animent autour de lui (GD-047). */
 function petBotCast(): Made {
-  const frames = [79, 76, 73, 70, 68, 66, 68, 70, 72, 70, 68, 66, 68, 71, 75, 79];
-  return castPose('spr_PetBot_ulti_cast', frames.map((f) => ['spr_PetBot_deploy', f]));
+  return castPose('spr_PetBot_ulti_cast', held('spr_PetBot_deploy', 79, 16));
 }
 
-/** BadaBot : ailes déployées vers l'avant, comme quand il lève son bouclier, et il tient. */
+/** BadaBot : il déploie ses ailes vers l'avant, comme quand il lève son bouclier, et ne bouge plus. */
 function badaBotCast(): Made {
-  const frames = [0, 1, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3];
-  return castPose('spr_BadaBot_ulti_cast', frames.map((f) => ['spr_BadaBot_fire2', f]));
+  const open: [string, number][] = [0, 1, 2].map((f) => ['spr_BadaBot_fire2', f]);
+  return castPose('spr_BadaBot_ulti_cast', [...open, ...held('spr_BadaBot_fire2', 3, 13)]);
 }
 
-/** EngiBot : le bras armé, puis le geste du lancer sur les dernières images. */
+/** EngiBot : immobile, le bras armé, puis le geste du lancer sur les quatre dernières images. */
 function engiBotCast(): Made {
-  const frames = [0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 1, 6, 9, 11, 13];
-  return castPose('spr_EngiBot_ulti_cast', frames.map((f) => ['spr_EngiBot_shotTuret', f]));
+  const toss: [string, number][] = [6, 9, 11, 13].map((f) => ['spr_EngiBot_shotTuret', f]);
+  return castPose('spr_EngiBot_ulti_cast', [...held('spr_EngiBot_shotTuret', 0, 12), ...toss]);
 }
 
 // ---------- Effets communs, teintables ----------

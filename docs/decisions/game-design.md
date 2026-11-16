@@ -1017,3 +1017,24 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Les mini-bots sont l'identité de PetBot : ce sont eux qui soignent, pas un effet anonyme. Trois cercles aux sens alternés se lisent d'un coup d'œil et montrent exactement où l'on est soigné.
 
 **Conséquences.** La ronde n'est que de l'affichage (`PETS.orbit` et `syncPets` dans `WorldView.ts`) : la place des mini-bots se déduit de l'âge de l'essaim, donc tous les joueurs les voient au même endroit sans rien de plus sur le réseau. Seul changement de règle : le tir secondaire de PetBot est bloqué pendant son ulti (`petBotFire2`, test dans `link.test.ts`). Sprite `spr_PetBot_ulti_nanos` régénéré (`tools/make-sprites.ts`). Vu à l'écran en solo : la ronde du lancement, les trois cercles et les traînées, le retour ; mouvement régulier mesuré image par image. Pas essayé en réseau.
+
+## GD-048 — Lancement d'un ulti : le robot est immobile, l'énergie s'anime autour de lui
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (robot immobile, énergie autour de lui) ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** Pendant les 2 s de lancement (GD-044), les postures fabriquées faisaient « respirer » le robot : son échelle oscillait de 1,5 % et il alternait entre plusieurs images de sa posture (PetBot en clignotait). L'utilisateur : un robot ne respire pas ; il le veut immobile, avec de l'énergie qui s'active autour de lui.
+
+**Décision.**
+
+- Le robot prend sa pose en quelques images, puis ne bouge plus du tout : plus d'oscillation d'échelle, plus d'alternance d'images.
+  - BatBot lève ses battes et les tient ; BadaBot déploie ses ailes et les tient ; PetBot reste dans sa posture normale (ce sont ses mini-bots qui s'animent, GD-047).
+  - *Par défaut* : EngiBot garde son geste de lancer sur la dernière demi-seconde, puisque c'est le départ de la grenade.
+- L'énergie autour de lui porte toute l'animation : la lueur qui enfle sous lui, les croissants qui se resserrent en tournant, les étincelles aspirées (prévus par GD-044), et, *par défaut*, des arcs électriques qui courent autour de lui, de un à trois à mesure que l'énergie monte, à la couleur du robot.
+
+**Défaut corrigé au passage.** Depuis que les effets d'ulti sont des sprites séparés des robots (GD-044), les trois sprites communs (`spr_ulti_charge`, `spr_ulti_charge_top`, `spr_ulti_dust`) n'étaient pas dans la liste des sprites chargés : l'énergie du lancement et le nuage de poussière de l'atterrissage de BatBot ne s'affichaient donc jamais. Ils sont maintenant chargés au démarrage. Le lancement et l'atterrissage de BatBot changent donc nettement d'aspect par rapport à ce que l'utilisateur a vu jusqu'ici : à rejuger.
+
+**Pourquoi.** Un robot qui se concentre est une machine à l'arrêt ; c'est l'énergie qui doit montrer la montée en puissance.
+
+**Conséquences.** Sprites `spr_<Robot>_ulti_cast` régénérés (`castPose` dans `tools/make-sprites.ts`). Arcs : `drawChargeArcs` dans `WorldView.ts`. Liste des sprites : `UI_SPRITES` dans `src/client/assets.ts`. Affichage seulement, rien ne change pour la simulation ni le réseau. Vu à l'écran en solo pour PetBot et BatBot (robot immobile, énergie, arcs, nuage de poussière) ; BadaBot et EngiBot jugés sur la planche-contact de leurs images.

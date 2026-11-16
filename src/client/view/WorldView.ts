@@ -247,6 +247,8 @@ export class WorldView {
   /** Noms des joueurs, par rang de héros (partie en réseau). */
   playerNames: string[] = [];
   private laser!: Phaser.GameObjects.Graphics;
+  /** Arcs d'énergie autour d'un robot qui lance son ulti (GD-048). */
+  private ultiArcs!: Phaser.GameObjects.Graphics;
   private heroFx!: Phaser.GameObjects.Graphics;
   private npcFx!: Phaser.GameObjects.Graphics;
   private readonly cardGlows = new Map<number, Img>();
@@ -359,6 +361,7 @@ export class WorldView {
     }
     for (const h of world.heroes) this.partsOf(h);
     this.laser = scene.add.graphics().setDepth(DEPTH.laser);
+    this.ultiArcs = scene.add.graphics().setDepth(DEPTH.character + 2.2).setBlendMode(Phaser.BlendModes.ADD);
     this.heroFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
     this.npcFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
     this.cable = scene.add.graphics().setDepth(DEPTH.laser);
@@ -437,6 +440,7 @@ export class WorldView {
   /** Tous les robots de l'équipe, avec toutes leurs animations, chez tous les joueurs (GD-041). */
   private syncHeroes(dt: number): void {
     this.laser.clear();
+    this.ultiArcs.clear();
     this.cable.clear();
     this.heroFx.clear();
     for (const h of this.world.heroes) this.syncHero(h, this.partsOf(h), dt);
@@ -523,8 +527,9 @@ export class WorldView {
   }
 
   /**
-   * Ulti (GD-043). Lancement : une lueur magenta enfle sous le robot. Bond de BatBot : le robot grossit et
-   * s'élève, son ombre reste au sol.
+   * Ulti (GD-043). Lancement : le robot est immobile (GD-048), c'est l'énergie qui s'anime autour de lui : une
+   * lueur enfle sous lui, des croissants se resserrent, des arcs électriques courent sur lui. Bond de BatBot :
+   * le robot grossit et s'élève, son ombre reste au sol.
    */
   private syncUlti(h: Hero, p: HeroParts): void {
     const scene = this.scene;
@@ -545,6 +550,7 @@ export class WorldView {
       p.chargeUnder.setVisible(true).setPosition(h.x, h.y).setScale(scale);
       p.chargeTop.setVisible(true).setPosition(h.x, h.y).setScale(scale);
       p.glow.setVisible(true).setPosition(h.x, h.y).setScale(0.9 + 2.6 * k + 0.14 * Math.sin(scene.time.now / 45)).setAlpha(0.25 + 0.55 * k);
+      this.drawChargeArcs(h, k, colors);
     } else {
       p.glow?.setVisible(false);
       p.chargeUnder?.setVisible(false);
@@ -562,6 +568,45 @@ export class WorldView {
       p.airborne = false;
       p.shadow?.setVisible(false);
       p.body.setScale(1).setDepth(DEPTH.character);
+    }
+  }
+
+  /**
+   * Lancement d'un ulti : des arcs électriques courent autour du robot, de plus en plus nombreux et de plus
+   * en plus vifs à mesure que l'énergie monte (`k` de 0 à 1).
+   */
+  private drawChargeArcs(h: Hero, k: number, colors: { main: number; light: number }): void {
+    const g = this.ultiArcs;
+    // les arcs changent vingt fois par seconde : assez pour crépiter, sans scintiller à chaque image
+    let seed = (Math.floor(this.scene.time.now / 50) * 7919 + h.id * 104729) | 0;
+    const rand = (): number => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const body = Math.max(62, h.def.radius * 1.15);
+    const count = 1 + Math.floor(k * 2.99);
+    for (let n = 0; n < count; n++) {
+      // chaque arc part d'un point du contour et longe le robot en zigzag
+      let angle = rand() * Math.PI * 2;
+      const dir = rand() < 0.5 ? 1 : -1;
+      const points: number[] = [];
+      const bends = 4 + Math.floor(rand() * 3);
+      for (let j = 0; j <= bends; j++) {
+        // autour du robot, pas sur lui : il doit rester lisible
+        const reach = body * (1.1 + rand() * (0.35 + 0.3 * k));
+        points.push(h.x + Math.cos(angle) * reach, h.y + Math.sin(angle) * reach);
+        angle += dir * (0.2 + rand() * 0.32);
+      }
+      // un halo à la couleur du robot, puis un cœur blanc
+      for (const pass of [0, 1]) {
+        g.lineStyle(pass === 0 ? 5 : 1.5, pass === 0 ? colors.main : 0xffffff, (pass === 0 ? 0.4 : 0.85) * (0.5 + 0.5 * k));
+        g.beginPath();
+        g.moveTo(points[0], points[1]);
+        for (let j = 2; j < points.length; j += 2) g.lineTo(points[j], points[j + 1]);
+        g.strokePath();
+      }
     }
   }
 

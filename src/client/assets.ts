@@ -24,6 +24,8 @@ const UI_SPRITES = [
   'spr_electricity1', 'spr_electricity2', 'spr_electricity3',
   'spr_teleporteur_waiting', 'spr_teleporteur_active', 'spr_fenetre_eclats', 'spr_explosion_robot',
   'spr_spawnVehicle', 'spr_spawnVehicleShadow',
+  // effets d'ulti communs à tous les robots (fabriqués, ADR-015) : énergie du lancement, nuage de poussière
+  'spr_ulti_charge', 'spr_ulti_charge_top', 'spr_ulti_dust',
   'spr_membreMortHumain_sang', 'spr_membreMortRobot_huile', 'spr_doorKey_green', 'spr_doorKey_purple',
   ...Array.from({ length: 11 }, (_, i) => `spr_membreMortHumain_${i + 1}`),
   ...Array.from({ length: 11 }, (_, i) => `spr_membreMortRobot_${i + 1}`),
