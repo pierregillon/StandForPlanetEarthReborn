@@ -142,6 +142,22 @@ export class World {
     this.keepSpreadOutlets(CONFIG.outlet.keepPerRoom[level.name] ?? this.outlets.length, spawn);
     this.hero = this.createHero(CONFIG.heroes[heroName], spawn.x, spawn.y);
     if (resumed) this.restoreHero();
+    this.openPassedDoors();
+  }
+
+  /** Ouvre les portes que le héros a déjà franchies avant le début de la partie (départ choisi au menu). */
+  private openPassedDoors(): void {
+    const passed = this.session.preOpened[this.level.name];
+    if (!passed) return;
+    for (const door of this.doors) {
+      const open = (door.kind === 'button' && passed.buttons.includes(door.doorId)) || (door.kind === 'card' && door.card !== null && passed.cards.includes(door.card));
+      if (!open) continue;
+      door.phase = 'open';
+      door.progress = 1;
+      door.blockedOpen = true;
+      this.updateDoorObstacle(door);
+    }
+    for (const button of this.buttons) if (passed.buttons.includes(button.doorId)) button.pressedSteps = 1000;
   }
 
   private restoreHero(): void {

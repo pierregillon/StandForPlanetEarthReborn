@@ -714,3 +714,19 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Un ennemi qui réagit au bruit rend le jeu plus vivant et plus lisible ; le joueur peut aussi s'en servir pour attirer les soldats hors d'une pièce.
 
 **Conséquences.** Tirer attire désormais les soldats du voisinage : le niveau devient plus dangereux pour qui tire sans se couvrir. Les civils ne sont pas concernés (ils fuient, comme avant). Réglages : `npc.investigate*` dans `src/sim/config.ts`.
+
+---
+
+## GD-037 — Départ à l'étage : les portes déjà franchies sont ouvertes
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (retour d'essai)
+
+**Contexte.** En commençant à l'étage par le menu de départ (GD-032), le héros avait bien la carte verte, mais en redescendant il se retrouvait enfermé dans la cage d'escalier du rez-de-chaussée : sa porte à bouton n'avait jamais été ouverte dans cette partie, et son bouton est de l'autre côté.
+
+**Décision.** Une partie commencée à l'étage trouve ouvertes, au rez-de-chaussée, les portes que le héros aurait franchies pour monter : la porte à bouton de l'escalier (numéro 1, bouton enfoncé) et la porte verte. Les portes violettes restent fermées : la carte violette reste à trouver.
+
+**Pourquoi.** Un départ en cours de niveau doit laisser le monde dans l'état où un joueur l'aurait mis en y arrivant.
+
+**Conséquences.** Mécanisme général : `session.preOpened` liste, par salle, les portes à bouton et à carte à ouvrir d'office. Il servira à tout nouveau point de départ. Le départ au boss n'en a pas besoin : la zone de forage n'a ni porte ni retour.

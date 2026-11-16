@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { World } from './world.ts';
-import { DRILL_AREA, GROUND_FLOOR, UPPER_FLOOR, createSession } from './session.ts';
+import { DRILL_AREA, GROUND_FLOOR, UPPER_FLOOR, createSession, createSessionAt } from './session.ts';
 import { NO_INPUT } from './types.ts';
 import type { LevelData, SimEvent, SpriteManifest } from './types.ts';
 import { CONFIG } from './config.ts';
@@ -85,6 +85,28 @@ test('les consignes s\'enchaînent : étage, carte violette, retour, sortie', ()
   assert.equal(stepUntil(g, 'changeRoom', CONFIG.hero.exitCountdownSteps - 60), null);
   const out = stepUntil(g, 'changeRoom', 120);
   assert.ok(out && out.type === 'changeRoom' && out.room === DRILL_AREA, 'la sortie mène à la zone de forage');
+});
+
+test('départ à l\'étage : en redescendant, les portes déjà franchies sont ouvertes', () => {
+  const session = createSessionAt('PetBot', UPPER_FLOOR);
+  assert.ok(session.carried.has('green'));
+  const g = new World(ground, sprites, 'PetBot', 3, session);
+  const stairDoor = g.doors.find((d) => d.kind === 'button' && d.doorId === 1);
+  const greenDoor = g.doors.find((d) => d.card === 'green');
+  const purpleDoor = g.doors.find((d) => d.card === 'purple');
+  assert.ok(stairDoor && greenDoor && purpleDoor);
+  assert.equal(stairDoor.phase, 'open');
+  assert.equal(greenDoor.phase, 'open');
+  assert.equal(purpleDoor.phase, 'closed', 'la porte violette reste à ouvrir');
+  // le héros arrive par l'escalier (second jeu de points d'apparition) et peut rejoindre le reste du bâtiment
+  g.enter(g.hero, 2);
+  for (let i = 0; i < 300; i++) g.step(NO_INPUT);
+  assert.equal(stairDoor.phase, 'open', 'elle reste ouverte');
+  assert.ok(g.nav.findPath(g.hero.x, g.hero.y, greenDoor.x, greenDoor.y + 300) !== null || g.nav.findPath(g.hero.x, g.hero.y, greenDoor.x, greenDoor.y - 300) !== null,
+    'un chemin mène de l\'escalier au-delà de la porte verte');
+  // une partie commencée au début garde ses portes fermées
+  const normal = new World(ground, sprites, 'PetBot', 3);
+  assert.equal(normal.doors.find((d) => d.kind === 'button' && d.doorId === 1)?.phase, 'closed');
 });
 
 test('la zone de sortie est inactive tant que la consigne n\'est pas atteinte', () => {

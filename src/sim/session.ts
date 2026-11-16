@@ -31,6 +31,11 @@ export interface Session {
   spawnNumber: number;
   /** Point de sauvegarde activé : Retry y ramène au lieu de recommencer le niveau. */
   checkpoint: { room: string; x: number; y: number } | null;
+  /**
+   * Portes déjà franchies quand la partie commence ailleurs qu'au début (GD-037) : par salle, numéros des
+   * portes à bouton et couleurs des portes à carte à trouver ouvertes.
+   */
+  preOpened: Record<string, { buttons: number[]; cards: string[] }>;
 }
 
 /**
@@ -41,6 +46,9 @@ export function createSessionAt(heroName: string, room: string): Session {
   const session = createSession(heroName, room);
   if (room === UPPER_FLOOR) {
     session.carried.add('green');
+    // pour monter, le héros a ouvert la porte verte et la porte à bouton de l'escalier : en redescendant,
+    // il doit les retrouver ouvertes, sinon il resterait enfermé dans la cage d'escalier
+    session.preOpened[GROUND_FLOOR] = { buttons: [1], cards: ['green'] };
   } else if (room === DRILL_AREA) {
     session.carried.add('green').add('purple');
     session.objective = 3;
@@ -59,5 +67,6 @@ export function createSession(heroName: string, room = GROUND_FLOOR): Session {
     room,
     spawnNumber: 1,
     checkpoint: null,
+    preOpened: {},
   };
 }
