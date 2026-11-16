@@ -471,4 +471,20 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 
 **Pourquoi.** Suivre le scénario que décrivent les textes de consigne et les réglages des passages posés dans les salles, sans inventer d'étape.
 
-**Conséquences.** À l'étape 4, la zone de sortie mènera à la zone de forage au lieu du panneau provisoire. Les boîtes bonus aléatoires ne sont toujours pas en jeu : la décision de les garder ou non reste à prendre avec l'utilisateur (voir les points ouverts du cadre du MVP).
+**Conséquences.** À l'étape 4, la zone de sortie mènera à la zone de forage au lieu du panneau provisoire. Le sort des boîtes bonus aléatoires est tranché par GD-027.
+
+---
+
+## GD-027 — Les boîtes bonus à ramasser sont retirées du jeu
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur
+
+**Contexte.** Le monde 2 d'origine contient 17 boîtes bonus (`obj_bonus_box` : 13 au rez-de-chaussée, 4 à l'étage) qui donnent au hasard invincibilité, vitesse ou énergie, stockées dans deux emplacements et activées avec les touches 1 et 2. Les bonus munitions sont déjà devenus des bornes de recharge (GD-020). L'utilisateur avait dit préférer les bornes, « plus réalistes que des bonus à ramasser » ; la question restait ouverte pour les boîtes.
+
+**Décision.** Les boîtes bonus ne sont pas portées dans le remake : ni les boîtes, ni les deux emplacements de stockage, ni les effets d'invincibilité et de vitesse.
+
+**Pourquoi.** Cohérence avec le choix des bornes : un robot se recharge sur une prise, il ne ramasse pas de bonus. L'énergie et les tirs secondaires portent déjà la montée en puissance.
+
+**Conséquences.** Les instances `obj_bonus_box` restent dans les fichiers de niveau convertis mais sont ignorées par le jeu. Les touches 1 et 2 n'ont pas d'usage. Si la difficulté en solo s'avère trop élevée, on la règle par les valeurs de combat (GD-018), pas par des bonus.

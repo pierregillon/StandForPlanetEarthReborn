@@ -80,7 +80,7 @@ Portes : automatiques, à bouton, à carte verte ou violette.
 
 ## 5. Hors périmètre du MVP
 
-Multijoueur et chat ; link entre héros et résurrection (ils demandent un coéquipier) ; manette ; ombres portées dynamiques ; mondes 1, 3, 4 et arènes ; héros NanoBot, RamBot, ShotBot ; fusion d'ennemis ; bornes d'arcade ; cinématiques et dialogues ; New Game + ; partie « Stand For Human Being » du scénario.
+Multijoueur et chat ; link entre héros et résurrection (ils demandent un coéquipier) ; boîtes bonus à ramasser (retirées, `[GD-027]`) ; manette ; ombres portées dynamiques ; mondes 1, 3, 4 et arènes ; héros NanoBot, RamBot, ShotBot ; fusion d'ennemis ; bornes d'arcade ; cinématiques et dialogues ; New Game + ; partie « Stand For Human Being » du scénario.
 
 ## 6. Points encore ouverts
 
@@ -89,7 +89,7 @@ Multijoueur et chat ; link entre héros et résurrection (ils demandent un coéq
 | Sujet | Proposition par défaut | À décider à l'étape |
 |---|---|---|
 | Emplacement et nombre des prises de courant | **Fait par défaut à l'étape 1** `[GD-020]` : une borne à la place de chaque bonus munitions (10 au rez-de-chaussée). À confirmer par l'utilisateur ; un vrai sprite reste à produire | 1, à revoir |
-| Boîtes bonus aléatoires (invincibilité, vitesse, énergie), stockées dans 2 emplacements (touches 1 et 2) | Les garder, en retirant le tirage « énergie » puisque les prises le remplacent. L'utilisateur trouve les bonus à ramasser peu réalistes : à confirmer. Non affichées à l'étape 1 | 3 |
+| Boîtes bonus aléatoires (invincibilité, vitesse, énergie), stockées dans 2 emplacements (touches 1 et 2) | **Tranché** `[GD-027]` : retirées du jeu, sur décision de l'utilisateur | — |
 | Tailles de chargeur et durées de rechargement | PetBot : 24 balles, 1,2 s `[GD-021]`, à ajuster après essai. Les trois autres héros : à l'étape 2 | 2 |
 | Premier héros livré | **Fait** : PetBot | — |
 | Conflit de la touche A | **Résolu** `[GD-016]` : touches lues par position physique, branchement avec E | — |

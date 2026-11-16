@@ -9,7 +9,7 @@ Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque éta
 ## État actuel
 
 **Étapes 1, 2 et 3 livrées le 2026-11-16 — l'étape 3 attend les essais de l'utilisateur.**
-Prochaine action : recueillir ses retours sur l'étape 3 et sa décision sur les boîtes bonus, puis étape 4 (zone de forage, foreuses, boss SallyBot, brouillard, lumières, écran de score).
+Prochaine action : recueillir ses retours sur l'étape 3, puis étape 4 (zone de forage, foreuses, boss SallyBot, brouillard, lumières, écran de score).
 
 ## Prérequis (début de l'étape 1)
 
@@ -89,7 +89,7 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur.
 - [x] Cartes verte et violette, portes à carte, messages associés (GD-024).
 - [x] Enchaînement des consignes 1 à 4 ; les deux dernières (foreuses, boss) arrivent avec l'étape 4.
 - [x] Sortie du niveau : compte à rebours « Leaving area », puis panneau de fin provisoire avec les statistiques.
-- [ ] Bonus : **non fait, décision en attente** — garder ou non les boîtes bonus aléatoires (invincibilité, vitesse). L'utilisateur trouvait les bonus à ramasser peu réalistes.
+- [x] Bonus : les boîtes bonus à ramasser sont retirées du jeu, sur décision de l'utilisateur (GD-027). Rien à développer.
 
 ### Ce qui a été vérifié, et comment
 
