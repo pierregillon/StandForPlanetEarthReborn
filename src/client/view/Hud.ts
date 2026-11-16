@@ -21,6 +21,9 @@ export class Hud {
   private readonly notice: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
   private readonly countdown: Phaser.GameObjects.Text;
+  private readonly team: Phaser.GameObjects.Text;
+  /** Noms des joueurs, par rang de héros (partie en réseau). */
+  playerNames: string[] = [];
   private readonly bossBar: Phaser.GameObjects.Graphics;
   private readonly dashPips: Phaser.GameObjects.Arc[] = [];
   private readonly cardIcons = new Map<string, Phaser.GameObjects.Image>();
@@ -65,6 +68,9 @@ export class Hud {
       fontFamily: 'Aldo', fontSize: '24px', color: '#ffe36b', wordWrap: { width: 500 }, ...OUTLINE, strokeThickness: 4,
     }).setScrollFactor(0).setDepth(DEPTH);
     this.bossBar = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH);
+    this.team = scene.add.text(width - 40, 40, '', {
+      fontFamily: 'Aldo', fontSize: '26px', color: '#9fe8ff', stroke: '#000000', strokeThickness: 5, align: 'right', lineSpacing: 6,
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(10000);
     // compte à rebours de sortie du niveau, en haut de l'écran comme obj_countdown_GUI
     this.countdown = scene.add.text(width / 2, height / 8, '', {
       fontFamily: 'Aldo', fontSize: '60px', color: '#e04348', align: 'center', ...OUTLINE,
@@ -122,7 +128,11 @@ export class Hud {
     let hint = '';
     let hintColor = '#ffe400';
     if (h.state !== 'dead') {
-      if (h.charging) hint = 'Linked to the charging station - E to unplug';
+      const fallen = world.heroes.find((o) => o !== h && !o.gone && o.state === 'dead'
+        && Math.hypot(o.x - h.x, o.y - h.y) <= CONFIG.revive.range + h.def.radius + o.def.radius);
+      if (h.reviving >= 0) hint = `Reviving... ${Math.ceil((CONFIG.revive.steps - h.reviveSteps) / 60)}`;
+      else if (fallen) hint = h.energy >= CONFIG.revive.energyCost ? 'Hold E to revive your teammate' : `${CONFIG.revive.energyCost} energy needed to revive`;
+      else if (h.charging) hint = 'Linked to the charging station - E to unplug';
       else if (h.def.magazine > 0 && h.reloadTimer === 0 && h.ammo === 0) hint = 'Press R to reload';
       else if (h.def.kind === 'BatBot' && h.bats === 0 && world.bats.some((b) => b.state !== 'returning')) hint = 'Press R to call your bats back';
       else if (world.nearCardDoor()) {
@@ -141,6 +151,14 @@ export class Hud {
       }
     }
     this.hint.setText(hint).setColor(hintColor);
-    this.countdown.setText(world.exitCountdown > 0 ? `Leaving area :\n${Math.ceil(world.exitCountdown / 60)}` : '');
+    const leavingIn = Math.max(world.exitCountdown, world.zoneCountdown);
+    this.countdown.setText(leavingIn > 0 ? `Leaving area :\n${Math.ceil(leavingIn / 60)}` : '');
+
+    // état des coéquipiers (partie à plusieurs)
+    const mates = world.heroes.filter((o) => o !== h && !o.gone);
+    this.team.setText(mates.map((o) => {
+      const name = this.playerNames[o.id] ?? o.def.name;
+      return o.state === 'dead' ? `${name}  ${o.def.name}  DOWN` : `${name}  ${o.def.name}  HP ${o.hp}/${o.def.maxHealth}  EN ${o.energy}`;
+    }).join('\n'));
   }
 }

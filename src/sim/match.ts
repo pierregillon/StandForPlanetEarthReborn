@@ -1,4 +1,5 @@
 // Enchaînement des salles d'une partie, commun au jeu solo (dans le navigateur) et au serveur multijoueur.
+import { createSession } from './session.ts';
 import type { Session } from './session.ts';
 import type { Hero, LevelData, SpriteManifest } from './types.ts';
 import { World } from './world.ts';
@@ -21,4 +22,17 @@ export function openRoom(session: Session, level: LevelData, sprites: SpriteMani
 /** Début d'une partie : personne n'arrive d'une autre salle et aucun point de sauvegarde n'est actif. */
 export function isFreshStart(session: Session, arriving: Hero[] | null): boolean {
   return session.rooms.size === 0 && !arriving && !session.checkpoint;
+}
+
+/**
+ * Retry après une défaite : reprise au point de sauvegarde s'il est activé (GD-031), sa salle étant remise à
+ * neuf ; sinon tout le niveau recommence, sans carte, avec la même équipe (GD-029).
+ */
+export function retrySession(session: Session): Session {
+  const cp = session.checkpoint;
+  if (!cp) return createSession(session.heroNames);
+  session.rooms.get(cp.room)?.forget();
+  session.room = cp.room;
+  session.objective = Math.min(session.objective, 3);
+  return session;
 }

@@ -137,6 +137,10 @@ export class WorldView {
   private readonly remains: Img[] = [];
   private heroBody!: Img;
   private heroLegs!: Img;
+  /** Coéquipiers d'une partie à plusieurs, par rang de héros. */
+  private readonly mates = new Map<number, { body: Img; legs: Img; orb: Img | null; tag: Phaser.GameObjects.Text; legsTime: number }>();
+  /** Noms des joueurs, par rang de héros (partie en réseau). */
+  playerNames: string[] = [];
   private laser!: Phaser.GameObjects.Graphics;
   private heroFx!: Phaser.GameObjects.Graphics;
   private npcFx!: Phaser.GameObjects.Graphics;
@@ -296,6 +300,7 @@ export class WorldView {
   /** Met l'affichage à jour d'après l'état du monde. `dt` en secondes. */
   sync(dt: number): void {
     this.syncHero(dt);
+    this.syncMates(dt);
     this.syncNpcs();
     this.syncBullets();
     this.syncAbilityObjects();
@@ -397,11 +402,75 @@ export class WorldView {
         this.cable.strokePath();
       }
       if (outlet.inUse) {
-        this.drawEnergyLink(outlet.x, outlet.y, h.x, h.y);
+        // un arc vers chaque robot relié à cette borne
+        for (const other of this.world.heroes) {
+          if (!other.gone && other.charging && other.linkedOutlet === outlet.id) this.drawEnergyLink(outlet.x, outlet.y, other.x, other.y);
+        }
         this.cable.lineStyle(3, 0x7fd9ff, 0.35 + 0.25 * pulse).strokeCircle(outlet.x, outlet.y, range);
       } else if (d < range * 2.5) {
         const inside = d <= range;
         this.cable.lineStyle(inside ? 3 : 2, inside ? 0xffe36b : 0x7fd9ff, (inside ? 0.35 : 0.12) + 0.15 * pulse).strokeCircle(outlet.x, outlet.y, range);
+      }
+    }
+  }
+
+  /**
+   * Coéquipiers (GD-040) : corps, jambes, orbe de BadaBot et nom du joueur. Le robot du joueur local garde
+   * seul l'affichage complet (viseur, jauges, effets de rechargement).
+   */
+  private syncMates(dt: number): void {
+    const world = this.world;
+    const a = CONFIG.arrival;
+    for (const h of world.heroes) {
+      if (h === world.hero) continue;
+      const def = h.def;
+      let m = this.mates.get(h.id);
+      if (!m) {
+        const tag = this.scene.add.text(h.x, h.y, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#9fe8ff', stroke: '#000000', strokeThickness: 5 })
+          .setOrigin(0.5, 1).setDepth(DEPTH.worldText);
+        m = {
+          legs: this.image(def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
+          body: this.image(def.sprites.stand, 0, h.x, h.y, DEPTH.character),
+          orb: def.kind === 'BadaBot' ? this.image('spr_plasmaBawl_idle', 0, h.x, h.y, DEPTH.character + 1) : null,
+          tag, legsTime: 0,
+        };
+        this.mates.set(h.id, m);
+      }
+      // tant que le véhicule de largage le porte, on ne le voit pas : il apparaît quand il est posé
+      const carried = h.arrivalSteps > 0 && h.arrivalTotal - h.arrivalSteps < a.flyInSteps + a.descendSteps + a.holdSteps;
+      const shown = !h.gone && !carried;
+      const dead = h.state === 'dead';
+      m.body.setVisible(shown);
+      m.legs.setVisible(shown && !dead && h.deploySteps === 0);
+      m.orb?.setVisible(false);
+      m.tag.setVisible(shown);
+      if (!shown) continue;
+      const name = this.playerNames[h.id] ?? def.name;
+      m.body.setPosition(h.x, h.y).setRotation(h.angle);
+      m.legs.setPosition(h.x, h.y).setRotation(h.moveAngle);
+      m.tag.setPosition(h.x, h.y - def.radius - 40).setText(dead ? `${name} - DOWN` : name).setColor(dead ? '#ff6b6b' : '#9fe8ff');
+      if (dead) {
+        const sprite = def.kind === 'BatBot' ? `spr_BatBot_mort_${h.bats}` : def.sprites.dead;
+        this.setFrame(m.body, sprite, (h.deadSteps / STEPS_PER_SECOND) * spriteFps(this.info(sprite)));
+        m.body.setAlpha(1).clearTint();
+        continue;
+      }
+      if (h.moving) {
+        m.legsTime += dt;
+        this.setFrame(m.legs, def.sprites.legs, (m.legsTime * 20) % this.info(def.sprites.legs).frames);
+      } else {
+        this.setFrame(m.legs, def.sprites.legs, 0);
+      }
+      const pose = this.heroPose(h);
+      this.setFrame(m.body, pose.sprite, pose.frame);
+      if (h.invuln > 0) m.body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
+      else m.body.setAlpha(1).clearTint();
+      if (m.orb && h.deploySteps === 0) {
+        const local = orbOffset(pose.sprite, pose.frame);
+        const c = Math.cos(h.angle);
+        const s = Math.sin(h.angle);
+        m.orb.setVisible(true).setPosition(h.x + local.x * c - local.y * s, h.y + local.x * s + local.y * c).setRotation(h.angle)
+          .setScale(h.charge > 0 ? 1 + 0.6 * Math.min(1, h.charge / CONFIG.abilities.badaBot.fullChargeSteps) : 1);
       }
     }
   }

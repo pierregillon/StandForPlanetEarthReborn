@@ -7,6 +7,9 @@ import { ButtonColumn } from '../view/ButtonColumn.ts';
 import { Hud } from '../view/Hud.ts';
 import { WorldView } from '../view/WorldView.ts';
 import { Synth } from '../sfx.ts';
+import { Connection } from '../net/Connection.ts';
+import { Mirror } from '../../net/mirror.ts';
+import type { RoomStart } from '../../net/messages.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { clamp } from '../../sim/geom.ts';
 import { NO_INPUT } from '../../sim/types.ts';
@@ -65,28 +68,42 @@ export class GameScene extends Phaser.Scene {
   private session!: Session;
   private synth!: Synth;
   private leaving = false;
+  /** Partie en réseau : la connexion au serveur et le monde miroir qu'il tient à jour (null en solo). */
+  private conn: Connection | null = null;
+  private mirror: Mirror | null = null;
 
   constructor() {
     super('Game');
   }
 
-  /** Charge les sprites et les sons du héros choisi s'ils ne le sont pas déjà. */
+  /** Partie en réseau en cours, s'il y en a une : la connexion et la salle annoncée par le serveur. */
+  private netStart(): { conn: Connection; start: RoomStart } | null {
+    const conn = Connection.current(this);
+    return conn?.room ? { conn, start: conn.room } : null;
+  }
+
+  /** Charge les sprites et les sons des héros de la partie et de la salle s'ils ne le sont pas déjà. */
   preload(): void {
-    const hero = CONFIG.heroes[this.heroName()];
+    const net = this.netStart();
+    const heroes = (net ? net.start.heroNames : [this.heroName()]).map((name) => CONFIG.heroes[name]);
     const sprites = this.cache.json.get('sprites') as SpriteManifest;
     const sounds = (this.cache.json.get('sounds') ?? {}) as SoundManifest;
     const session = this.registry.get('session') as Session | null | undefined;
-    const room = session?.room ?? 'rm_world2';
-    for (const name of [...heroSprites(hero.kind, sprites), ...roomSprites(room, sprites)]) {
+    const room = net ? net.start.room : session?.room ?? 'rm_world2';
+    const names = roomSprites(room, sprites);
+    for (const hero of heroes) names.push(...heroSprites(hero.kind, sprites));
+    for (const name of names) {
       for (let i = 0; i < sprites[name].frames; i++) {
         if (!this.textures.exists(frameKey(name, i))) this.load.image(frameKey(name, i), `assets/sprites/${name}/${i}.png`);
       }
     }
-    for (const name of heroSounds(hero.kind, sounds)) {
-      if (!this.cache.audio.exists(name)) this.load.audio(name, `assets/${sounds[name].file}`);
+    for (const hero of heroes) {
+      for (const name of heroSounds(hero.kind, sounds)) {
+        if (!this.cache.audio.exists(name)) this.load.audio(name, `assets/${sounds[name].file}`);
+      }
     }
     const { width, height } = this.scale;
-    const label = this.add.text(width / 2, height / 2, `Loading ${hero.name}...`, { fontFamily: 'Aldo', fontSize: '48px', color: '#cfd8ff' }).setOrigin(0.5).setScrollFactor(0);
+    const label = this.add.text(width / 2, height / 2, `Loading ${heroes.map((h) => h.name).join(', ')}...`, { fontFamily: 'Aldo', fontSize: '48px', color: '#cfd8ff' }).setOrigin(0.5).setScrollFactor(0);
     this.load.once('complete', () => label.destroy());
   }
 
@@ -98,21 +115,37 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     const sprites = this.cache.json.get('sprites') as SpriteManifest;
     const floors = (this.cache.json.get('floors') ?? {}) as FloorManifest;
-    // la partie (cartes, consigne, salles visitées) survit aux changements de salle
-    let session = this.registry.get('session') as Session | null | undefined;
-    if (!session || session.heroNames[0] !== this.heroName()) {
-      session = createSession(this.heroName());
-      this.registry.set('session', session);
+    const net = this.netStart();
+    let world: World;
+    let arriving: Hero[] | null = null;
+    if (net) {
+      // partie en réseau : le serveur fait tourner le jeu, on n'en tient qu'un miroir (ADR-014)
+      const level = this.cache.json.get(`level:${net.start.room}`) as LevelData;
+      this.mirror = new Mirror(level, sprites, net.start);
+      this.conn = net.conn;
+      world = this.mirror.world;
+      this.session = world.session;
+      net.conn.send({ t: 'ready', epoch: net.start.epoch });
+      this.cameras.main.fadeIn(200, 19, 19, 19);
+    } else {
+      this.mirror = null;
+      this.conn = null;
+      // la partie (cartes, consigne, salles visitées) survit aux changements de salle
+      let session = this.registry.get('session') as Session | null | undefined;
+      if (!session || session.heroNames[0] !== this.heroName()) {
+        session = createSession(this.heroName());
+        this.registry.set('session', session);
+      }
+      this.session = session;
+      arriving = (this.registry.get('arrivingHero') ?? null) as Hero[] | null;
+      this.registry.set('arrivingHero', null);
+      // début d'une partie : le robot se déploie (GD-031)
+      const fresh = isFreshStart(session, arriving);
+      const level = this.cache.json.get(`level:${session.room}`) as LevelData;
+      world = openRoom(session, level, sprites, arriving, (Date.now() & 0xffff) + 1);
+      // au rez-de-chaussée, le véhicule de largage amène le robot (GD-035)
+      if (fresh) world.deployHero(session.room === 'rm_world2');
     }
-    this.session = session;
-    const arriving = (this.registry.get('arrivingHero') ?? null) as Hero[] | null;
-    this.registry.set('arrivingHero', null);
-    // début d'une partie : le robot se déploie (GD-031)
-    const fresh = isFreshStart(session, arriving);
-    const level = this.cache.json.get(`level:${session.room}`) as LevelData;
-    const world = openRoom(session, level, sprites, arriving, (Date.now() & 0xffff) + 1);
-    // au rez-de-chaussée, le véhicule de largage amène le robot (GD-035)
-    if (fresh) world.deployHero(session.room === 'rm_world2');
     this.world = world;
     this.synth = new Synth(this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.synth.stop());
@@ -120,6 +153,8 @@ export class GameScene extends Phaser.Scene {
     if (arriving) this.cameras.main.fadeIn(200, 19, 19, 19);
     this.view = new WorldView(this, this.world, floors);
     this.hud = new Hud(this, this.world);
+    this.view.playerNames = this.mirror?.playerNames ?? [];
+    this.hud.playerNames = this.view.playerNames;
     this.acc = 0;
     this.panel = null;
     this.debugHold = {};
@@ -149,6 +184,8 @@ export class GameScene extends Phaser.Scene {
         this.debugHold = input;
       },
       teleport: (x: number, y: number) => {
+        // en réseau, c'est le serveur qui déplace le robot (s'il a été lancé avec SFPE_DEBUG=1)
+        this.conn?.send({ t: 'teleport', x, y });
         this.world.hero.x = x;
         this.world.hero.y = y;
         this.snapCamera();
@@ -203,16 +240,56 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
+  /** Entrée neutre : le robot s'arrête et garde sa visée (panneau ouvert pendant une partie en réseau). */
+  private idleInput(): Input {
+    const h = this.world.hero;
+    return { ...NO_INPUT, aimX: h.x + Math.cos(h.angle) * 300, aimY: h.y + Math.sin(h.angle) * 300 };
+  }
+
+  /** Partie en réseau : applique ce que le serveur a envoyé. */
+  private netUpdate(conn: Connection, mirror: Mirror): void {
+    if (conn.closed) {
+      this.exitToMenu();
+      return;
+    }
+    if (conn.room && conn.room.epoch !== mirror.epoch) {
+      // le serveur a ouvert une autre salle (escalier, Retry) : fondu, puis la scène redémarre dessus.
+      // Les messages déjà reçus sont ceux de la nouvelle salle : on n'y touche pas.
+      if (!this.leaving) {
+        this.leaving = true;
+        this.cameras.main.fadeOut(200, 19, 19, 19);
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.restart());
+      }
+      return;
+    }
+    for (const msg of conn.take()) {
+      if (msg.t === 's') {
+        if (msg.epoch === mirror.epoch) mirror.receive(msg.snap, msg.ack, msg.ev);
+      } else if (msg.t === 'won') {
+        this.closePanel();
+        Object.assign(this.session.stats, msg.stats);
+        this.openPanel('end');
+      }
+    }
+  }
+
   update(_time: number, delta: number): void {
+    const mirror = this.mirror;
+    const conn = this.conn;
+    if (mirror && conn) {
+      this.netUpdate(conn, mirror);
+      if (conn.closed) return;
+    }
     if (this.panel) {
       this.synth.charge(false, 0);
       this.panel.buttons.update();
       if (this.panel.kind === 'pause' && Keys.wasPressed(...Bind.pause)) this.closePanel();
-      this.hud.update();
-      return;
-    }
-    if (Keys.wasPressed(...Bind.pause)) {
+    } else if (Keys.wasPressed(...Bind.pause)) {
       this.openPanel('pause');
+    }
+    // en solo, un panneau met le jeu en pause ; en réseau, la partie continue derrière lui
+    if (this.panel && !mirror) {
+      this.hud.update();
       return;
     }
 
@@ -220,38 +297,59 @@ export class GameScene extends Phaser.Scene {
     let first = true;
     while (this.acc >= STEP_MS) {
       this.acc -= STEP_MS;
-      this.world.step(this.readInput(first));
+      const input = this.panel ? this.idleInput() : this.readInput(first);
+      if (mirror && conn) {
+        const sent = mirror.tick(input);
+        if (!this.leaving) conn.send({ t: 'i', e: mirror.epoch, ...sent });
+      } else {
+        this.world.step(input);
+      }
       first = false;
       const target = this.cameraGoal();
       this.camX += (target.x - this.camX) / CONFIG.camera.smoothing;
       this.camY += (target.y - this.camY) / CONFIG.camera.smoothing;
     }
+    mirror?.frame(delta);
     this.placeCamera();
 
-    for (const e of this.world.drainEvents()) {
+    const world = this.world;
+    const mine = (e: { hero: number }): boolean => e.hero === world.viewHero;
+    for (const e of world.drainEvents()) {
       if (e.type === 'sound') this.playSound(e.name, e.x, e.y);
       else if (e.type === 'notify') this.hud.notify(e.text);
       else if (e.type === 'changeRoom') this.changeRoom(e.room, e.spawn);
       else if (e.type === 'levelEnd') this.openPanel('end');
-      else if (e.type === 'deploy') this.playSound(e.sound, this.world.hero.x, this.world.hero.y);
-      else if (e.type === 'vehicleArrives') this.synth.vehicle(e.seconds);
+      else if (e.type === 'deploy') {
+        const h = world.heroes[e.hero] ?? world.hero;
+        this.playSound(e.sound, h.x, h.y);
+      } else if (e.type === 'vehicleArrives') this.synth.vehicle(e.seconds);
       else if (e.type === 'buttonPressed') this.synth.buttonPress();
       else if (e.type === 'checkpoint') {
         this.synth.checkpoint();
         this.view.handleEvent(e);
-      }
-      else if (e.type === 'reloadStart') {
-        this.synth.reloadStart(this.world.hero.def.kind, this.world.hero.def.reloadSteps / STEPS_PER_SECOND);
+      } else if (e.type === 'revived') {
+        this.synth.checkpoint();
+        this.hud.notify('Robot back online');
+      } else if (e.type === 'reloadStart') {
+        // les bruitages et effets de rechargement ne concernent que son propre robot
+        if (!mine(e)) continue;
+        this.synth.reloadStart(world.hero.def.kind, world.hero.def.reloadSteps / STEPS_PER_SECOND);
         this.view.handleEvent(e);
       } else if (e.type === 'reloadEnd') {
-        this.synth.reloadEnd(this.world.hero.def.kind);
+        if (!mine(e)) continue;
+        this.synth.reloadEnd(world.hero.def.kind);
         this.view.handleEvent(e);
+      } else if (e.type === 'emptyClick') {
+        if (mine(e)) this.view.handleEvent(e);
       } else this.view.handleEvent(e);
     }
     this.view.sync(delta / 1000);
     this.hud.update();
-    this.synth.charge(this.world.hero.charging, this.world.hero.energy);
-    if (this.world.gameOver) this.openPanel('lose');
+    this.synth.charge(world.hero.charging, world.hero.energy);
+    if (world.gameOver && this.panel?.kind !== 'lose' && this.panel?.kind !== 'end') {
+      this.closePanel();
+      this.openPanel('lose');
+    }
   }
 
   /** Passage par un escalier : fondu, puis la scène redémarre sur l'autre salle avec le même héros. */
@@ -274,12 +372,18 @@ export class GameScene extends Phaser.Scene {
   private exitToMenu(): void {
     this.input.setDefaultCursor('default');
     music?.stop();
+    Connection.leave(this);
     this.registry.set('session', null);
     this.scene.start('Menu');
   }
 
   /** Retry : toute la partie recommence. */
   private retry(): void {
+    if (this.conn) {
+      // en réseau, c'est le serveur qui relance la partie pour tout le monde
+      this.conn.send({ t: 'retry' });
+      return;
+    }
     const cp = this.session.checkpoint;
     if (cp) {
       // GD-031 : point de sauvegarde activé, on y reprend ; sa salle est remise à neuf, le reste est gardé
@@ -306,7 +410,7 @@ export class GameScene extends Phaser.Scene {
     if (this.panel) return;
     const { width, height } = this.scale;
     const bg = this.add.rectangle(width / 2, height / 2, width / 2, height / 2, 0x040c29, 0.9).setScrollFactor(0).setDepth(PANEL_DEPTH);
-    const titles: Record<PanelKind, string> = { pause: 'PAUSE', lose: 'YOU LOSE', end: 'SCORE' };
+    const titles: Record<PanelKind, string> = { pause: this.conn ? 'MENU' : 'PAUSE', lose: 'YOU LOSE', end: 'SCORE' };
     const title = this.add.text(width / 2, height / 2 - 180, titles[kind], {
       fontFamily: 'Aldo', fontSize: kind === 'end' ? '70px' : '90px', color: '#ffffff',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(PANEL_DEPTH + 1);
@@ -315,6 +419,13 @@ export class GameScene extends Phaser.Scene {
     let specs = [{ label: 'Resume', sprite: 'spr_btn_resume', action: () => this.closePanel() }, exit];
     let buttonsY = height / 2;
     if (kind === 'lose') specs = [{ label: 'Retry', sprite: 'spr_btn_retry', action: () => this.retry() }, exit];
+    if (kind === 'lose' && this.conn && !this.conn.isHost) {
+      // seul l'hôte relance la partie
+      specs = [exit];
+      objects.push(this.add.text(width / 2, height / 2 - 70, 'Waiting for the host to retry...', {
+        fontFamily: 'Aldo', fontSize: '34px', color: '#ffe36b',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(PANEL_DEPTH + 1));
+    }
     if (kind === 'end') {
       // écran de score de l'original (rm_score), sans la « Global note : 42 » codée en dur (GD-028)
       const s = this.session.stats;

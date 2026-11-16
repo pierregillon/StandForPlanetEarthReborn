@@ -26,6 +26,9 @@ export class MenuScene extends Phaser.Scene {
     }
     this.buttons = new ButtonColumn(this, width * 0.2, height * 0.45, [
       { label: 'Play', sprite: 'spr_btn_play', action: () => this.scene.start('HeroSelect') },
+      // multijoueur (GD-040) : pas de sprite d'origine pour ces deux boutons, ils sont en texte
+      { label: 'Create game', sprite: 'none', action: () => this.scene.start('Lobby', { mode: 'create' }) },
+      { label: 'Join game', sprite: 'none', action: () => this.scene.start('Lobby', { mode: 'join' }) },
     ]);
     this.add.text(width / 2, height - 60,
       'Move: WASD / ZQSD   Aim: mouse   Fire: left click   Special: right click   Reload: R   Dash: Space   Use / recharge: E   Pause: Esc',

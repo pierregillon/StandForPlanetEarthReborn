@@ -21,6 +21,18 @@ Double-cliquer sur `start.cmd` (ou le lancer dans un terminal), puis ouvrir <htt
 
 Il faut Node 22.18 ou plus récent. Sur la machine de développement, une copie portable se trouve dans `.tools/node22` (non versionnée) et `start.cmd` l'utilise automatiquement. Ailleurs : installer Node 22, puis `npm install` (33 Mo) et `npm start`.
 
+### Jouer à plusieurs
+
+Le serveur lancé par `start.cmd` héberge aussi la partie multijoueur (une seule à la fois pour l'instant, 4 joueurs au plus).
+
+1. L'hôte lance `start.cmd`, ouvre <http://localhost:3000> et choisit **Create game**.
+2. Les autres ouvrent la même adresse depuis leur machine et choisissent **Join game** :
+   - sur le même réseau : `http://adresse-de-l'hôte:3000` ;
+   - à distance : l'adresse fournie par un tunnel, par exemple `ngrok http 3000`.
+3. Chacun choisit son robot (un robot ne peut être pris qu'une fois), puis l'hôte lance la partie.
+
+À savoir : chaque joueur télécharge une fois les images et les sons du jeu (87 Mo au fil des salles) par la connexion de l'hôte ; ensuite la partie elle-même consomme environ 2 ko/s par joueur. Détails et limites : GD-040 et ADR-014.
+
 ### Commandes
 
 | Action | Touche |

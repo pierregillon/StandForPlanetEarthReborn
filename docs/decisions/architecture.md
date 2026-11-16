@@ -225,3 +225,33 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 **Pourquoi.** Les murs sont peu nombreux et déjà rangés dans la grille de collision ; un polygone coûte environ 0,1 ms. Dessiner le résultat dans une texture ramène le coût par image à un tampon par lampe, comme avec les anciens halos. Tout tient en une centaine de lignes, sans shader.
 
 **Conséquences.** Mesures sur la machine de l'utilisateur, panneau du navigateur affiché : 60 images par seconde à l'arrêt, en déplacement et pendant qu'une porte éclairée par deux lampes s'ouvre et se ferme ; le travail par image en déplacement passe d'environ 6 ms à 6,5 ms (budget : 16,6 ms). Limites connues : les ombres ont un bord net adouci seulement par la faible résolution des textures ; un obstacle qui bougerait sans être une porte ne mettrait pas à jour les lampes fixes.
+
+## ADR-014 — Multijoueur : le serveur fait tourner le jeu, les navigateurs en tiennent un miroir
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — première version
+- **Décidée par** : l'utilisateur pour le cadre (serveur faisant autorité, jouable à distance par ngrok, bibliothèque `ws` acceptée) ; choix par défaut pour la technique
+
+**Contexte.** ADR-002 et ADR-005 prévoyaient que la simulation, indépendante du navigateur, tourne un jour sur le serveur. Le jeu doit rester agréable à distance (ngrok ajoute plusieurs dizaines de millisecondes) et la connexion de l'utilisateur est limitée : tout passe par elle quand il héberge.
+
+**Décision.**
+
+- **Serveur** (`server/game.ts`, `server/main.ts`) : une WebSocket par navigateur sur `/ws` (bibliothèque `ws`, compression activée). La classe `Lobby` tient le salon puis la partie : elle fait avancer le même `World` que le solo à 60 steps par seconde, avec une entrée par joueur et par step. Elle ne connaît pas les WebSockets (elle parle à des « pairs »), ce qui permet de la tester sans réseau.
+- **Entrées** : chaque navigateur envoie son entrée à chaque step, numérotée. Le serveur les joue dans l'ordre, une par step ; sans nouvelle depuis 12 steps, le robot s'arrête.
+- **Instantanés** (`src/net/snapshot.ts`) : 20 fois par seconde, le serveur envoie les champs simples des entités qui ont changé depuis l'envoi précédent. WebSocket garantit l'ordre et la livraison : ce différentiel n'a besoin d'aucun accusé de réception. Les champs sont découverts automatiquement (tout champ nombre, texte ou booléen), moins une liste d'exclusions par type pour l'état interne de la simulation ; une référence vers `CONFIG` (le `def` d'un PNJ) voyage sous forme de chemin.
+- **Miroir** (`src/net/mirror.ts`) : chaque navigateur construit un `World` depuis la même salle et le tient à jour avec les instantanés, sans jamais appeler `world.step`. L'affichage (`WorldView`, `Hud`) lit ce monde comme en solo, sans rien savoir du réseau.
+- **Pour masquer le délai** :
+  - *prédiction* : le robot du joueur est déplacé tout de suite avec le même code que le serveur (`steerHero`) ; à chaque instantané, on repart de l'état du serveur et on rejoue les entrées qu'il n'a pas encore jouées ;
+  - *glissement* : les autres personnages glissent de leur position affichée à la dernière reçue ;
+  - *extrapolation* : les balles volent seules entre deux nouvelles ; les compteurs d'animation avancent d'un par step.
+- **Changement de salle** : le serveur annonce la salle, chaque client la charge puis répond « prêt » ; le jeu reprend quand tous ont répondu (20 s au plus). Chaque salle a un numéro d'ordre, pour ignorer ce qui concerne la précédente.
+
+**Pourquoi.** Un serveur qui fait autorité évite les désaccords entre joueurs et la triche, et réutilise la simulation testée. Les pistes écartées : faire tourner la simulation à l'identique chez chacun en n'échangeant que les entrées (très peu de trafic, mais le moindre écart de calcul entre navigateurs désynchronise la partie, et chaque commande attend le réseau) ; envoyer l'état complet à chaque fois (des dizaines de ko/s).
+
+**Conséquences.**
+
+- **Trafic mesuré** (deux joueurs en local, compression comprise) : environ 1,5 ko/s envoyés et 0,5 à 0,8 ko/s reçus par joueur, soit de l'ordre de 8 Mo par heure et par joueur. Le serveur l'affiche toutes les 10 s pendant une partie. En revanche chaque nouveau joueur télécharge une fois les images et les sons (87 Mo au total, au fil des salles) par la connexion de l'hôte : voir ADR-012.
+- 5 tests sans navigateur : `src/net/net.test.ts` fait jouer un salon et deux clients simulés (prédiction, miroir, changement de salle, Retry, départ d'un joueur).
+- Ajouter un champ à une entité le synchronise d'office ; s'il change à chaque step sans servir à l'affichage, l'ajouter aux exclusions de `LISTS` (`lobby.traffic()` donne les champs les plus envoyés).
+- Outil de développement : `sfpeDebug.teleport` fonctionne en réseau si le serveur est lancé avec `SFPE_DEBUG=1` ; à ne jamais activer sur un serveur ouvert.
+- À faire pour un serveur public : plusieurs salons à la fois, reconnexion, et limiter ce qu'un client peut envoyer.

@@ -792,3 +792,35 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Reprendre d'abord ce que le code d'origine prévoyait, et ne trancher que les cas qu'il laisse ouverts, du côté le plus indulgent : à plusieurs, attendre à terre sans rien faire est ce qu'il y a de moins amusant.
 
 **Conséquences.** La simulation tient une liste `world.heroes` ; `world.step` reçoit une entrée par héros. Le solo est une équipe d'un seul et passe par le même code (ses 42 tests n'ont pas changé). Réglages : `revive` dans `src/sim/config.ts`. 8 nouveaux tests dans `src/sim/team.test.ts`. **À confirmer en jeu** : les balles de PetBot arrêtées par les coéquipiers (fidèle, mais peut gêner en mêlée) ; la difficulté n'est pas ajustée au nombre de joueurs.
+
+## GD-040 — Premier multijoueur : créer ou rejoindre une partie, salon, choix des robots
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — première version, à éprouver en jeu
+- **Décidée par** : l'utilisateur pour le cadre ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** L'utilisateur veut pouvoir créer une partie et laisser d'autres joueurs la rejoindre depuis le menu d'accueil, choisir chacun son robot dans un salon, sans doublon, à 4 au plus. À terme, le serveur sera hébergé sur internet et fera tourner plusieurs parties ; pour cette première version, une seule partie à la fois, hébergée sur sa machine et ouverte aux autres par une adresse ngrok.
+
+**Décision.**
+
+- **Menu d'accueil** : « Play » (solo, inchangé), « Create game », « Join game ».
+- **Salon** : les quatre robots sont affichés ; un clic prend un robot libre, un second clic le rend. Un robot pris par un joueur est grisé pour les autres, avec le nom de ce joueur. La liste des joueurs indique l'hôte. Chacun donne son nom une fois (le navigateur le retient).
+- **Lancement** : seul l'hôte (celui qui a créé la partie) lance le jeu, quand tous ont choisi. Il peut lancer seul.
+- **En jeu** : chacun a sa caméra, centrée sur son robot (décision de l'utilisateur) ; le nom du joueur est affiché au-dessus de chaque coéquipier ; l'état des coéquipiers (PV, énergie, « DOWN ») est en haut à droite. Les règles sont celles de GD-039.
+- *Par défaut* :
+  - **Pas d'arrivée en cours de partie** : une partie lancée ne peut plus être rejointe.
+  - **Départ d'un joueur** (bouton, onglet fermé, connexion perdue) : son robot disparaît du jeu ; si c'était l'hôte, le joueur suivant le devient ; au dernier départ, la partie se ferme et une autre peut être créée. Recharger la page revient à partir.
+  - **Pas de pause** : Échap ouvre un menu (reprendre, quitter), mais la partie continue.
+  - **Défaite** : seul l'hôte relance (Retry), pour tout le monde, au point de sauvegarde ou au début du niveau comme en solo.
+  - **Toujours depuis le début du niveau** : le choix du point de départ (GD-032) reste réservé au solo.
+  - **Difficulté inchangée** quel que soit le nombre de joueurs.
+
+**Pourquoi.** Le plus court chemin vers une partie jouable à plusieurs, sans fermer la porte à la suite : le salon est une classe à part côté serveur, dont il suffira de tenir plusieurs exemplaires pour faire tourner plusieurs parties.
+
+**Conséquences.** Limites de cette première version, à connaître avant d'essayer :
+
+- Le robot du joueur réagit tout de suite à ses commandes, mais **ses tirs partent quand le serveur les a joués** : avec ngrok, ils apparaissent avec le délai d'un aller-retour.
+- **Affichage des coéquipiers simplifié** : corps, jambes, orbe de BadaBot et nom ; pas de viseur laser, d'aura d'énergie ni d'effets de rechargement.
+- **Arrivée par le véhicule** : chacun ne voit que son propre robot dans la pince ; les coéquipiers apparaissent une fois posés.
+- **Résurrection, mort et balles soignantes n'ont pas été essayées à l'écran**, seulement par tests automatiques.
+- Le link entre héros reste à concevoir avec l'utilisateur.

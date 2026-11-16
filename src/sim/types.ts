@@ -326,6 +326,8 @@ export interface Bullet {
   /** Dernier PNJ touché : une balle qui rebondit ne le retouche pas aussitôt. */
   lastHit: number;
   steps: number;
+  /** Côté client d'une partie réseau : la balle a atteint un mur et attend que le serveur la retire. */
+  spent?: boolean;
 }
 
 export type DoorKind = 'auto' | 'button' | 'card';

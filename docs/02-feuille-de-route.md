@@ -130,9 +130,13 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 - Le dépôt contient 82 Mo d'assets (sprites du boss en 840 × 840, sons en WAV) : à alléger avant une mise en ligne (ADR-012).
 - Pas d'ombres portées, pas d'effet « glitch » fidèle, pas d'animation de déploiement des héros.
 
-## Après le MVP (non planifié)
+## Après le MVP
 
-Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mondes, autres héros.
+- [x] Lumières avec ombres portées et couleurs (GD-038).
+- [x] Multijoueur en ligne, première version : salon, 4 joueurs au plus, résurrection (GD-039, GD-040, ADR-014).
+- [ ] Link entre héros : à concevoir avec l'utilisateur (prochaine étape annoncée).
+- [ ] Multijoueur public : plusieurs parties à la fois, reconnexion, hébergement, assets allégés.
+- Non planifié : manette, autres mondes, autres héros.
 
 ## Journal d'avancement
 
@@ -151,3 +155,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 | 2026-11-16 | Rechargement de PetBot avec ses sprites de déploiement (GD-034). Arrivée par le véhicule de largage d'origine au début du niveau (GD-035). 36 tests. |
 | 2026-11-16 | Les soldats vont voir d'où vient le bruit ; le « ! » ne s'affiche plus sous le brouillard (GD-036). 37 tests. |
 | 2026-11-16 | Départ à l'étage : portes déjà franchies ouvertes (GD-037). Lumières avec ombres portées par les murs et les portes, lampes colorées, lueur du héros ombrée (GD-038, ADR-013) ; 60 images par seconde conservées. 42 tests. |
+| 2026-11-16 | Premier multijoueur : simulation à plusieurs héros avec résurrection (GD-039), serveur de partie par WebSocket, salon avec choix exclusif des robots, miroir prédit côté client (GD-040, ADR-014). Essayé à deux onglets : salon, déplacement, tirs, changement de salle. 55 tests. |
