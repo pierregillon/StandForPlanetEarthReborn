@@ -143,3 +143,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 | 2026-11-16 | Retours de l'utilisateur sur l'étape 1 (GD-022). Étape 2 : les quatre héros, leurs tirs principaux et secondaires, écran de choix, carte verte et portes à carte. Décisions GD-023 et GD-024. |
 | 2026-11-16 | Retours sur l'étape 2 (GD-025). Étape 3 : partie partagée entre les salles, escalier, étage, carte violette, consignes 1 à 4, sortie et fin provisoire (GD-026). |
 | 2026-11-16 | Boîtes bonus retirées (GD-027). Étape 4 : zone de forage, foreuses destructibles, boss SallyBot, brouillard de guerre, lumières, écran de score (GD-028). Le MVP est complet. |
+| 2026-11-16 | Retours de l'utilisateur sur le niveau complet (GD-029) : bornes à réserve limitée avec lien mobile et réparation, surplus d'énergie plus durable, bouclier des tanks qui casse, caméra vers le curseur, Retry au début du niveau, cartes redessinées, effets sur le robot, nom dans le HUD, réticule. |

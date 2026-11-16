@@ -77,6 +77,31 @@ export class World {
     this.session.rooms.delete(this.level.name);
   }
 
+  /**
+   * Ne garde que `count` bornes, les mieux réparties : la plus proche du départ, puis à chaque fois
+   * la plus éloignée de celles déjà gardées (GD-029).
+   */
+  private keepSpreadOutlets(count: number, from: { x: number; y: number }): void {
+    if (this.outlets.length <= count) return;
+    const dist = (a: { x: number; y: number }, b: { x: number; y: number }): number => Math.hypot(a.x - b.x, a.y - b.y);
+    const pool = this.outlets.slice();
+    const kept = [pool.reduce((best, o) => (dist(o, from) < dist(best, from) ? o : best))];
+    while (kept.length < count) {
+      let best = pool[0];
+      let bestD = -1;
+      for (const o of pool) {
+        if (kept.includes(o)) continue;
+        const d = Math.min(...kept.map((k) => dist(o, k)));
+        if (d > bestD) {
+          bestD = d;
+          best = o;
+        }
+      }
+      kept.push(best);
+    }
+    this.outlets = this.outlets.filter((o) => kept.includes(o));
+  }
+
   /** Consigne affichée au joueur (GD-010). */
   private nextId = 1;
 
@@ -105,6 +130,7 @@ export class World {
       this.addInstance(inst);
     }
     const spawn = this.spawnPoint(session.spawnNumber);
+    this.keepSpreadOutlets(CONFIG.outlet.keepPerRoom[level.name] ?? this.outlets.length, spawn);
     this.hero = this.createHero(CONFIG.heroes[heroName], spawn.x, spawn.y);
   }
 
@@ -202,7 +228,10 @@ export class World {
         this.counted.soldier++;
       }
     } else if (inst.object === CONFIG.outlet.replacesObject) {
-      this.outlets.push({ id: this.nextId++, x: inst.x, y: inst.y, inUse: false });
+      this.outlets.push({
+        id: this.nextId++, x: inst.x, y: inst.y, inUse: false,
+        energyLeft: CONFIG.outlet.energyCapacity, repairLeft: CONFIG.outlet.repairCapacity,
+      });
     } else if (inst.object === 'obj_card_green' || inst.object === 'obj_card_purple') {
       this.cards.push({
         id: this.nextId++, color: inst.object === 'obj_card_green' ? 'green' : 'purple', sprite: spriteName ?? 'spr_doorKey_green',
@@ -281,7 +310,7 @@ export class World {
       hp: def.maxHealth, energy: CONFIG.hero.naturalEnergy, energyTimer: 0, energyPause: 0,
       ammo: def.magazine, reloadTimer: 0, fireTimer: 0, sinceShot: 9999,
       dashCharges: CONFIG.hero.dashCharges, dashRechargeTimer: 0, dashing: false, bump: false, targetX: x, targetY: y,
-      invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0, healPool: 0,
+      invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0, repairTimer: 0, linkedOutlet: -1, overchargeHold: 0, healPool: 0,
       fire2Timer: 0, fire2Was: false, fire2Hold: 0, fire2Anim: -1, speedFactor: 1,
       charge: 0, shieldUp: false, tanked: 0,
       bats: 2, swingRight: true, swing: 'd', swingSteps: 0, swingHit: new Set(), recallDone: false,
@@ -334,6 +363,7 @@ export class World {
       h.dashing = false;
       h.bump = false;
       h.charging = false;
+      h.linkedOutlet = -1;
       h.shieldUp = false;
       h.charge = 0;
       h.fire2Anim = -1;

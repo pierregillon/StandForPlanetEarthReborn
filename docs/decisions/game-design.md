@@ -516,3 +516,35 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** Achever le niveau tel que les consignes le décrivent, en restant jouable par une seule personne.
 
 **Conséquences.** Réglages dans `src/sim/config.ts` (`boss`, `drill`, `npcs.obj_sallyBot`) et `LIGHTING` dans `src/client/view/WorldView.ts`. L'équilibre du combat de boss n'a été vérifié que par des tests automatiques et un essai bref : c'est le premier point à faire juger par l'utilisateur.
+
+---
+
+## GD-029 — Retours d'essai du niveau complet : bornes, soins, tanks, caméra, lisibilité
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée — valeurs à ajuster après essai
+- **Décidée par** : l'utilisateur (retours d'essai et réponses aux propositions), sauf mention « par défaut »
+
+**Contexte.** Après avoir joué le niveau, l'utilisateur relève : trop de bornes ; jeu dur faute de soin ; robots à bouclier imbattables de face en solo ; le robot se décentre quand on avance ; recharge d'énergie trop lente et qui immobilise ; surplus d'énergie qui retombe trop vite ; Retry qui garde les cartes ; cartes peu reconnaissables ; rechargement de l'arme, niveau de munitions et pleine énergie peu visibles ; orbe de BadaBot décalée et traits roses inutiles.
+
+**Décision.**
+
+- **Bornes** (modifie GD-006, GD-020, GD-022) :
+  - 4 au rez-de-chaussée et 2 à l'étage au lieu de 10 et 4. Le jeu garde la borne la plus proche du départ, puis à chaque fois la plus éloignée de celles déjà gardées.
+  - Un appui sur E relie le robot à la borne ; il reste libre de bouger et de tirer dans son rayon (280 px), comme le link entre joueurs de l'original. Le lien casse si on sort du rayon, si un mur s'interpose, sur un nouvel appui, ou quand la borne n'a plus rien à donner.
+  - Recharge complète (0 à 12) en 3 secondes.
+  - La borne répare aussi : 5 points de vie, en 3 secondes. Valeur proposée par l'utilisateur (« peut-être 5 PV max ? à challenger ») et gardée : 6 bornes × 5 = 30 points de vie sur le niveau, soit deux barres et demie.
+  - Réserve limitée : 12 d'énergie et 5 points de vie par borne. Vidée, elle s'éteint pour le reste de la partie. Deux arcs autour de la borne montrent ce qu'il lui reste (bleu : énergie, vert : réparation).
+  - Pendant la recharge, la lumière baisse et tremble autour du robot (idée de l'utilisateur).
+- **Surplus d'énergie** (au-dessus de 3) : stable 15 secondes après le débranchement, puis −1 toutes les 5 secondes. Original : −1 toutes les 2 secondes, sans délai.
+- **Robots à bouclier** (modifie GD-008) : le bouclier encaisse 6 coups de face puis se brise, et le robot devient vulnérable de partout ; un arc de 6 segments devant lui montre ce qu'il lui reste. Il pivote aussi lentement (1,5° par step au lieu de 5), y compris en attaque : un dash permet de passer dans son dos.
+- **Caméra** : la vue se décale d'un tiers vers le curseur (380 px au plus) et suit le robot plus vite (lissage 7 au lieu de 20). Elle suit le robot, plus le bout de son canon.
+- **Retry** (remplace la règle de GD-007 et GD-026) : toute la partie recommence au début du niveau, sans carte, avec le même héros. L'utilisateur avait d'abord choisi de recommencer la salle en cours ; à l'usage, garder les cartes lui a paru anormal.
+- **Cartes** : sprite redessiné par le code (une carte d'accès avec puce et piste), qui flotte, se balance et pulse dans un halo de sa couleur. Remplace `spr_doorKey_green` / `spr_doorKey_purple`, de simples carrés de couleur.
+- **Sur le robot** : anneau de progression pendant le rechargement de l'arme ; jauge de munitions à 3 segments le long de l'arme (vert, jaune, rouge, clignotante à vide) ; étincelles autour du corps dès que l'énergie dépasse 3, de plus en plus nombreuses, avec un halo à 12.
+- **BadaBot** : l'arc rose du bouclier est retiré (il ne reste que le viseur). L'orbe est calée sur l'origine du sprite du corps, qui change selon la posture ; elle ne se décale plus en marchant ni bouclier levé.
+- **Interface** : nom du robot sous son portrait, vie et énergie en chiffres à côté. Curseur de la souris remplacé par un réticule en jeu (par défaut).
+
+**Pourquoi.** Rendre le niveau jouable par une seule personne et lisible sans quitter le robot des yeux, en gardant l'idée du robot qui se branche.
+
+**Conséquences.** Réglages dans `src/sim/config.ts` (`outlet`, `hero.overcharge*`, `npc.shield*`, `camera`). L'alignement des sprites des trois autres héros (jambes et corps) n'a pas été revu : à signaler s'il gêne.

@@ -111,6 +111,10 @@ export const CONFIG = {
     /** +1 énergie toutes les 2 s sous le maximum naturel, −1 toutes les 2 s au-dessus. */
     energyTickSteps: s(2),
     energyPauseSteps: s(2),
+    // GD-029 : le surplus (au-dessus de 3) tient 15 s après le débranchement, puis perd 1 point toutes les 5 s.
+    // Dans l'original : -1 toutes les 2 s, sans délai.
+    overchargeHoldSteps: s(15),
+    overchargeDecaySteps: s(5),
     dashCharges: 2,
     dashDistance: 500,
     dashSpeedFactor: 3,
@@ -286,7 +290,14 @@ export const CONFIG = {
   /** Remake (GD-006) : prises de courant. */
   outlet: {
     range: 280, // 110 à l'étape 1 : jugé trop court par l'utilisateur (GD-022)
-    stepsPerEnergy: s(1),
+    // GD-029 : une recharge complète (0 à 12) prend 3 secondes
+    stepsPerEnergy: s(3) / 12,
+    /** Réserve d'une borne : une fois vidée, elle est éteinte pour le reste de la partie. */
+    energyCapacity: 12,
+    repairCapacity: 5,
+    stepsPerRepair: s(3) / 5,
+    /** Nombre de bornes gardées par salle, choisies les plus éloignées les unes des autres. */
+    keepPerRoom: { rm_world2: 4, rm_world2_1: 2 } as Record<string, number>,
     /** Les prises remplacent ces objets du niveau d'origine. */
     replacesObject: 'obj_bonus_ammo',
   },
@@ -305,6 +316,10 @@ export const CONFIG = {
     waypointTimeoutSteps: s(1),
     maxWaypointFailures: 2,
     rotateSpeedDeg: 5,
+    // GD-029 : le robot bouclier se tourne lentement (on peut le contourner d'un dash) et son bouclier
+    // se brise après 6 coups encaissés de face. Dans l'original : invulnérable de face, rotation normale.
+    shieldRotateSpeedDeg: 1.5,
+    shieldHits: 6,
     fearSteps: s(30),
     fearSpeedFactor: 2,
     chaseSpeedFactor: 2,
@@ -416,6 +431,9 @@ export const CONFIG = {
   camera: {
     viewWidth: 1920,
     viewHeight: 1080,
-    smoothing: 20,
+    // GD-029 : la vue se décale vers le curseur et suit le robot de plus près (20 dans l'original)
+    smoothing: 7,
+    lookAhead: 0.33,
+    maxLookAhead: 380,
   },
 };

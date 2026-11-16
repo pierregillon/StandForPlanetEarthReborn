@@ -16,7 +16,8 @@ const DEPTH = {
 /** Brouillard de guerre : gris foncé de l'original ($313131). */
 const FOG_COLOR = 0x313131;
 /** Éclairage simplifié. L'original assombrit à 60 % ; 50 % ici pour garder les combats lisibles (GD-028). */
-const LIGHTING = { ambient: 0.5, strength: 2, heroRadius: 420, heroStrength: 0.75 };
+const LIGHTING = { ambient: 0.5, strength: 2, heroRadius: 420, heroStrength: 0.75, chargingDim: 0.22 };
+const CARD_COLORS: Record<string, number> = { green: 0x35d05a, purple: 0xb04cff };
 const MAX_REMAINS = 500;
 /** Aspect des projectiles (GD-022) : traînée jaune pour le héros, orange pour les ennemis. */
 const BULLET_STYLE = {
@@ -75,6 +76,10 @@ export class WorldView {
   private heroBody!: Img;
   private heroLegs!: Img;
   private laser!: Phaser.GameObjects.Graphics;
+  private heroFx!: Phaser.GameObjects.Graphics;
+  private npcFx!: Phaser.GameObjects.Graphics;
+  private readonly cardGlows = new Map<number, Img>();
+  private hasLamps = false;
   private cable!: Phaser.GameObjects.Graphics;
   private tracers!: Phaser.GameObjects.Graphics;
   private legsTime = 0;
@@ -169,7 +174,10 @@ export class WorldView {
       this.outletImgs.set(outlet.id, scene.add.image(outlet.x, outlet.y, 'outlet').setDepth(DEPTH.outlet));
     }
     for (const card of world.cards) {
-      if (scene.textures.exists(frameKey(card.sprite, 0))) this.cardImgs.set(card.id, this.image(card.sprite, 0, card.x, card.y, DEPTH.outlet));
+      // carte redessinée (GD-029) : une vraie carte d'accès, avec un halo de sa couleur
+      this.ensureHalo();
+      this.cardGlows.set(card.id, scene.add.image(card.x, card.y, 'lightHalo').setTint(CARD_COLORS[card.color]).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.outlet));
+      this.cardImgs.set(card.id, scene.add.image(card.x, card.y, this.cardTexture(card.color)).setDepth(DEPTH.outlet + 1));
     }
     for (const zone of world.zones) {
       this.zoneImgs.push(this.image(zone.sprite, 0, zone.x, zone.y, DEPTH.zone));
@@ -178,6 +186,8 @@ export class WorldView {
     this.heroLegs = this.image(def.sprites.legs, 0, world.hero.x, world.hero.y, DEPTH.legs);
     this.heroBody = this.image(def.sprites.stand, 0, world.hero.x, world.hero.y, DEPTH.character);
     this.laser = scene.add.graphics().setDepth(DEPTH.laser);
+    this.heroFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
+    this.npcFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
     this.cable = scene.add.graphics().setDepth(DEPTH.laser);
     this.tracers = scene.add.graphics().setDepth(DEPTH.bullet + 1);
     this.drillBars = scene.add.graphics().setDepth(DEPTH.worldText);
@@ -221,15 +231,24 @@ export class WorldView {
     for (const door of this.world.doors) this.syncDoor(door);
     for (const outlet of this.world.outlets) {
       const img = this.outletImgs.get(outlet.id);
-      if (img) img.setScale(outlet.inUse ? 1.08 + Math.sin(this.scene.time.now / 80) * 0.04 : 1);
+      if (!img) continue;
+      const empty = outlet.energyLeft === 0 && outlet.repairLeft === 0;
+      img.setScale(outlet.inUse ? 1.08 + Math.sin(this.scene.time.now / 80) * 0.04 : 1);
+      // borne vidée : éteinte
+      if (empty) img.setTint(0x555555).setAlpha(0.7);
     }
+    this.syncNpcFx();
     this.world.zones.forEach((zone, i) => {
       const sprite = zone.active ? 'spr_teleporteur_active' : zone.sprite;
       if (this.scene.textures.exists(frameKey(sprite, 0))) this.setFrame(this.zoneImgs[i], sprite, 0);
     });
     for (const card of this.world.cards) {
       // une carte au sol oscille pour attirer l'œil ; ramassée, elle n'est plus dessinée dans la salle
-      this.cardImgs.get(card.id)?.setVisible(!card.carried).setScale(1 + 0.08 * Math.sin(this.scene.time.now / 250));
+      const t = this.scene.time.now / 1000 + card.id;
+      // la carte flotte, se balance et pulse : on voit que c'est un objet à prendre (GD-029)
+      this.cardImgs.get(card.id)?.setVisible(!card.carried)
+        .setPosition(card.x, card.y - 10 + Math.sin(t * 3) * 8).setRotation(Math.sin(t * 2) * 0.3).setScale(1.1 + 0.12 * Math.sin(t * 4));
+      this.cardGlows.get(card.id)?.setVisible(!card.carried).setScale(0.9 + 0.35 * (0.5 + 0.5 * Math.sin(t * 4))).setAlpha(0.55 + 0.25 * Math.sin(t * 4));
     }
     this.stepAnims(dt);
     this.stepDebris(dt);
@@ -244,6 +263,7 @@ export class WorldView {
     legs.setPosition(h.x, h.y).setRotation(h.moveAngle);
     this.laser.clear();
     this.cable.clear();
+    this.heroFx.clear();
 
     if (h.state === 'dead') {
       const dead = def.kind === 'BatBot' ? `spr_BatBot_mort_${h.bats}` : def.sprites.dead;
@@ -263,7 +283,7 @@ export class WorldView {
 
     const pose = this.heroPose(h);
     this.setFrame(body, pose.sprite, pose.frame);
-    this.syncPlasmaBall(h);
+    this.syncPlasmaBall(h, pose.sprite);
 
     // invulnérabilité après un dégât : le héros clignote (effet « glitch » de l'original, simplifié)
     if (h.invuln > 0) body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
@@ -279,17 +299,29 @@ export class WorldView {
       this.laser.lineStyle(2, def.laserColor, h.state === 'firing1' ? 0.7 : 0.4);
       this.laser.lineBetween(m.x, m.y, m.x + (ex - m.x) * t, m.y + (ey - m.y) * t);
     }
-    if (h.shieldUp) this.drawShield(h);
+    this.drawHeroFx(h);
 
     // bornes de recharge : zone d'action visible à l'approche, arc électrique pendant la recharge (GD-022)
     const range = CONFIG.outlet.range;
     const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 300);
     for (const outlet of this.world.outlets) {
       const d = Math.hypot(outlet.x - h.x, outlet.y - h.y);
+      const empty = outlet.energyLeft === 0 && outlet.repairLeft === 0;
+      if (empty) continue;
+      // réserve de la borne : arc bleu pour l'énergie, arc vert pour les réparations
+      if (d < range * 2.5) {
+        const TAU = Math.PI * 2;
+        this.cable.lineStyle(5, 0x7fd9ff, 0.9).beginPath();
+        this.cable.arc(outlet.x, outlet.y, 52, -Math.PI / 2, -Math.PI / 2 + TAU * (outlet.energyLeft / CONFIG.outlet.energyCapacity));
+        this.cable.strokePath();
+        this.cable.lineStyle(5, 0x5dff7a, 0.9).beginPath();
+        this.cable.arc(outlet.x, outlet.y, 60, -Math.PI / 2, -Math.PI / 2 + TAU * (outlet.repairLeft / CONFIG.outlet.repairCapacity));
+        this.cable.strokePath();
+      }
       if (outlet.inUse) {
         this.drawEnergyLink(outlet.x, outlet.y, h.x, h.y);
         this.cable.lineStyle(3, 0x7fd9ff, 0.35 + 0.25 * pulse).strokeCircle(outlet.x, outlet.y, range);
-      } else if (d < range * 2.5 && h.energy < CONFIG.hero.maxEnergy) {
+      } else if (d < range * 2.5) {
         const inside = d <= range;
         this.cable.lineStyle(inside ? 3 : 2, inside ? 0xffe36b : 0x7fd9ff, (inside ? 0.35 : 0.12) + 0.15 * pulse).strokeCircle(outlet.x, outlet.y, range);
       }
@@ -454,7 +486,7 @@ export class WorldView {
   }
 
   /** Boule de plasma de BadaBot : au repos, en charge, chargée, ou juste tirée. */
-  private syncPlasmaBall(h: Hero): void {
+  private syncPlasmaBall(h: Hero, bodySprite: string): void {
     if (h.def.kind !== 'BadaBot') return;
     if (!this.plasmaBall) this.plasmaBall = this.image('spr_plasmaBawl_idle', 0, h.x, h.y, DEPTH.character + 1);
     const ball = this.plasmaBall;
@@ -465,27 +497,10 @@ export class WorldView {
     else if (h.charge > 0) this.setFrame(ball, 'spr_plasmaBawl_loading', (h.charge / full) * this.info('spr_plasmaBawl_loading').frames);
     else if (h.sinceShot < 15) this.setFrame(ball, 'spr_plasmaBawl_shot', h.sinceShot / 3);
     else this.setFrame(ball, 'spr_plasmaBawl_idle', (now * 20) % this.info('spr_plasmaBawl_idle').frames);
-  }
-
-  /** Bouclier de BadaBot levé : arc lumineux devant lui, sur la zone réellement protégée. */
-  private drawShield(h: Hero): void {
-    const box = CONFIG.abilities.badaBot.shieldBox;
-    const g = this.laser;
-    const c = Math.cos(h.angle);
-    const s = Math.sin(h.angle);
-    const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 120);
-    const at = (lx: number, ly: number): [number, number] => [h.x + lx * c - ly * s, h.y + lx * s + ly * c];
-    const [ax, ay] = at(box.x1 - 14, box.y0);
-    const [mx, my] = at(box.x1 + 10, 0);
-    const [bx, by] = at(box.x1 - 14, box.y1);
-    for (const [width, color, alpha] of [[14, 0x7a3cff, 0.25 + 0.15 * pulse], [5, 0xd9b8ff, 0.8], [2, 0xffffff, 0.9]] as const) {
-      g.lineStyle(width, color, alpha);
-      g.beginPath();
-      g.moveTo(ax, ay);
-      g.lineTo(mx, my);
-      g.lineTo(bx, by);
-      g.strokePath();
-    }
+    // l'orbe et le corps sont dessinés sur la même toile : on cale l'orbe sur l'origine du sprite du corps,
+    // qui change selon la posture, pour qu'elle ne se décale plus en marchant ou bouclier levé (GD-029)
+    const bodyInfo = this.info(bodySprite);
+    ball.setOrigin(bodyInfo.ox / bodyInfo.w, bodyInfo.oy / bodyInfo.h);
   }
 
   /** Synchronise un ensemble d'images avec une liste d'entités identifiées. */
@@ -595,27 +610,126 @@ export class WorldView {
     g.lineStyle(2, 0xffffff, 0.8).strokeRect(drill.x - w / 2, drill.y - 20, w, 22);
   }
 
+  private ensureHalo(): void {
+    const scene = this.scene;
+    if (scene.textures.exists('lightHalo')) return;
+    const canvas = scene.textures.createCanvas('lightHalo', 256, 256);
+    if (!canvas) return;
+    const gradient = canvas.context.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.55, 'rgba(255,255,255,0.7)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    canvas.context.fillStyle = gradient;
+    canvas.context.fillRect(0, 0, 256, 256);
+    canvas.refresh();
+  }
+
+  /** Texture d'une carte d'accès, dessinée par le code (GD-029). */
+  private cardTexture(color: string): string {
+    const key = `card:${color}`;
+    if (this.scene.textures.exists(key)) return key;
+    const base = CARD_COLORS[color] ?? 0xffffff;
+    const g = this.scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x000000, 0.35).fillRoundedRect(6, 8, 88, 58, 10);
+    g.fillStyle(base, 1).fillRoundedRect(2, 2, 88, 58, 10);
+    g.fillStyle(0xffffff, 0.28).fillRoundedRect(2, 2, 88, 22, { tl: 10, tr: 10, bl: 0, br: 0 });
+    g.fillStyle(0x10141c, 0.85).fillRect(2, 30, 88, 10);
+    g.fillStyle(0xffd23c, 1).fillRoundedRect(12, 10, 22, 16, 4);
+    g.lineStyle(2, 0x8a6a00, 1).strokeRoundedRect(12, 10, 22, 16, 4).lineBetween(23, 10, 23, 26).lineBetween(12, 18, 34, 18);
+    g.fillStyle(0xffffff, 0.9).fillCircle(60, 50, 4).fillCircle(72, 50, 4).fillCircle(48, 50, 4);
+    g.lineStyle(4, 0xffffff, 0.95).strokeRoundedRect(2, 2, 88, 58, 10);
+    g.generateTexture(key, 96, 68);
+    g.destroy();
+    return key;
+  }
+
+  /** Effets dessinés sur le héros (GD-029) : anneau de rechargement, jauge de munitions, énergie en surcharge. */
+  private drawHeroFx(h: Hero): void {
+    const g = this.heroFx;
+    const def = h.def;
+    const c = Math.cos(h.angle);
+    const s = Math.sin(h.angle);
+    const at = (lx: number, ly: number): Phaser.Geom.Point => new Phaser.Geom.Point(h.x + lx * c - ly * s, h.y + lx * s + ly * c);
+    const reloading = h.reloadTimer > 0;
+    const progress = reloading ? 1 - h.reloadTimer / Math.max(1, def.reloadSteps) : 0;
+
+    if (reloading) {
+      g.lineStyle(8, 0x000000, 0.45).strokeCircle(h.x, h.y, 68);
+      g.lineStyle(6, 0xffe36b, 1).beginPath();
+      g.arc(h.x, h.y, 68, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+      g.strokePath();
+    }
+
+    if (def.magazine > 0) {
+      // trois segments le long de l'arme : vert, jaune, rouge ; ils clignotent à vide et se remplissent au rechargement
+      const level = reloading ? Math.floor(progress * 3) : Math.ceil((h.ammo / def.magazine) * 3);
+      const color = reloading ? 0xffe36b : level >= 3 ? 0x5dff7a : level === 2 ? 0xffd23c : 0xff4040;
+      const blink = h.ammo === 0 && !reloading && Math.floor(this.world.tick / 12) % 2 === 0;
+      const x0 = Math.max(4, def.muzzle.x - 62);
+      const y0 = def.muzzle.y + 16;
+      for (let i = 0; i < 3; i++) {
+        const lx = x0 + i * 16;
+        const quad = [at(lx, y0), at(lx + 12, y0), at(lx + 12, y0 + 9), at(lx, y0 + 9)];
+        g.fillStyle(0x000000, 0.6).fillPoints([at(lx - 2, y0 - 2), at(lx + 14, y0 - 2), at(lx + 14, y0 + 11), at(lx - 2, y0 + 11)], true);
+        if (i < level) g.fillStyle(color, 1).fillPoints(quad, true);
+        else if (blink) g.fillStyle(0xff4040, 0.9).fillPoints(quad, true);
+      }
+    }
+
+    // surcharge d'énergie : des étincelles courent autour du robot, de plus en plus nombreuses ; halo à 12
+    if (h.energy > CONFIG.hero.naturalEnergy) {
+      const stage = Math.floor(h.energy / 3); // 1 à 4
+      const sparks = (stage - 1) * 2 + (h.energy >= CONFIG.hero.maxEnergy ? 3 : 0) + 1;
+      for (let k = 0; k < sparks; k++) {
+        let a = Math.random() * Math.PI * 2;
+        let r = def.radius + 4 + Math.random() * 14;
+        g.lineStyle(Math.random() < 0.3 ? 3 : 2, Math.random() < 0.5 ? 0xffffff : 0x8fdcff, 0.95).beginPath();
+        g.moveTo(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r);
+        for (let j = 0; j < 4; j++) {
+          a += 0.12 + Math.random() * 0.18;
+          r = def.radius + Math.random() * 20;
+          g.lineTo(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r);
+        }
+        g.strokePath();
+      }
+      if (h.energy >= CONFIG.hero.maxEnergy) {
+        const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 110);
+        g.lineStyle(10, 0x4fb8ff, 0.12 + 0.14 * pulse).strokeCircle(h.x, h.y, def.radius + 16);
+        g.lineStyle(3, 0xbfeaff, 0.35 + 0.35 * pulse).strokeCircle(h.x, h.y, def.radius + 16);
+      }
+    }
+  }
+
+  /** Bouclier des robots à bouclier : un arc devant eux, un segment par coup encore encaissable (GD-029). */
+  private syncNpcFx(): void {
+    const g = this.npcFx;
+    g.clear();
+    const total = CONFIG.npc.shieldHits;
+    for (const npc of this.world.npcs) {
+      if (npc.shieldHp <= 0) continue;
+      const r = npc.def.radius + 16;
+      const span = (100 * Math.PI) / 180;
+      const seg = span / total;
+      for (let i = 0; i < npc.shieldHp; i++) {
+        const a0 = npc.angle - span / 2 + i * seg + 0.02;
+        g.lineStyle(6, 0x7fd9ff, 0.85).beginPath();
+        g.arc(npc.x, npc.y, r, a0, a0 + seg - 0.04);
+        g.strokePath();
+      }
+    }
+  }
+
   /** Lumières simples (GD-011) : un voile sombre sur la vue, percé d'un halo par lumière, sans ombres portées. */
   private buildLights(): void {
     const scene = this.scene;
     const placed = this.world.level.instances.filter((i) => i.object === 'obj_lumiere');
-    if (placed.length === 0) return;
+    this.hasLamps = placed.length > 0;
     this.lights = placed.map((i) => ({
       x: i.x, y: i.y,
       radius: Number(i.props.radius ?? 256 * Math.abs(i.scaleX)),
       intensity: Number(i.props.lightIntensity ?? 0.5),
     }));
-    if (!scene.textures.exists('lightHalo')) {
-      const canvas = scene.textures.createCanvas('lightHalo', 256, 256);
-      if (!canvas) return;
-      const gradient = canvas.context.createRadialGradient(128, 128, 0, 128, 128, 128);
-      gradient.addColorStop(0, 'rgba(255,255,255,1)');
-      gradient.addColorStop(0.55, 'rgba(255,255,255,0.7)');
-      gradient.addColorStop(1, 'rgba(255,255,255,0)');
-      canvas.context.fillStyle = gradient;
-      canvas.context.fillRect(0, 0, 256, 256);
-      canvas.refresh();
-    }
+    this.ensureHalo();
     this.lightStamp = scene.make.image({ key: 'lightHalo', add: false });
     this.darkness = scene.add.renderTexture(0, 0, VIEW.width, VIEW.height).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.darkness);
   }
@@ -625,9 +739,14 @@ export class WorldView {
     const stamp = this.lightStamp;
     if (!rt || !stamp) return;
     const cam = this.scene.cameras.main;
-    rt.clear();
-    rt.fill(0x000000, LIGHTING.ambient);
     const h = this.world.hero;
+    // pendant une recharge, la lumière baisse et tremble autour du robot (idée de l'utilisateur, GD-029)
+    const flicker = h.charging ? 0.45 + Math.random() * 0.4 : 1;
+    const ambient = (this.hasLamps ? LIGHTING.ambient : 0) + (h.charging ? LIGHTING.chargingDim * (0.6 + Math.random() * 0.6) : 0);
+    rt.setVisible(ambient > 0);
+    if (ambient <= 0) return;
+    rt.clear();
+    rt.fill(0x000000, Math.min(0.85, ambient));
     const halo = (x: number, y: number, radius: number, strength: number): void => {
       const sx = x - cam.scrollX;
       const sy = y - cam.scrollY;
@@ -635,9 +754,9 @@ export class WorldView {
       stamp.setScale((radius * 2) / 256).setAlpha(Math.min(1, strength));
       rt.erase(stamp, sx, sy);
     };
-    for (const light of this.lights) halo(light.x, light.y, light.radius, light.intensity * LIGHTING.strength);
+    for (const light of this.lights) halo(light.x, light.y, light.radius, light.intensity * LIGHTING.strength * flicker);
     // le héros porte sa propre lueur, pour rester lisible loin des lampes
-    halo(h.x, h.y, LIGHTING.heroRadius, LIGHTING.heroStrength);
+    halo(h.x, h.y, LIGHTING.heroRadius * (h.charging ? 0.8 + Math.random() * 0.25 : 1), LIGHTING.heroStrength);
   }
 
   private syncDoor(door: Door): void {
@@ -677,6 +796,14 @@ export class WorldView {
           this.anims.push({ img, sprite: 'spr_explosion_robot', frames: sp.frames, fps: spriteFps(sp), elapsed: -i * 0.12, keepLast: false });
         }
       }
+    } else if (e.type === 'shieldBroken') {
+      for (let i = 0; i < 14; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const dot = scene.add.rectangle(e.x, e.y, 10, 5, 0x9fd9ff).setRotation(a).setDepth(DEPTH.fx);
+        scene.tweens.add({ targets: dot, x: e.x + Math.cos(a) * (80 + Math.random() * 90), y: e.y + Math.sin(a) * (80 + Math.random() * 90), alpha: 0, duration: 450, onComplete: () => dot.destroy() });
+      }
+      const ring = scene.add.circle(e.x, e.y, 40).setStrokeStyle(5, 0xffffff).setDepth(DEPTH.fx);
+      scene.tweens.add({ targets: ring, scale: 2.4, alpha: 0, duration: 350, onComplete: () => ring.destroy() });
     } else if (e.type === 'heal') {
       const plus = scene.add.text(e.x, e.y - 50, '+1', { fontFamily: 'Aldo', fontSize: '36px', color: '#6dff8a', stroke: '#000000', strokeThickness: 5 })
         .setOrigin(0.5).setDepth(DEPTH.worldText);

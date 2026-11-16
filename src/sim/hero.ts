@@ -24,7 +24,7 @@ export function stepHero(world: World, input: Input): void {
   stepOutlet(world, h, input);
   // BatBot reste immobile pendant l'animation de lancer (staticFire2 dans l'original)
   const throwing = h.def.kind === 'BatBot' && h.fire2Anim >= 0;
-  const canMove = !h.bump && !h.charging && !throwing;
+  const canMove = !h.bump && !throwing;
   const walkSpeed = h.def.walkSpeed * h.speedFactor;
 
   // --- dash : il faut être en train de marcher (pas en train de tirer) ---
@@ -134,6 +134,17 @@ function moveHero(world: World, h: Hero, dir: number, distance: number, collideW
 
 function stepEnergy(h: Hero): void {
   const natural = CONFIG.hero.naturalEnergy;
+  if (h.overchargeHold > 0) h.overchargeHold--;
+  if (h.energy > natural) {
+    // surplus : stable tant que le délai court, puis décroissance lente (GD-029)
+    if (h.overchargeHold > 0 || h.charging) {
+      h.energyTimer = 0;
+    } else if (++h.energyTimer >= CONFIG.hero.overchargeDecaySteps) {
+      h.energyTimer = 0;
+      h.energy--;
+    }
+    return;
+  }
   if (h.energyPause > 0) {
     h.energyPause--;
     h.energyTimer = 0;
@@ -145,28 +156,55 @@ function stepEnergy(h: Hero): void {
   }
   if (++h.energyTimer >= CONFIG.hero.energyTickSteps) {
     h.energyTimer = 0;
-    h.energy += h.energy < natural ? 1 : -1;
+    h.energy++;
   }
 }
 
-/** Remake (GD-006) : maintenir « utiliser » près d'une prise recharge l'énergie au-delà du maximum naturel. */
+/**
+ * Bornes de recharge (GD-006, GD-029). Un appui sur « utiliser » relie le robot à la borne ; il reste libre
+ * de bouger et de tirer dans son rayon. La borne donne de l'énergie et répare, jusqu'à épuisement de sa réserve.
+ */
 function stepOutlet(world: World, h: Hero, input: Input): void {
+  const cfg = CONFIG.outlet;
   for (const o of world.outlets) o.inUse = false;
-  const outlet = input.use && !h.dashing && !h.bump ? world.nearestOutlet(CONFIG.outlet.range) : null;
-  if (!outlet || h.energy >= CONFIG.hero.maxEnergy) {
+  let outlet = world.outlets.find((o) => o.id === h.linkedOutlet) ?? null;
+  const useful = (o: typeof outlet): boolean => !!o
+    && ((o.energyLeft > 0 && h.energy < CONFIG.hero.maxEnergy) || (o.repairLeft > 0 && h.hp < h.def.maxHealth));
+
+  if (outlet) {
+    // le lien casse si on s'éloigne, si un mur s'interpose, si la borne n'a plus rien à donner, ou sur un nouvel appui
+    const far = Math.hypot(outlet.x - h.x, outlet.y - h.y) > cfg.range || world.sightBlocked(outlet.x, outlet.y, h.x, h.y);
+    if (far || h.bump || !useful(outlet) || input.usePressed) outlet = null;
+  } else if (input.usePressed && !h.bump) {
+    const near = world.nearestOutlet(cfg.range);
+    if (useful(near)) outlet = near;
+  }
+
+  if (!outlet) {
+    if (h.charging && h.energy > CONFIG.hero.naturalEnergy) h.overchargeHold = CONFIG.hero.overchargeHoldSteps;
     h.charging = false;
+    h.linkedOutlet = -1;
     h.chargeTimer = 0;
-    if (outlet) outlet.inUse = false;
+    h.repairTimer = 0;
     return;
   }
   h.charging = true;
+  h.linkedOutlet = outlet.id;
   outlet.inUse = true;
-  h.energyPause = CONFIG.hero.energyPauseSteps;
-  if (++h.chargeTimer >= CONFIG.outlet.stepsPerEnergy) {
+  if (outlet.energyLeft > 0 && h.energy < CONFIG.hero.maxEnergy && ++h.chargeTimer >= cfg.stepsPerEnergy) {
     h.chargeTimer = 0;
     h.energy++;
+    outlet.energyLeft--;
     world.emit({ type: 'outletTick', x: outlet.x, y: outlet.y });
   }
+  if (outlet.repairLeft > 0 && h.hp < h.def.maxHealth && ++h.repairTimer >= cfg.stepsPerRepair) {
+    h.repairTimer = 0;
+    h.hp++;
+    outlet.repairLeft--;
+    world.stats.healed++;
+    world.emit({ type: 'heal', x: h.x, y: h.y });
+  }
+  if (outlet.energyLeft === 0 && outlet.repairLeft === 0) world.emit({ type: 'outletEmpty', x: outlet.x, y: outlet.y });
 }
 
 /** Le héros regarde-t-il à peu près vers ce point ? (utile à l'affichage) */

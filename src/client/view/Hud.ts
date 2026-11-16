@@ -16,6 +16,7 @@ export class Hud {
   private readonly damage?: Phaser.GameObjects.Image;
   private readonly ammo: Phaser.GameObjects.Text;
   private readonly hp: Phaser.GameObjects.Text;
+  private readonly energy: Phaser.GameObjects.Text;
   private readonly objective: Phaser.GameObjects.Text;
   private readonly notice: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
@@ -31,7 +32,7 @@ export class Hud {
     const { width, height } = scene.scale;
     const def = world.hero.def;
     const x = 131;
-    const y = height - 90;
+    const y = height - 116;
 
     if (scene.textures.exists(frameKey('spr_healthBar', 0))) {
       const sp = world.sprite('spr_healthBar');
@@ -43,15 +44,18 @@ export class Hud {
       this.portrait = scene.add.image(x, y, key).setOrigin(sp.ox / sp.w, sp.oy / sp.h).setScrollFactor(0).setDepth(DEPTH + 1);
       this.damage = scene.add.image(x, y, key).setOrigin(sp.ox / sp.w, sp.oy / sp.h).setScrollFactor(0).setDepth(DEPTH + 2).setTint(0xff0000).setAlpha(0.8);
     }
-    this.hp = scene.add.text(x + 40, y - 6, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#ffffff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
-    this.ammo = scene.add.text(x + 40, y + 30, '', { fontFamily: 'Aldo', fontSize: '30px', color: '#ffffff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
+    // nom du robot sous son portrait, vie et énergie en chiffres à côté (GD-029)
+    scene.add.text(x - 6, y + 78, def.name.toUpperCase(), { fontFamily: 'Aldo', fontSize: '28px', color: '#ffffff', ...OUTLINE }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH + 3);
+    this.hp = scene.add.text(x + 44, y - 22, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#ffffff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
+    this.energy = scene.add.text(x + 44, y + 8, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#8fdcff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
+    this.ammo = scene.add.text(x + 44, y + 40, '', { fontFamily: 'Aldo', fontSize: '30px', color: '#ffffff', ...OUTLINE }).setScrollFactor(0).setDepth(DEPTH + 3);
     for (let i = 0; i < CONFIG.hero.dashCharges; i++) {
-      this.dashPips.push(scene.add.circle(x + 190 + i * 26, y + 48, 9, 0x7fd3ff).setStrokeStyle(2, 0x000000).setScrollFactor(0).setDepth(DEPTH + 3));
+      this.dashPips.push(scene.add.circle(x + 200 + i * 26, y + 58, 9, 0x7fd3ff).setStrokeStyle(2, 0x000000).setScrollFactor(0).setDepth(DEPTH + 3));
     }
     for (const [i, color] of ['green', 'purple'].entries()) {
-      const key = frameKey(`spr_doorKey_${color}`, 0);
+      const key = `card:${color}`;
       if (scene.textures.exists(key)) {
-        this.cardIcons.set(color, scene.add.image(x + 260 + i * 44, y + 44, key).setScale(0.6).setScrollFactor(0).setDepth(DEPTH + 3).setVisible(false));
+        this.cardIcons.set(color, scene.add.image(x + 280 + i * 62, y + 56, key).setScale(0.6).setScrollFactor(0).setDepth(DEPTH + 3).setVisible(false));
       }
     }
     this.objective = scene.add.text(10, (height * 2) / 3, '', {
@@ -88,6 +92,7 @@ export class Hud {
       if (h.state === 'dead') this.portrait.setTint(0x555555);
     }
     this.hp.setText(h.state === 'dead' ? 'Dead' : `HP ${h.hp}/${h.def.maxHealth}`);
+    this.energy.setText(`EN ${h.energy}/${CONFIG.hero.maxEnergy}`);
 
     for (const [color, icon] of this.cardIcons) icon.setVisible(world.hasCard(color));
     if (h.def.magazine === 0) {
@@ -117,7 +122,7 @@ export class Hud {
     let hint = '';
     let hintColor = '#ffe400';
     if (h.state !== 'dead') {
-      if (h.charging) hint = `Recharging... energy ${h.energy}/${CONFIG.hero.maxEnergy}`;
+      if (h.charging) hint = 'Linked to the charging station - E to unplug';
       else if (h.def.magazine > 0 && h.reloadTimer === 0 && h.ammo === 0) hint = 'Press R to reload';
       else if (world.nearCardDoor()) {
         // messages des portes à carte de l'original
@@ -127,7 +132,12 @@ export class Hud {
         hintColor = door && world.hasCard(door.card) ? '#ffe400' : door?.card === 'green' ? '#55ff66' : '#c060ff';
       }
       else if (world.usableButton()) hint = 'Press E';
-      else if (h.energy < CONFIG.hero.maxEnergy && world.nearestOutlet(CONFIG.outlet.range)) hint = 'Hold E to recharge';
+      else {
+        const outlet = world.nearestOutlet(CONFIG.outlet.range);
+        const canGive = outlet && ((outlet.energyLeft > 0 && h.energy < CONFIG.hero.maxEnergy) || (outlet.repairLeft > 0 && h.hp < h.def.maxHealth));
+        if (canGive) hint = 'Press E to plug in';
+        else if (outlet && outlet.energyLeft === 0 && outlet.repairLeft === 0) hint = 'This charging station is empty';
+      }
     }
     this.hint.setText(hint).setColor(hintColor);
     this.countdown.setText(world.exitCountdown > 0 ? `Leaving area :\n${Math.ceil(world.exitCountdown / 60)}` : '');

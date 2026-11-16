@@ -34,6 +34,7 @@ export function createNpc(world: World, id: number, inst: LevelInstance, def: Np
     attackRange: soldier ? world.rng.int(soldier.attackRangeMin, soldier.attackRangeMax) : 0,
     ammo: soldier ? soldier.magazine : 0,
     fireTimer: 0, reloadTimer: 0, repathTimer: 0, surpriseTimer: 0, spotted: false, viewRange: N.viewRange,
+    shieldHp: soldier && soldier.frontShield ? N.shieldHits : 0, shieldBroken: false,
     fear: false, fearTimer: 0, stateSteps: 0, walkDist: 0,
   };
 }
@@ -62,7 +63,12 @@ export function stepNpcs(world: World): void {
     if (npc.repathTimer > 0) npc.repathTimer--;
     if (npc.def.kind === 'soldier') stepSoldier(world, npc, npc.def);
     else if (npc.def.kind === 'civil') stepCivil(world, npc);
-    npc.angle = rotateToward(npc.angle, npc.dir, (npc.def.kind === 'soldier' ? N.rotateSpeedDeg : 10) * DEG);
+    const turn = npc.def.kind !== 'soldier' ? 10 : npc.def.frontShield ? N.shieldRotateSpeedDeg : N.rotateSpeedDeg;
+    npc.angle = rotateToward(npc.angle, npc.dir, turn * DEG);
+    if (npc.def.kind === 'soldier' && npc.def.frontShield && npc.shieldHp <= 0 && !npc.shieldBroken) {
+      npc.shieldBroken = true;
+      world.emit({ type: 'shieldBroken', x: npc.x, y: npc.y });
+    }
     npc.stateSteps = npc.state === before ? npc.stateSteps + 1 : 0;
   }
   separateNpcs(world);
@@ -155,7 +161,8 @@ function stepSoldier(world: World, npc: Npc, def: SoldierDef): void {
     // attaque : à l'arrêt, face au héros
     npc.path = null;
     npc.dir = toHero;
-    npc.angle = toHero;
+    // le robot bouclier pivote lentement, même en attaque : on peut passer dans son dos
+    if (!def.frontShield) npc.angle = toHero;
     processFire(world, npc, def);
   }
 }

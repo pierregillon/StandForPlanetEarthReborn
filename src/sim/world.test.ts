@@ -21,7 +21,7 @@ test('le niveau se charge avec ses entités', () => {
   assert.ok(w.doors.length >= 36, `portes : ${w.doors.length}`);
   assert.equal(w.buttons.length, 4);
   assert.equal(w.windows.length, 20);
-  assert.equal(w.outlets.length, 10);
+  assert.equal(w.outlets.length, 4, '4 bornes gardées au rez-de-chaussée');
   assert.ok(w.collision.all.length > 300);
 });
 
@@ -57,17 +57,85 @@ test('tirer vide le chargeur et R le remplit', () => {
   assert.equal(w.hero.ammo, magazine);
 });
 
-test("l'énergie revient à 3 puis une prise la fait monter", () => {
+test("l'énergie revient à 3 ; un appui relie à la borne, qui recharge en 3 s et répare", () => {
   const w = makeWorld();
-  w.hero.energy = 1;
+  const h = w.hero;
+  h.energy = 1;
   for (let i = 0; i < CONFIG.hero.energyTickSteps * 2 + 2; i++) w.step(NO_INPUT);
-  assert.equal(w.hero.energy, 3);
+  assert.equal(h.energy, 3);
+
   const outlet = w.outlets[0];
-  w.hero.x = outlet.x + 60;
-  w.hero.y = outlet.y;
-  for (let i = 0; i < CONFIG.outlet.stepsPerEnergy * 3; i++) w.step({ ...NO_INPUT, use: true });
-  assert.equal(w.hero.energy, 6);
-  assert.ok(w.hero.charging);
+  w.npcs = []; // personne ne doit tirer sur le heros pendant le test
+  h.x = outlet.x + 60;
+  h.y = outlet.y;
+  h.energy = 0;
+  h.hp = 4;
+  w.step({ ...NO_INPUT, usePressed: true, use: true });
+  assert.ok(h.charging, 'un seul appui suffit');
+  // le héros reste mobile pendant la recharge
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const free = dirs.find(([dx, dy]) => w.collision.circleFree(h.x + dx * 110, h.y + dy * 110, h.def.radius + 5, 1) && !w.sightBlocked(outlet.x, outlet.y, h.x + dx * 110, h.y + dy * 110));
+  assert.ok(free, 'une direction libre autour de la borne');
+  const start = { x: h.x, y: h.y };
+  for (let i = 0; i < 10; i++) w.step({ ...NO_INPUT, moveX: free[0], moveY: free[1], aimX: h.x + 300, aimY: h.y });
+  assert.ok(Math.hypot(h.x - start.x, h.y - start.y) > 50 && h.charging, 'il bouge sans casser le lien');
+  for (let i = 0; i < 175; i++) w.step(NO_INPUT);
+  assert.equal(h.energy, 12, 'recharge complète en 3 secondes');
+  assert.equal(h.hp, 9, 'la borne répare 5 points de vie');
+  assert.equal(outlet.energyLeft, 0);
+  assert.equal(outlet.repairLeft, 0);
+  assert.ok(!h.charging, 'le lien se coupe quand la borne est vide');
+
+  // borne épuisée : plus rien à en tirer
+  h.energy = 3;
+  w.step({ ...NO_INPUT, usePressed: true, use: true });
+  assert.ok(!h.charging);
+});
+
+test('le lien à la borne casse quand on s\'éloigne ; le surplus tient 15 s puis descend lentement', () => {
+  const w = makeWorld();
+  const h = w.hero;
+  const outlet = w.outlets[0];
+  w.npcs = []; // personne ne doit tirer sur le heros pendant le test
+  h.x = outlet.x + 60;
+  h.y = outlet.y;
+  w.step({ ...NO_INPUT, usePressed: true, use: true });
+  for (let i = 0; i < 100; i++) w.step(NO_INPUT);
+  assert.ok(h.energy >= 9 && h.charging);
+  const charged = h.energy;
+  // on sort du rayon
+  h.x = outlet.x + CONFIG.outlet.range + 200;
+  w.step(NO_INPUT);
+  assert.ok(!h.charging);
+  for (let i = 0; i < CONFIG.hero.overchargeHoldSteps - 5; i++) w.step(NO_INPUT);
+  assert.equal(h.energy, charged, 'surplus stable pendant 15 secondes');
+  for (let i = 0; i < CONFIG.hero.overchargeDecaySteps + 10; i++) w.step(NO_INPUT);
+  assert.equal(h.energy, charged - 1, 'puis -1 toutes les 5 secondes');
+});
+
+test('le bouclier du robot se brise après 6 coups de face', () => {
+  const w = makeWorld();
+  const robot = w.npcs.find((n) => n.object === 'obj_npc_robot_shield');
+  assert.ok(robot);
+  w.npcs = [robot];
+  robot.x = w.hero.x + 600;
+  robot.y = w.hero.y;
+  robot.spd = 0;
+  robot.fireTimer = 1e6;
+  const shoot = (): void => {
+    robot.angle = Math.PI; // face au héros, à gauche
+    robot.dir = Math.PI;
+    w.spawnBullet(w.hero.def.bullet, 'hero', robot.x - 150, robot.y, 0);
+    for (let i = 0; i < 6; i++) {
+      robot.angle = Math.PI;
+      w.step(NO_INPUT);
+    }
+  };
+  for (let n = 0; n < CONFIG.npc.shieldHits; n++) shoot();
+  assert.equal(robot.hp, robot.def.maxHealth, 'les 6 premiers coups sont encaissés');
+  assert.ok(robot.shieldBroken, 'bouclier brisé');
+  shoot();
+  assert.equal(robot.hp, robot.def.maxHealth - 1, 'ensuite les tirs de face portent');
 });
 
 test('le robot bouclier frappe et repousse le héros, et ne craint que les tirs dans le dos', () => {

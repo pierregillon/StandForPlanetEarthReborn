@@ -147,9 +147,14 @@ export interface Hero {
   invuln: number;
   walkDist: number;
   deadSteps: number;
-  /** Branché sur une prise de courant. */
+  /** Relié à une borne (il reste mobile dans son rayon). */
   charging: boolean;
   chargeTimer: number;
+  repairTimer: number;
+  /** Borne à laquelle le héros est relié, ou -1. */
+  linkedOutlet: number;
+  /** Steps pendant lesquels le surplus d'énergie ne redescend pas encore. */
+  overchargeHold: number;
   /** Soin fractionnaire accumulé (percentOfOneHp d'origine) : +1 PV quand il atteint 1. */
   healPool: number;
   // --- tir secondaire ---
@@ -273,6 +278,9 @@ export interface Npc {
   surpriseTimer: number;
   spotted: boolean;
   viewRange: number;
+  /** Coups que le bouclier frontal peut encore encaisser (robot bouclier). */
+  shieldHp: number;
+  shieldBroken: boolean;
   // civils
   fear: boolean;
   fearTimer: number;
@@ -352,6 +360,9 @@ export interface Outlet {
   y: number;
   /** Un héros est en train de s'y recharger. */
   inUse: boolean;
+  /** Énergie et points de vie que la borne peut encore donner. */
+  energyLeft: number;
+  repairLeft: number;
 }
 
 export interface Card {
@@ -445,4 +456,6 @@ export type SimEvent =
   | { type: 'notify'; text: string }
   | { type: 'changeRoom'; room: string; spawn: number }
   | { type: 'levelEnd' }
-  | { type: 'drillDestroyed'; id: number; x: number; y: number };
+  | { type: 'drillDestroyed'; id: number; x: number; y: number }
+  | { type: 'shieldBroken'; x: number; y: number }
+  | { type: 'outletEmpty'; x: number; y: number };

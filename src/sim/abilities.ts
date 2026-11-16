@@ -29,9 +29,12 @@ function spendEnergy(world: World, h: Hero, amount: number): void {
 
 /** Le robot bouclier ne craint que ce qui vient de l'arrière (cône de ±40°). */
 export function blockedByFrontShield(npc: Npc, fromX: number, fromY: number): boolean {
-  if (npc.def.kind !== 'soldier' || !npc.def.frontShield) return false;
+  if (npc.def.kind !== 'soldier' || !npc.def.frontShield || npc.shieldHp <= 0) return false;
   const toSource = Math.atan2(fromY - npc.y, fromX - npc.x);
-  return Math.abs(angleDiff(npc.angle, toSource)) < SHIELD_ARC;
+  if (Math.abs(angleDiff(npc.angle, toSource)) >= SHIELD_ARC) return false;
+  // le bouclier encaisse le coup et s'use ; brisé, il ne protège plus (GD-029)
+  npc.shieldHp--;
+  return true;
 }
 
 // ---------- Boucle des tirs du héros ----------
@@ -50,7 +53,7 @@ export function stepWeapons(world: World, h: Hero, input: Input): void {
   }
   if (h.fireTimer > 0) h.fireTimer--;
   if (h.fire2Timer > 0) h.fire2Timer--;
-  const busy = h.dashing || h.bump || h.charging;
+  const busy = h.dashing || h.bump;
   switch (h.def.kind) {
     case 'PetBot':
       standardFire1(world, h, input, busy);
@@ -504,7 +507,7 @@ function badaBotFire1(world: World, h: Hero, input: Input, busy: boolean): void 
 }
 
 function badaBotFire2(world: World, h: Hero, input: Input): void {
-  const want = input.fire2 && h.energy > 0 && !h.dashing && !h.bump && !h.charging;
+  const want = input.fire2 && h.energy > 0 && !h.dashing && !h.bump;
   if (want && h.fire2Anim < 0 && h.fire2Timer === 0) {
     h.fire2Timer = h.def.fire2CooldownSteps;
     h.fire2Anim = 0;

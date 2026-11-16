@@ -31,6 +31,7 @@ export class MenuScene extends Phaser.Scene {
       'Move: WASD / ZQSD   Aim: mouse   Fire: left click   Special: right click   Reload: R   Dash: Space   Use / recharge: E   Pause: Esc',
       { fontFamily: 'Aldo', fontSize: '26px', color: '#cfd8ff' }).setOrigin(0.5).setAlpha(0.8);
     Keys.clearPressed();
+    this.input.setDefaultCursor('default');
     // raccourci de développement : http://localhost:3000/?play lance directement la partie
     // (?play=EngiBot choisit le héros)
     // Le raccourci ne joue qu'une fois : ensuite, Exit ramène bien au menu.

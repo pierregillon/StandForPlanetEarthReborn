@@ -17,6 +17,36 @@ import type { Session } from '../../sim/session.ts';
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 const PANEL_DEPTH = 20000;
 type PanelKind = 'pause' | 'lose' | 'end';
+
+let cursorCss: string | null = null;
+/** Curseur de visée : un réticule dessiné une fois, utilisé comme curseur de la souris en jeu (GD-029). */
+function crosshairCursor(): string {
+  if (cursorCss) return cursorCss;
+  const size = 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return 'crosshair';
+  const mid = size / 2;
+  for (const [width, color] of [[5, 'rgba(0,0,0,0.75)'], [2, '#ffe36b']] as const) {
+    ctx.lineWidth = width;
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.arc(mid, mid, 11, 0, Math.PI * 2);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      ctx.moveTo(mid + dx * 6, mid + dy * 6);
+      ctx.lineTo(mid + dx * 18, mid + dy * 18);
+    }
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#ff4040';
+  ctx.beginPath();
+  ctx.arc(mid, mid, 2, 0, Math.PI * 2);
+  ctx.fill();
+  cursorCss = `url(${canvas.toDataURL()}) ${mid} ${mid}, crosshair`;
+  return cursorCss;
+}
 /** Musique du niveau, partagée entre les salles. */
 let music: Phaser.Sound.BaseSound | undefined;
 
@@ -93,11 +123,12 @@ export class GameScene extends Phaser.Scene {
     this.panel = null;
     this.debugHold = {};
 
-    const target = this.view.cameraTarget();
+    const target = this.cameraGoal();
     this.camX = target.x;
     this.camY = target.y;
     this.placeCamera();
     Keys.clearPressed();
+    this.input.setDefaultCursor(crosshairCursor());
 
     // la musique continue d'une salle à l'autre ; elle s'arrête au retour au menu
     if (this.cache.audio.exists('snd_rm_world2')) {
@@ -124,8 +155,20 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
+  /** Point visé par la caméra : le robot, décalé d'un tiers vers le curseur (GD-029). */
+  private cameraGoal(): { x: number; y: number } {
+    const h = this.world.hero;
+    if (h.state === 'dead') return { x: h.x, y: h.y };
+    const pointer = this.input.activePointer;
+    const { lookAhead, maxLookAhead, viewWidth, viewHeight } = CONFIG.camera;
+    return {
+      x: h.x + clamp((pointer.x - viewWidth / 2) * lookAhead, -maxLookAhead, maxLookAhead),
+      y: h.y + clamp((pointer.y - viewHeight / 2) * lookAhead, -maxLookAhead, maxLookAhead),
+    };
+  }
+
   private snapCamera(): void {
-    const target = this.view.cameraTarget();
+    const target = this.cameraGoal();
     this.camX = target.x;
     this.camY = target.y;
     this.placeCamera();
@@ -177,7 +220,7 @@ export class GameScene extends Phaser.Scene {
       this.acc -= STEP_MS;
       this.world.step(this.readInput(first));
       first = false;
-      const target = this.view.cameraTarget();
+      const target = this.cameraGoal();
       this.camX += (target.x - this.camX) / CONFIG.camera.smoothing;
       this.camY += (target.y - this.camY) / CONFIG.camera.smoothing;
     }
@@ -213,14 +256,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   private exitToMenu(): void {
+    this.input.setDefaultCursor('default');
     music?.stop();
     this.registry.set('session', null);
     this.scene.start('Menu');
   }
 
-  /** Retry : la salle en cours repart de zéro, le héros aussi ; les cartes et la consigne sont gardées (GD-007). */
+  /** Retry : toute la partie recommence. */
   private retry(): void {
-    this.world.forget();
+    // GD-029 : on repart du début du niveau, sans carte, avec le même héros
+    this.registry.set('session', null);
     this.scene.restart();
   }
 
