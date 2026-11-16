@@ -448,3 +448,27 @@ Le niveau se termine à la mort de SallyBot, suivie de l'écran de score.
 **Pourquoi.** C'est le comportement que le joueur connaissait, et il évite de rester sans arme en cherchant le bon geste.
 
 **Conséquences.** Le clic court sans batte ne coûte rien s'il n'y a aucune batte au sol ou pas d'énergie. Marcher sur une batte la reprend toujours gratuitement.
+
+---
+
+## GD-026 — Passage entre les salles, consignes et fin provisoire du niveau
+
+- **Date** : 2026-11-16
+- **Statut** : Acceptée
+- **Décidée par** : choix par défaut (application de GD-007, GD-009, GD-010)
+
+**Contexte.** L'étape 3 relie le rez-de-chaussée et l'étage et fait avancer les consignes, que le code d'origine déclare sans jamais les enchaîner.
+
+**Décision.**
+
+- **Escalier** : le passage est immédiat dès que le héros marche dessus, avec un fondu. C'est la règle d'origine quand tous les héros sont sur la zone ; seul, le joueur est « tous les héros ». On arrive à l'étage sur le premier jeu de points d'apparition, et au retour sur le second, à côté de l'escalier.
+- **Persistance** : une salle quittée garde son état (ennemis morts, portes ouvertes, vitres brisées, carte ramassée), comme avec `obj_roomsMemory`. Le héros garde ses points de vie, son énergie, son chargeur et ses cartes.
+- **Ce qui ne suit pas le héros** : la tourelle d'EngiBot reste dans sa salle (non persistante dans l'original). Les battes de BatBot laissées dans une salle lui sont rendues en changeant de salle, pour qu'il ne se retrouve pas désarmé sans pouvoir les rappeler.
+- **Consignes** : « Go to the upper floor » est validée en arrivant à l'étage ; « Find the purple key » en ramassant la carte violette ; « Go back to ground floor » en revenant au rez-de-chaussée avec la carte ; « Exit to the drilling area » en restant 10 secondes dans la zone de sortie d'origine (`obj_endLevel`, la bande nord de la carte), avec le compte à rebours « Leaving area ». La zone de sortie est inactive avant cette consigne.
+- **Fin provisoire** : tant que la zone de forage n'existe pas (étape 4), la sortie affiche un panneau « TO BE CONTINUED » avec les statistiques de l'écran de score d'origine.
+- **Retry après une défaite** : la salle en cours repart de zéro avec un héros neuf ; l'autre salle, les cartes et la consigne en cours sont conservées.
+- **Musique** : elle continue d'une salle à l'autre.
+
+**Pourquoi.** Suivre le scénario que décrivent les textes de consigne et les réglages des passages posés dans les salles, sans inventer d'étape.
+
+**Conséquences.** À l'étape 4, la zone de sortie mènera à la zone de forage au lieu du panneau provisoire. Les boîtes bonus aléatoires ne sont toujours pas en jeu : la décision de les garder ou non reste à prendre avec l'utilisateur (voir les points ouverts du cadre du MVP).

@@ -8,8 +8,8 @@ Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque éta
 
 ## État actuel
 
-**Étapes 1 et 2 livrées le 2026-11-16 — l'étape 2 attend les essais de l'utilisateur.**
-Prochaine action : recueillir ses retours sur l'étape 2 (voir « À vérifier par l'utilisateur » de l'étape 2), puis étape 3 (étage, carte violette, enchaînement des consignes).
+**Étapes 1, 2 et 3 livrées le 2026-11-16 — l'étape 3 attend les essais de l'utilisateur.**
+Prochaine action : recueillir ses retours sur l'étape 3 et sa décision sur les boîtes bonus, puis étape 4 (zone de forage, foreuses, boss SallyBot, brouillard, lumières, écran de score).
 
 ## Prérequis (début de l'étape 1)
 
@@ -83,10 +83,24 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur.
 
 ## Étape 3 — Étage, cartes, objectifs
 
-- [ ] Conversion de `rm_world2_1` ; passage entre salles (escalier, téléporteurs, fondu).
-- [ ] Cartes verte et violette, portes à carte, messages associés.
-- [ ] Enchaînement des 6 consignes.
-- [ ] Bonus (selon la décision prise sur les boîtes bonus).
+Livrée le 2026-11-16, en attente des essais de l'utilisateur.
+
+- [x] Conversion de `rm_world2_1` ; passage entre salles par l'escalier, avec fondu, dans les deux sens (GD-026).
+- [x] Cartes verte et violette, portes à carte, messages associés (GD-024).
+- [x] Enchaînement des consignes 1 à 4 ; les deux dernières (foreuses, boss) arrivent avec l'étape 4.
+- [x] Sortie du niveau : compte à rebours « Leaving area », puis panneau de fin provisoire avec les statistiques.
+- [ ] Bonus : **non fait, décision en attente** — garder ou non les boîtes bonus aléatoires (invincibilité, vitesse). L'utilisateur trouvait les bonus à ramasser peu réalistes.
+
+### Ce qui a été vérifié, et comment
+
+- Par tests automatiques (`npm test`, 22 tests) : le parcours complet escalier → étage → carte violette → retour → porte violette → zone de sortie → fin ; la zone de sortie inactive avant la consigne ; l'état d'une salle conservé au retour.
+- À l'écran : montée à l'étage avec fondu, affichage de l'étage, ramassage de la carte violette, retour au rez-de-chaussée, compte à rebours de sortie, panneau de fin.
+
+### À vérifier par l'utilisateur
+
+- Le trajet à pied dans l'étage (19 ennemis, 43 civils) : je m'y suis déplacé par commandes de test, pas en jouant.
+- La difficulté de l'ensemble du niveau avec un seul héros.
+- La lisibilité de la zone de sortie : c'est toute la bande nord de la carte, sans marquage au sol.
 
 ## Étape 4 — Boss, ambiance, score
 
@@ -108,3 +122,4 @@ Multijoueur en ligne, link et résurrection, manette, ombres portées, autres mo
 | 2026-11-15 | Analyse du jeu d'origine (version 2019), cadrage du MVP avec l'utilisateur, création du dépôt et de la documentation. |
 | 2026-11-16 | Étape 1 : Node 22 portable, squelette du projet, outils d'extraction et de conversion, simulation (héros, ennemis, civils, portes, bornes), affichage, menus. Décisions GD-016 à GD-021 et ADR-009 à ADR-012. |
 | 2026-11-16 | Retours de l'utilisateur sur l'étape 1 (GD-022). Étape 2 : les quatre héros, leurs tirs principaux et secondaires, écran de choix, carte verte et portes à carte. Décisions GD-023 et GD-024. |
+| 2026-11-16 | Retours sur l'étape 2 (GD-025). Étape 3 : partie partagée entre les salles, escalier, étage, carte violette, consignes 1 à 4, sortie et fin provisoire (GD-026). |

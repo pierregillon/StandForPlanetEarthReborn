@@ -4,7 +4,7 @@ import { CONFIG, STEPS_PER_SECOND } from './config.ts';
 import type { BulletDef, HeroDef } from './config.ts';
 import {
   BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, BLOCK_SOUND, IS_WINDOW,
-  CollisionWorld, Rng, angleDiff, boxNormal, clamp, gmAngleToRad, localToWorld, makeBox, reflectAngle, segmentCircle,
+  CollisionWorld, Rng, angleDiff, boxNormal, clamp, distanceToBox, gmAngleToRad, localToWorld, makeBox, reflectAngle, segmentCircle,
 } from './geom.ts';
 import type { Obstacle } from './geom.ts';
 import { NavGrid } from './nav.ts';
@@ -12,6 +12,8 @@ import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, step
 import type { NewExplosion } from './abilities.ts';
 import { stepHero } from './hero.ts';
 import { createNpc, stepNpcs } from './npc.ts';
+import { GROUND_FLOOR, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
+import type { Session } from './session.ts';
 import type {
   Bat, Bullet, Button, Card, DecorItem, Door, Drone, Explosion, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
   SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, WindowPane, Zone,
@@ -32,9 +34,17 @@ export class World {
   readonly nav: NavGrid;
   readonly rng: Rng;
   readonly events: SimEvent[] = [];
-  readonly stats: Stats = {
-    totalCivil: 0, totalSoldier: 0, civilKilled: 0, soldierKilled: 0, damageTaken: 0, healed: 0, ammoUsed: 0, energyUsed: 0,
-  };
+  /** État partagé entre les salles de la partie (cartes, consigne, statistiques). */
+  readonly session: Session;
+  readonly stats: Stats;
+  private readonly spawns = new Map<number, { x: number; y: number }>();
+  /** Zone de sortie du niveau (obj_endLevel), active à partir de la consigne « Exit to the drilling area ». */
+  private exitZone: Obstacle | null = null;
+  /** Steps restants avant de quitter le niveau, -1 hors de la zone de sortie. */
+  exitCountdown = -1;
+  private ended = false;
+  /** Ce que cette salle a ajouté aux statistiques de la partie (retiré si la salle est rejouée). */
+  private readonly counted = { civil: 0, soldier: 0, civilKilled: 0, soldierKilled: 0 };
 
   tick = 0;
   hero: Hero;
@@ -51,14 +61,24 @@ export class World {
   cards: Card[] = [];
   zones: Zone[] = [];
   decor: DecorItem[] = [];
+  /** La salle va être rejouée de zéro (Retry) : ses PNJ ne doivent pas être comptés deux fois. */
+  forget(): void {
+    this.stats.totalCivil -= this.counted.civil;
+    this.stats.totalSoldier -= this.counted.soldier;
+    this.stats.civilKilled -= this.counted.civilKilled;
+    this.stats.soldierKilled -= this.counted.soldierKilled;
+    this.session.rooms.delete(this.level.name);
+  }
+
   /** Consigne affichée au joueur (GD-010). */
-  objective = 'Go to the upper floor';
   private nextId = 1;
 
   readonly level: LevelData;
   readonly sprites: SpriteManifest;
 
-  constructor(level: LevelData, sprites: SpriteManifest, heroName: string, seed = 1) {
+  constructor(level: LevelData, sprites: SpriteManifest, heroName: string, seed = 1, session: Session = createSession(heroName, level.name)) {
+    this.session = session;
+    this.stats = session.stats;
     this.level = level;
     this.sprites = sprites;
     this.width = level.width;
@@ -73,12 +93,49 @@ export class World {
       this.nav.mark(o, 1);
     }
 
-    let spawn = { x: level.width / 2, y: level.height / 2 };
     for (const inst of level.instances) {
-      if (inst.object === 'obj_spawn1' && Number(inst.props.spawnNumber ?? 1) === 1) spawn = { x: inst.x, y: inst.y };
+      if (inst.object === 'obj_spawn1') this.spawns.set(Number(inst.props.spawnNumber ?? 1), { x: inst.x, y: inst.y });
       this.addInstance(inst);
     }
+    const spawn = this.spawnPoint(session.spawnNumber);
     this.hero = this.createHero(CONFIG.heroes[heroName], spawn.x, spawn.y);
+  }
+
+  /** Consigne affichée au joueur (GD-010). */
+  get objective(): string {
+    return OBJECTIVES[this.session.objective] ?? '';
+  }
+
+  private spawnPoint(spawnNumber: number): { x: number; y: number } {
+    return this.spawns.get(spawnNumber) ?? this.spawns.get(1) ?? { x: this.width / 2, y: this.height / 2 };
+  }
+
+  /**
+   * Le héros entre dans cette salle en venant d'une autre : il garde ses points de vie, son énergie et son
+   * chargeur. Les battes laissées dans l'autre salle lui sont rendues (GD-026).
+   */
+  enter(previous: Hero | null, spawnNumber: number): void {
+    const spawn = this.spawnPoint(spawnNumber);
+    const h = this.createHero(this.hero.def, spawn.x, spawn.y);
+    if (previous) {
+      h.hp = previous.hp;
+      h.energy = previous.energy;
+      h.energyTimer = previous.energyTimer;
+      h.ammo = previous.ammo;
+      h.reloadTimer = previous.reloadTimer;
+      h.dashCharges = previous.dashCharges;
+      h.dashRechargeTimer = previous.dashRechargeTimer;
+      h.healPool = previous.healPool;
+      h.angle = previous.angle;
+      h.moveAngle = previous.moveAngle;
+    }
+    this.hero = h;
+    // ce que le héros avait laissé derrière lui dans cette salle ne l'attend pas
+    this.bats.length = 0;
+    this.drones.length = 0;
+    this.bullets.length = 0;
+    this.exitCountdown = -1;
+    for (const z of this.zones) z.active = false;
   }
 
   sprite(name: string | null | undefined): SpriteInfo {
@@ -129,8 +186,13 @@ export class World {
       if (!def) return;
       const npc = createNpc(this, this.nextId++, inst, def);
       this.npcs.push(npc);
-      if (def.kind === 'civil') this.stats.totalCivil++;
-      else this.stats.totalSoldier++;
+      if (def.kind === 'civil') {
+        this.stats.totalCivil++;
+        this.counted.civil++;
+      } else {
+        this.stats.totalSoldier++;
+        this.counted.soldier++;
+      }
     } else if (inst.object === CONFIG.outlet.replacesObject) {
       this.outlets.push({ id: this.nextId++, x: inst.x, y: inst.y, inUse: false });
     } else if (inst.object === 'obj_card_green' || inst.object === 'obj_card_purple') {
@@ -138,8 +200,13 @@ export class World {
         id: this.nextId++, color: inst.object === 'obj_card_green' ? 'green' : 'purple', sprite: spriteName ?? 'spr_doorKey_green',
         x: inst.x, y: inst.y, carried: false,
       });
-    } else if (inst.object === 'obj_nextRoom') {
-      this.zones.push({ kind: 'stairs', x: inst.x, y: inst.y, radius: 160, sprite: spriteName ?? 'spr_teleporteur_waiting', active: false });
+    } else if (inst.object === 'obj_nextRoom' || inst.object === 'obj_previousRoom') {
+      this.zones.push({
+        kind: 'stairs', x: inst.x, y: inst.y, radius: 160, sprite: spriteName ?? 'spr_teleporteur_waiting', active: false,
+        targetRoom: String(inst.props.nextRoom ?? ''), targetSpawn: Number(inst.props.spawnNumberOfNextRoom ?? 1),
+      });
+    } else if (inst.object === 'obj_endLevel') {
+      this.exitZone = this.instanceBox(inst, spriteName, 0);
     } else if (isA(level, inst.object, 'obj_decor_base')) {
       // mobilier et autres obstacles fixes
       const bulletCrossed = inst.props.bulletCrossed === true;
@@ -216,6 +283,7 @@ export class World {
     this.stepBullets();
     stepAbilityObjects(this);
     this.stepZones();
+    this.stepObjectives();
   }
 
   // ---------- Dégâts ----------
@@ -253,8 +321,13 @@ export class World {
     const i = this.npcs.indexOf(npc);
     if (i < 0) return;
     this.npcs.splice(i, 1);
-    if (npc.def.kind === 'civil') this.stats.civilKilled++;
-    else this.stats.soldierKilled++;
+    if (npc.def.kind === 'civil') {
+      this.stats.civilKilled++;
+      this.counted.civilKilled++;
+    } else {
+      this.stats.soldierKilled++;
+      this.counted.soldierKilled++;
+    }
     this.emit({ type: 'sound', name: 'snd_human_explosion', x: npc.x, y: npc.y });
     this.emit({ type: 'npcDeath', x: npc.x, y: npc.y, angle: npc.angle, sprite: npc.def.sprites.dead, genre: npc.def.genre });
   }
@@ -496,7 +569,7 @@ export class World {
   // ---------- Cartes et portes à carte ----------
 
   hasCard(color: string | null): boolean {
-    return this.cards.some((c) => c.carried && c.color === color);
+    return color !== null && this.session.carried.has(color);
   }
 
   /** Porte à carte fermée à portée du héros (100 px), s'il y en a une. */
@@ -516,6 +589,7 @@ export class World {
     for (const card of this.cards) {
       if (!card.carried && Math.hypot(h.x - card.x, h.y - card.y) <= h.def.radius + 30) {
         card.carried = true;
+        this.session.carried.add(card.color);
         this.emit({ type: 'notify', text: `${card.color === 'green' ? 'Green' : 'Purple'} card found` });
       }
     }
@@ -555,8 +629,29 @@ export class World {
     const h = this.hero;
     for (const z of this.zones) {
       const inside = h.state !== 'dead' && Math.hypot(h.x - z.x, h.y - z.y) <= z.radius;
-      if (inside && !z.active) this.emit({ type: 'notify', text: 'The upper floor is not open yet.' });
+      // seul, le joueur représente « tous les héros » : le passage est immédiat, sans compte à rebours
+      if (inside && !z.active && z.targetRoom) this.emit({ type: 'changeRoom', room: z.targetRoom, spawn: z.targetSpawn });
       z.active = inside;
+    }
+  }
+
+  /** Enchaînement des consignes du monde 2 (GD-010) et sortie du niveau. */
+  private stepObjectives(): void {
+    const s = this.session;
+    if (s.objective === 0 && this.level.name === UPPER_FLOOR) s.objective = 1;
+    if (s.objective === 1 && s.carried.has('purple')) s.objective = 2;
+    if (s.objective === 2 && this.level.name === GROUND_FLOOR) s.objective = 3;
+    const h = this.hero;
+    const inExit = s.objective >= 3 && this.exitZone !== null && h.state !== 'dead' && distanceToBox(this.exitZone, h.x, h.y) <= 0;
+    if (!inExit) {
+      this.exitCountdown = -1;
+      return;
+    }
+    if (this.exitCountdown < 0) this.exitCountdown = CONFIG.hero.exitCountdownSteps;
+    if (this.exitCountdown > 0) this.exitCountdown--;
+    if (this.exitCountdown === 0 && !this.ended) {
+      this.ended = true;
+      this.emit({ type: 'levelEnd' });
     }
   }
 

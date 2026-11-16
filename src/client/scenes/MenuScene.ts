@@ -37,6 +37,7 @@ export class MenuScene extends Phaser.Scene {
     if (play !== null && !MenuScene.shortcutUsed) {
       MenuScene.shortcutUsed = true;
       if (CONFIG.heroes[play]) this.registry.set('hero', play);
+      this.registry.set('session', null);
       this.scene.start('Game');
     }
   }

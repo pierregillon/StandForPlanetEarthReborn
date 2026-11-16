@@ -371,6 +371,9 @@ export interface Zone {
   radius: number;
   sprite: string;
   active: boolean;
+  /** Salle d'arrivée et jeu de points d'apparition à y utiliser. */
+  targetRoom: string;
+  targetSpawn: number;
 }
 
 /** Élément de décor fixe, dessiné tel quel par l'affichage. */
@@ -413,4 +416,6 @@ export type SimEvent =
   | { type: 'reloadEnd' }
   | { type: 'emptyClick' }
   | { type: 'outletTick'; x: number; y: number }
-  | { type: 'notify'; text: string };
+  | { type: 'notify'; text: string }
+  | { type: 'changeRoom'; room: string; spawn: number }
+  | { type: 'levelEnd' };

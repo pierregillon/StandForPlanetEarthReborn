@@ -9,12 +9,16 @@ import { WorldView } from '../view/WorldView.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { clamp } from '../../sim/geom.ts';
 import { NO_INPUT } from '../../sim/types.ts';
-import type { Input, LevelData, SpriteManifest } from '../../sim/types.ts';
+import type { Hero, Input, LevelData, SpriteManifest } from '../../sim/types.ts';
 import { World } from '../../sim/world.ts';
-import { FIRST_LEVEL } from './BootScene.ts';
+import { createSession } from '../../sim/session.ts';
+import type { Session } from '../../sim/session.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 const PANEL_DEPTH = 20000;
+type PanelKind = 'pause' | 'lose' | 'end';
+/** Musique du niveau, partagée entre les salles. */
+let music: Phaser.Sound.BaseSound | undefined;
 
 export class GameScene extends Phaser.Scene {
   private world!: World;
@@ -25,8 +29,9 @@ export class GameScene extends Phaser.Scene {
   private camY = 0;
   /** Entrées forcées depuis la console (sfpeDebug.hold), pour tester sans clavier. */
   private debugHold: Partial<Input> = {};
-  private panel: { objects: Phaser.GameObjects.GameObject[]; buttons: ButtonColumn; kind: 'pause' | 'lose' } | null = null;
-  private music?: Phaser.Sound.BaseSound;
+  private panel: { objects: Phaser.GameObjects.GameObject[]; buttons: ButtonColumn; kind: PanelKind } | null = null;
+  private session!: Session;
+  private leaving = false;
 
   constructor() {
     super('Game');
@@ -56,10 +61,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    const level = this.cache.json.get(`level:${FIRST_LEVEL}`) as LevelData;
     const sprites = this.cache.json.get('sprites') as SpriteManifest;
     const floors = (this.cache.json.get('floors') ?? {}) as FloorManifest;
-    this.world = new World(level, sprites, this.heroName(), (Date.now() & 0xffff) + 1);
+    // la partie (cartes, consigne, salles visitées) survit aux changements de salle
+    let session = this.registry.get('session') as Session | null | undefined;
+    if (!session || session.heroName !== this.heroName()) {
+      session = createSession(this.heroName());
+      this.registry.set('session', session);
+    }
+    this.session = session;
+    const arriving = (this.registry.get('arrivingHero') ?? null) as Hero | null;
+    this.registry.set('arrivingHero', null);
+    let world = session.rooms.get(session.room);
+    if (!world) {
+      const level = this.cache.json.get(`level:${session.room}`) as LevelData;
+      world = new World(level, sprites, session.heroName, (Date.now() & 0xffff) + 1, session);
+      session.rooms.set(session.room, world);
+      if (arriving) world.enter(arriving, session.spawnNumber);
+    } else if (arriving) {
+      world.enter(arriving, session.spawnNumber);
+    }
+    world.drainEvents();
+    this.world = world;
+    this.leaving = false;
+    if (arriving) this.cameras.main.fadeIn(200, 19, 19, 19);
     this.view = new WorldView(this, this.world, floors);
     this.hud = new Hud(this, this.world);
     this.acc = 0;
@@ -72,15 +97,11 @@ export class GameScene extends Phaser.Scene {
     this.placeCamera();
     Keys.clearPressed();
 
+    // la musique continue d'une salle à l'autre ; elle s'arrête au retour au menu
     if (this.cache.audio.exists('snd_rm_world2')) {
-      this.music = this.sound.add('snd_rm_world2', { loop: true, volume: 0.35 });
-      this.music.play();
+      music ??= this.sound.add('snd_rm_world2', { loop: true, volume: 0.35 });
+      if (!music.isPlaying) music.play();
     }
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.music?.stop();
-      this.music?.destroy();
-      this.music = undefined;
-    });
     // exposé pour le débogage et les tests automatiques dans le navigateur (console : sfpeDebug)
     (window as unknown as { sfpeWorld: World; sfpeDebug: unknown }).sfpeWorld = this.world;
     (window as unknown as { sfpeDebug: unknown }).sfpeDebug = {
@@ -163,11 +184,42 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.world.drainEvents()) {
       if (e.type === 'sound') this.playSound(e.name, e.x, e.y);
       else if (e.type === 'notify') this.hud.notify(e.text);
+      else if (e.type === 'changeRoom') this.changeRoom(e.room, e.spawn);
+      else if (e.type === 'levelEnd') this.openPanel('end');
       else this.view.handleEvent(e);
     }
     this.view.sync(delta / 1000);
     this.hud.update();
     if (this.world.gameOver) this.openPanel('lose');
+  }
+
+  /** Passage par un escalier : fondu, puis la scène redémarre sur l'autre salle avec le même héros. */
+  private changeRoom(room: string, spawn: number): void {
+    if (this.leaving) return;
+    if (!this.cache.json.exists(`level:${room}`)) {
+      this.hud.notify('This area is not open yet.');
+      return;
+    }
+    this.leaving = true;
+    this.cameras.main.fadeOut(200, 19, 19, 19);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.session.room = room;
+      this.session.spawnNumber = spawn;
+      this.registry.set('arrivingHero', this.world.hero);
+      this.scene.restart();
+    });
+  }
+
+  private exitToMenu(): void {
+    music?.stop();
+    this.registry.set('session', null);
+    this.scene.start('Menu');
+  }
+
+  /** Retry : la salle en cours repart de zéro, le héros aussi ; les cartes et la consigne sont gardées (GD-007). */
+  private retry(): void {
+    this.world.forget();
+    this.scene.restart();
   }
 
   /** Son positionné : volume atténué linéairement avec la distance à la caméra. */
@@ -178,18 +230,39 @@ export class GameScene extends Phaser.Scene {
     if (volume > 0.02) this.sound.play(name, { volume });
   }
 
-  private openPanel(kind: 'pause' | 'lose'): void {
+  private openPanel(kind: PanelKind): void {
+    if (this.panel) return;
     const { width, height } = this.scale;
     const bg = this.add.rectangle(width / 2, height / 2, width / 2, height / 2, 0x040c29, 0.9).setScrollFactor(0).setDepth(PANEL_DEPTH);
-    const title = this.add.text(width / 2, height / 2 - 150, kind === 'lose' ? 'YOU LOSE' : 'PAUSE', {
-      fontFamily: 'Aldo', fontSize: '90px', color: '#ffffff',
+    const titles: Record<PanelKind, string> = { pause: 'PAUSE', lose: 'YOU LOSE', end: 'TO BE CONTINUED' };
+    const title = this.add.text(width / 2, height / 2 - 180, titles[kind], {
+      fontFamily: 'Aldo', fontSize: kind === 'end' ? '70px' : '90px', color: '#ffffff',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(PANEL_DEPTH + 1);
-    const exit = { label: 'Exit', sprite: 'spr_btn_exit', action: () => this.scene.start('Menu') };
-    const buttons = new ButtonColumn(this, width / 2, height / 2, kind === 'lose'
-      ? [{ label: 'Retry', sprite: 'spr_btn_retry', action: () => this.scene.restart() }, exit]
-      : [{ label: 'Resume', sprite: 'spr_btn_resume', action: () => this.closePanel() }, exit],
-    PANEL_DEPTH + 1);
-    this.panel = { objects: [bg, title], buttons, kind };
+    const objects: Phaser.GameObjects.GameObject[] = [bg, title];
+    const exit = { label: 'Exit', sprite: 'spr_btn_exit', action: () => this.exitToMenu() };
+    let specs = [{ label: 'Resume', sprite: 'spr_btn_resume', action: () => this.closePanel() }, exit];
+    let buttonsY = height / 2;
+    if (kind === 'lose') specs = [{ label: 'Retry', sprite: 'spr_btn_retry', action: () => this.retry() }, exit];
+    if (kind === 'end') {
+      // fin provisoire : la zone de forage et le boss arrivent à l'étape 4 ; statistiques de l'écran de score d'origine
+      const s = this.session.stats;
+      const pct = (n: number, total: number): number => (total > 0 ? Math.round((100 * n) / total) : 0);
+      const lines = [
+        'The drilling area is coming next.',
+        '',
+        `Percent of civil killed : ${pct(s.civilKilled, s.totalCivil)}%`,
+        `Percent of soldier killed : ${pct(s.soldierKilled, s.totalSoldier)}%`,
+        `Total damage taken : ${s.damageTaken}     Total heal point : ${s.healed}`,
+        `Total ammo used : ${s.ammoUsed}     Total energy used : ${s.energyUsed}`,
+      ];
+      objects.push(this.add.text(width / 2, height / 2 - 20, lines.join('\n'), {
+        fontFamily: 'Aldo', fontSize: '30px', color: '#cfd8ff', align: 'center', lineSpacing: 6,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(PANEL_DEPTH + 1));
+      specs = [exit];
+      buttonsY = height / 2 + 190;
+    }
+    const buttons = new ButtonColumn(this, width / 2, buttonsY, specs, PANEL_DEPTH + 1);
+    this.panel = { objects, buttons, kind };
     Keys.clearPressed();
   }
 

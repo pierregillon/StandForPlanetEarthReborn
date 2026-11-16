@@ -117,6 +117,8 @@ export const CONFIG = {
     /** Marge par rapport aux bords de la salle. */
     roomMargin: 70,
     deathMenuDelaySteps: s(2.5),
+    /** Temps à rester dans la zone de sortie pour quitter le niveau (« Leaving area »). */
+    exitCountdownSteps: s(10),
   },
 
   heroes: {

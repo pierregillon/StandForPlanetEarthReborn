@@ -4,7 +4,8 @@ import { commonSounds, frameKey, spritesNeeded } from '../assets.ts';
 import type { FloorManifest, SoundManifest } from '../assets.ts';
 import type { LevelData, SpriteManifest } from '../../sim/types.ts';
 
-export const FIRST_LEVEL = 'rm_world2';
+/** Salles chargées au démarrage (la zone de forage arrivera à l'étape 4). */
+export const LEVELS = ['rm_world2', 'rm_world2_1'];
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -15,14 +16,14 @@ export class BootScene extends Phaser.Scene {
     this.load.json('sprites', 'assets/sprites.json');
     this.load.json('floors', 'assets/floors.json');
     this.load.json('sounds', 'assets/sounds.json');
-    this.load.json(`level:${FIRST_LEVEL}`, `levels/${FIRST_LEVEL}.json`);
+    for (const name of LEVELS) this.load.json(`level:${name}`, `levels/${name}.json`);
   }
 
   create(): void {
     const { width, height } = this.scale;
     const sprites = this.cache.json.get('sprites') as SpriteManifest | undefined;
-    const level = this.cache.json.get(`level:${FIRST_LEVEL}`) as LevelData | undefined;
-    if (!sprites || !level) {
+    const levels = LEVELS.map((name) => this.cache.json.get(`level:${name}`) as LevelData | undefined).filter((l): l is LevelData => !!l);
+    if (!sprites || levels.length !== LEVELS.length) {
       this.add.text(width / 2, height / 2, 'Assets are missing.\nRun: npm run extract-assets && npm run convert-rooms', {
         fontFamily: 'monospace', fontSize: '28px', color: '#ff6666', align: 'center',
       }).setOrigin(0.5);
@@ -38,10 +39,11 @@ export class BootScene extends Phaser.Scene {
       bar.width = 600 * p;
     });
 
-    for (const name of spritesNeeded(level, sprites)) {
+    const names = new Set(levels.flatMap((level) => spritesNeeded(level, sprites)));
+    for (const name of names) {
       for (let i = 0; i < sprites[name].frames; i++) this.load.image(frameKey(name, i), `assets/sprites/${name}/${i}.png`);
     }
-    const tilesets = new Set(level.floors.map((f) => f.tileset));
+    const tilesets = new Set(levels.flatMap((level) => level.floors.map((f) => f.tileset)));
     for (const t of tilesets) if (floors[t]) this.load.image(`floorsrc:${t}`, `assets/${floors[t].image}`);
     for (const name of commonSounds(sounds)) this.load.audio(name, `assets/${sounds[name].file}`);
 

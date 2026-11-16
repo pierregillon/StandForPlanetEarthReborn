@@ -19,6 +19,7 @@ export class Hud {
   private readonly objective: Phaser.GameObjects.Text;
   private readonly notice: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
+  private readonly countdown: Phaser.GameObjects.Text;
   private readonly dashPips: Phaser.GameObjects.Arc[] = [];
   private readonly cardIcons = new Map<string, Phaser.GameObjects.Image>();
   private noticeUntil = 0;
@@ -58,6 +59,10 @@ export class Hud {
     this.notice = scene.add.text(10, (height * 4) / 5 - 40, '', {
       fontFamily: 'Aldo', fontSize: '24px', color: '#ffe36b', wordWrap: { width: 500 }, ...OUTLINE, strokeThickness: 4,
     }).setScrollFactor(0).setDepth(DEPTH);
+    // compte à rebours de sortie du niveau, en haut de l'écran comme obj_countdown_GUI
+    this.countdown = scene.add.text(width / 2, height / 8, '', {
+      fontFamily: 'Aldo', fontSize: '60px', color: '#e04348', align: 'center', ...OUTLINE,
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH);
     this.hint = scene.add.text(width / 2, height - 190, '', {
       fontFamily: 'Blank', fontStyle: 'bold', fontSize: '30px', color: '#ffe400', ...OUTLINE,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH);
@@ -113,5 +118,6 @@ export class Hud {
       else if (h.energy < CONFIG.hero.maxEnergy && world.nearestOutlet(CONFIG.outlet.range)) hint = 'Hold E to recharge';
     }
     this.hint.setText(hint).setColor(hintColor);
+    this.countdown.setText(world.exitCountdown > 0 ? `Leaving area :\n${Math.ceil(world.exitCountdown / 60)}` : '');
   }
 }
