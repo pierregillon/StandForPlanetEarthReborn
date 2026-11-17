@@ -25,21 +25,25 @@ Proposé. Aucune salle n'est à construire : les pièces du monde 2 se lisent d�
 | Sas d'entrée | Rez-de-chaussée, pièce 1 | Une porte automatique |
 | **Hall d'accueil** | Rez-de-chaussée, pièce 2 | 3 écrans, le comptoir, un aquarium, 5 civils |
 | Rédaction | Rez-de-chaussée, pièces 17 et 18 | 10 écrans, bureaux, lampes |
-| **Régie** | Étage, pièce 17, tout près de l'escalier | 13 écrans, 8 sièges, des techniciens |
+| Salle de montage | Étage, pièce 17, près de l'escalier | 13 écrans, 8 sièges, des techniciens |
 | Salle des serveurs | Étage, pièce 21 | 7 écrans, 4 serveurs, une baie |
 | Bureau de la direction | Étage, pièce 27 | La carte violette, un aquarium, des fauteuils |
-| **Plateau** | Rez-de-chaussée, pièce 29, aile est | Un grand hall au sol de béton : 7 techniciens, 7 policiers, 6 écrans, des caisses de matériel |
-| Quais de livraison | Rez-de-chaussée, pièces 30 et 31 | Deux fourgons, des portes à bouton vers l'extérieur |
+| **Régie** | Rez-de-chaussée, moitié ouest de la pièce 29 (x 6800 à 8224) | Une salle moquettée : une rangée de 6 écrans avec tables et sièges, 4 techniciens assis, 3 policiers, une baie de serveurs derrière une cloison vitrée, et un bouton |
+| **Plateau** | Rez-de-chaussée, moitié est de la pièce 29 (x 8256 à 10976) | Un grand hall au sol de béton, avec une alcôve de 1375 × 950 px au fond : 3 robots ennemis, 4 policiers, 3 techniciens, des caisses de matériel |
+| Quais de livraison | Rez-de-chaussée, pièces 30 et 31, de part et d'autre de l'alcôve | Deux fourgons, deux portails à bouton vers l'extérieur |
 
-Le parcours existant mène déjà au plateau en dernier (vérifié avec les collisions du jeu) :
+**La régie est mitoyenne du plateau** (demande de l'utilisateur), et elle l'est déjà dans le niveau d'origine. La pièce 29 du plan est une seule zone de brouillard, mais ce sont deux salles séparées par une baie vitrée de 1800 px de long : d'un côté la rangée d'écrans, tournée vers la vitre ; de l'autre le hall de béton. Détail : [plan de l'aile est](plans/rm_world2-aile-est.svg). Et le bouton qui se trouve dans la régie est celui qui ouvre les deux portes du hall : prendre la régie ouvre le plateau.
 
-1. Au départ, on n'accède qu'au hall, à l'aile ouest et à la salle de la carte verte (pièce 13).
+Le parcours existant mène au plateau en dernier (vérifié avec les collisions du jeu) :
+
+1. Au départ, on n'accède qu'au hall d'accueil, à l'aile ouest et à la salle de la carte verte (pièce 13).
 2. La carte verte ouvre la rédaction et l'escalier.
-3. À l'étage, la régie est tout de suite accessible ; un bouton ouvre le bureau de la direction, où se trouve la carte violette.
-4. De retour en bas, la carte violette ouvre les couloirs de l'aile est (pièces 20 à 28).
-5. Un bouton de l'aile est ouvre les quais de livraison, par lesquels on entre dans le grand hall de béton.
+3. À l'étage, un bouton ouvre le bureau de la direction, où se trouve la carte violette.
+4. De retour en bas, la carte violette ouvre les couloirs de l'aile est (pièces 20 à 28), donc la régie.
+5. Le bouton de la régie ouvre les deux portes du hall de béton.
+6. Dans les quais, deux boutons ouvrent les portails vers l'extérieur.
 
-Le grand hall est donc l'endroit le plus profond et le mieux gardé du niveau : une bonne place pour le plateau.
+**À aménager** (l'utilisateur autorise à redessiner les salles) : seulement le décor du plateau. Proposé : le pupitre du présentateur devant l'alcôve, vers x 9450, face à la vitre ; trois caméras entre le pupitre et la vitre ; l'alcôve sert de fond de décor, ses caisses sont poussées sur les côtés. Ainsi un seul plan de 1920 px de large montre la rangée d'écrans de la régie, la vitre et le présentateur.
 
 ## 3. La suite d'objectifs
 
@@ -48,12 +52,14 @@ Proposé, à détailler quand on réécrira le niveau (étape 4). L'introduction
 | N° | Consigne | Lieu | Par rapport à aujourd'hui |
 |---|---|---|---|
 | 1 | Go to the upper floor | Escalier, pièce 10 | Inchangée |
-| 2 | Take the control room | Régie, étage | Nouvelle |
-| 3 | Find the studio pass | Bureau de la direction, étage | La carte violette, renommée |
-| 4 | Go back to ground floor | Escalier | Inchangée |
-| 5 | Reach the studio | Plateau, par l'aile est puis les quais | Remplace la sortie vers la zone de forage |
+| 2 | Find the studio pass | Bureau de la direction, étage | La carte violette, renommée |
+| 3 | Go back to ground floor | Escalier | Inchangée |
+| 4 | Take the control room | Régie, par l'aile est | Nouvelle ; elle se termine en appuyant sur le bouton de la régie, déjà en place |
+| 5 | Reach the studio | Plateau, par l'une des deux portes que le bouton a ouvertes | Remplace la sortie vers la zone de forage |
 | 6 | Broadcast the message | Plateau | Nouvelle ; cinématique de l'ultimatum |
-| 7 | Leave the building | Quais de livraison, voisins du plateau | Remplace SallyBot ; l'armée attend dehors |
+| 7 | Leave the building | Portails des quais de livraison | Remplace SallyBot ; l'armée attend dehors |
+
+Les portes, les cartes et les boutons restent où ils sont : seules les consignes et la fin changent.
 
 ## 4. Script de l'introduction
 
@@ -62,7 +68,7 @@ Durée : environ 26 secondes, puis le déploiement. Écran en bandes de cinéma 
 | Temps | Image | Son | Texte |
 |---|---|---|---|
 | 0,0 – 0,8 | Noir, les bandes se ferment. Ouverture sur le plateau. | Jingle du journal | — |
-| 0,8 – 5,5 | **Plan 1, le plateau.** Vue du dessus : le présentateur à son pupitre, trois caméras braquées sur lui, des techniciens. Un cadre « TvTv² LIVE » s'incruste en bas de l'écran, avec le portrait du présentateur. | Brouhaha de studio | ANCHOR : « ...a third drilling site destroyed this month. The 'Stand For Planet Earth' unit is now considered out of control. » |
+| 0,8 – 5,5 | **Plan 1, la régie et le plateau.** Vue du dessus, à cheval sur la baie vitrée : à gauche les techniciens de la régie devant leur rangée d'écrans, à droite le présentateur à son pupitre, trois caméras braquées sur lui. Un cadre « TvTv² LIVE » s'incruste en bas de l'écran, avec le portrait du présentateur. | Brouhaha de studio | ANCHOR : « ...a third drilling site destroyed this month. The 'Stand For Planet Earth' unit is now considered out of control. » |
 | 5,5 – 9,0 | **Plan 2, le hall d'accueil.** Coupe franche. Les civils sont tournés vers les trois écrans, qui clignotent au rythme de la voix. Le cadre « TvTv² LIVE » reste à l'image. | À partir de 8,0 : un grondement de rotors monte | ANCHOR : « Authorities say there is no reason to panic. Stay with us on TvTv², right after th— » |
 | 9,0 | L'image saute, le cadre « TvTv² LIVE » se couvre de neige et disparaît. | Grésillement | La réplique est coupée net. |
 | 9,0 – 10,5 | **Plan 3, la sortie.** La caméra quitte le hall par le sud, passe au-dessus du sas et s'arrête sur le parvis. L'ombre du véhicule glisse sur le sol, puis le véhicule entre par la gauche. | Rotors de plus en plus forts | — |
@@ -72,7 +78,7 @@ Durée : environ 26 secondes, puis le déploiement. Écran en bandes de cinéma 
 | 23,0 – 24,8 | Le véhicule remonte et sort par la droite avec les robots qui restent. | Rotors qui s'éloignent | — |
 | 24,8 – 26,5 | Les robots se déploient. Les bandes s'ouvrent, la consigne s'affiche. | Sons de déploiement | Consigne : « Go to the upper floor » |
 
-Pendant la séquence, le bâtiment vit normalement (rondes, civils qui circulent). Personne ne réagit au véhicule avant que les robots soient au sol. Le brouillard du plateau et du hall est levé le temps des plans 1 et 2, puis remis.
+Pendant la séquence, le bâtiment vit normalement (rondes, civils qui circulent). Personne ne réagit au véhicule avant que les robots soient au sol. Le brouillard de la régie, du plateau et du hall d'accueil est levé le temps des plans 1 et 2, puis remis.
 
 ## 5. Les répliques du largage
 
@@ -147,8 +153,8 @@ Les cases vides ne peuvent pas se produire avec la règle ci-dessus.
 
 ## 9. Points à valider
 
-1. Le plateau dans le grand hall de béton de l'aile est (pièce 29), la régie à l'étage (pièce 17).
-2. Montrer le plateau, donc l'objectif et ses gardes, dès l'introduction.
+1. Le plateau dans le hall de béton (moitié est de la pièce 29), la régie derrière la baie vitrée (moitié ouest), le décor devant l'alcôve.
+2. Montrer la régie et le plateau, donc l'objectif et ses gardes, dès l'introduction.
 3. Les répliques du largage et la voix prêtée à chaque robot.
 4. Une pince fixe par robot.
 5. Ne rejouer que le largage après un « Retry » depuis le début.

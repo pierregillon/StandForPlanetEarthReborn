@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="1940 784 6616 5852" font-family="Arial, sans-serif">
 <rect x="1940" y="784" width="6616" height="5852" fill="#26282c"/>
 <text x="2000" y="954" font-size="150" fill="#fff" font-weight="bold">rm_world2_1</text>
-<text x="3440" y="954" font-size="80" fill="#ccc"><tspan fill="#ff4b4b">● P policier</tspan>  <tspan fill="#ff9a2e">● L/S/B robots ennemis</tspan>  <tspan fill="#58d868">● civils (t = technicien)</tspan>  <tspan fill="#35e0ff">■ écran</tspan>  <tspan fill="#c77dff">■ serveur</tspan>  <tspan fill="#ffe14a">▬ porte à bouton, ◆ bouton</tspan>  <tspan fill="#d24bff">▬ porte à carte</tspan>  <tspan fill="#fff">▬ porte auto</tspan>  <tspan fill="#ffd9a0">n° = pièce (zone de brouillard)</tspan></text>
+<text x="3440" y="954" font-size="80" fill="#ccc"><tspan fill="#ff4b4b">● P policier</tspan>  <tspan fill="#ff9a2e">● L/S/B robots ennemis</tspan>  <tspan fill="#58d868">● civils (t = technicien)</tspan>  <tspan fill="#35e0ff">■ écran</tspan>  <tspan fill="#c77dff">■ serveur</tspan>  <tspan fill="#ffe14a">▬ porte à bouton, ◆ bouton</tspan>  <tspan fill="#d24bff">▬ porte à carte</tspan>  <tspan fill="#fff">▬ porte auto</tspan>  <tspan fill="#9fd8ff">▬ vitre</tspan><tspan fill="#ffd9a0">n° = pièce (zone de brouillard)</tspan></text>
 <rect x="6288" y="2400" width="1040" height="1056" fill="#4d5a7a"/>
 <rect x="6288" y="3456" width="1344" height="912" fill="#4d5a7a"/>
 <rect x="3856" y="4368" width="4368" height="576" fill="#6f6a55"/>
@@ -191,22 +191,22 @@
 <rect x="7088" y="1376" width="1136" height="1008" fill="none" stroke="#ffd9a0" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="30 22"/>
 <rect x="7328" y="2384" width="896" height="1040" fill="none" stroke="#ffd9a0" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="30 22"/>
 <circle cx="4672" cy="4192" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="4576" cy="4352" r="26" fill="#9fd8ff"/>
-<circle cx="4576" cy="4096" r="26" fill="#9fd8ff"/>
+<rect x="4576" y="4352" width="32" height="256" fill="#9fd8ff" transform="rotate(-180 4576 4352)"/>
+<rect x="4576" y="4096" width="32" height="256" fill="#9fd8ff" transform="rotate(-180 4576 4096)"/>
 <circle cx="4769" cy="3941" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="3968" cy="4160" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="4768" cy="3904" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="3968" cy="3813" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="4064" cy="3562" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="4544" cy="3840" r="26" fill="#9fd8ff"/>
-<circle cx="4128" cy="3424" r="26" fill="#9fd8ff"/>
-<circle cx="4384" cy="3424" r="26" fill="#9fd8ff"/>
+<rect x="4544" y="3840" width="32" height="256" fill="#9fd8ff" transform="rotate(-90 4544 3840)"/>
+<rect x="4128" y="3424" width="32" height="256" fill="#9fd8ff" transform="rotate(90 4128 3424)"/>
+<rect x="4384" y="3424" width="32" height="256" fill="#9fd8ff" transform="rotate(90 4384 3424)"/>
 <circle cx="3972" cy="3247" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="4223" cy="3334" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="4960" cy="3328" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="4960" cy="3552" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="4896" cy="3424" r="26" fill="#9fd8ff"/>
-<circle cx="5152" cy="3424" r="26" fill="#9fd8ff"/>
+<rect x="4896" y="3424" width="32" height="256" fill="#9fd8ff" transform="rotate(90 4896 3424)"/>
+<rect x="5152" y="3424" width="32" height="256" fill="#9fd8ff" transform="rotate(90 5152 3424)"/>
 <rect x="5008" y="3484" width="56" height="56" fill="#35e0ff"/>
 <rect x="4851" y="3482" width="56" height="56" fill="#35e0ff"/>
 <rect x="4822" y="3301" width="56" height="56" fill="#35e0ff"/>
@@ -283,9 +283,9 @@
 <circle cx="7552" cy="3520" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="7360" cy="4255" r="16" fill="#fff" fill-opacity="0.35"/>
 <rect x="7209" y="4239" width="56" height="56" fill="#35e0ff"/>
-<circle cx="6736" cy="4224" r="26" fill="#9fd8ff"/>
-<circle cx="6736" cy="3968" r="26" fill="#9fd8ff"/>
-<circle cx="6736" cy="3712" r="26" fill="#9fd8ff"/>
+<rect x="6736" y="4224" width="32" height="256" fill="#9fd8ff" transform="rotate(-180 6736 4224)"/>
+<rect x="6736" y="3968" width="32" height="256" fill="#9fd8ff" transform="rotate(-180 6736 3968)"/>
+<rect x="6736" y="3712" width="32" height="256" fill="#9fd8ff" transform="rotate(-180 6736 3712)"/>
 <circle cx="3136" cy="4928" r="60" fill="none" stroke="#fff" stroke-width="12"/>
 <circle cx="6528" cy="4256" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="6626" cy="4006" r="16" fill="#fff" fill-opacity="0.35"/>
@@ -437,9 +437,9 @@
 <circle cx="7407" cy="2659" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="8100" cy="2447" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="8102" cy="2654" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="7616" cy="3136" r="26" fill="#9fd8ff"/>
-<circle cx="7616" cy="2880" r="26" fill="#9fd8ff"/>
-<circle cx="7360" cy="2880" r="26" fill="#9fd8ff"/>
+<rect x="7616" y="3136" width="32" height="256" fill="#9fd8ff" transform="rotate(0 7616 3136)"/>
+<rect x="7616" y="2880" width="32" height="256" fill="#9fd8ff" transform="rotate(0 7616 2880)"/>
+<rect x="7360" y="2880" width="32" height="256" fill="#9fd8ff" transform="rotate(-90 7360 2880)"/>
 <circle cx="7707" cy="3310" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="8146" cy="3262" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="8143" cy="3006" r="16" fill="#fff" fill-opacity="0.35"/>

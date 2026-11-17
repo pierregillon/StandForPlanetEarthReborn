@@ -1,6 +1,7 @@
 // Plan annoté d'une salle, en SVG, pour discuter de level design et de mise en scène :
 // murs, sols, zones de brouillard numérotées (= les pièces), écrans, personnages, portes, points d'apparition.
 // Usage : node tools/level-map.ts rm_world2 rm_world2_1   → docs/narration/plans/<salle>.svg
+//         node tools/level-map.ts rm_world2 --crop=x,y,largeur,hauteur --name=aile-est   → un détail, <salle>-aile-est.svg
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 interface Instance {
@@ -48,7 +49,7 @@ const PEOPLE: Record<string, [string, string]> = {
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const n = (v: number): string => String(Math.round(v));
 
-function drawLevel(level: Level): string {
+function drawLevel(level: Level, crop: number[] | null): string {
   const out: string[] = [];
   // cadre : ce qui est construit, avec une marge
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -61,6 +62,7 @@ function drawLevel(level: Level): string {
   const M = 300;
   x0 = Math.max(0, x0 - M); y0 = Math.max(0, y0 - M);
   x1 = Math.min(level.width, x1 + M); y1 = Math.min(level.height, y1 + M);
+  if (crop) [x0, y0, x1, y1] = [crop[0], crop[1], crop[0] + crop[2], crop[1] + crop[3]];
   const W = x1 - x0, H = y1 - y0;
 
   out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${n(x0)} ${n(y0 - 260)} ${n(W)} ${n(H + 260)}" font-family="Arial, sans-serif">`);
@@ -69,7 +71,7 @@ function drawLevel(level: Level): string {
   out.push(`<text x="${n(x0 + 1500)}" y="${n(y0 - 90)}" font-size="80" fill="#ccc">` +
     `<tspan fill="#ff4b4b">● P policier</tspan>  <tspan fill="#ff9a2e">● L/S/B robots ennemis</tspan>  <tspan fill="#58d868">● civils (t = technicien)</tspan>  ` +
     `<tspan fill="#35e0ff">■ écran</tspan>  <tspan fill="#c77dff">■ serveur</tspan>  <tspan fill="#ffe14a">▬ porte à bouton, ◆ bouton</tspan>  ` +
-    `<tspan fill="#d24bff">▬ porte à carte</tspan>  <tspan fill="#fff">▬ porte auto</tspan>  <tspan fill="#ffd9a0">n° = pièce (zone de brouillard)</tspan></text>`);
+    `<tspan fill="#d24bff">▬ porte à carte</tspan>  <tspan fill="#fff">▬ porte auto</tspan>  <tspan fill="#9fd8ff">▬ vitre</tspan><tspan fill="#ffd9a0">n° = pièce (zone de brouillard)</tspan></text>`);
 
   for (const f of level.floors) {
     out.push(`<rect x="${n(f.x)}" y="${n(f.y)}" width="${n(f.w)}" height="${n(f.h)}" fill="${FLOOR_COLORS[f.tileset] ?? '#444'}"/>`);
@@ -119,7 +121,8 @@ function drawLevel(level: Level): string {
       out.push(`<circle cx="${n(i.x)}" cy="${n(i.y)}" r="50" fill="#3d7bff" stroke="#fff" stroke-width="8"/>`);
       labels.push(`<text x="${n(i.x)}" y="${n(i.y + 24)}" font-size="64" font-weight="bold" text-anchor="middle" fill="#fff">${o.slice(-1)}</text>`);
     } else if (o === 'obj_fenetre') {
-      out.push(`<circle cx="${n(i.x)}" cy="${n(i.y)}" r="26" fill="#9fd8ff"/>`);
+      // un pan vitré : 32 × 256 px depuis son origine, tourné dans le sens antihoraire de GameMaker
+      out.push(`<rect x="${n(i.x)}" y="${n(i.y)}" width="32" height="256" fill="#9fd8ff" transform="rotate(${-i.angle} ${n(i.x)} ${n(i.y)})"/>`);
     } else if (['obj_nextRoom', 'obj_previousRoom', 'obj_endLevel', 'obj_car_van', 'obj_spawnVehicle', 'obj_spawnHeros', 'obj_card_purple', 'obj_card_green', 'obj_table_accueil', 'obj_gene'].includes(o)) {
       const names: Record<string, string> = {
         obj_nextRoom: 'ESCALIER ↑', obj_previousRoom: 'ESCALIER ↓', obj_endLevel: 'SORTIE DU NIVEAU', obj_car_van: 'fourgon',
@@ -137,12 +140,16 @@ function drawLevel(level: Level): string {
   return out.join('\n');
 }
 
-const rooms = process.argv.slice(2);
+const args = process.argv.slice(2);
+const option = (name: string): string | null => args.find((a) => a.startsWith(`--${name}=`))?.split('=')[1] ?? null;
+const crop = option('crop')?.split(',').map(Number) ?? null;
+const suffix = option('name');
+const rooms = args.filter((a) => !a.startsWith('--'));
 if (rooms.length === 0) throw new Error('Usage : node tools/level-map.ts <salle> [<salle>...]');
 mkdirSync('docs/narration/plans', { recursive: true });
 for (const room of rooms) {
   const level = JSON.parse(readFileSync(`public/levels/${room}.json`, 'utf8')) as Level;
-  const file = `docs/narration/plans/${room}.svg`;
-  writeFileSync(file, drawLevel(level));
+  const file = `docs/narration/plans/${room}${suffix ? `-${suffix}` : ''}.svg`;
+  writeFileSync(file, drawLevel(level, crop));
   console.log(file);
 }

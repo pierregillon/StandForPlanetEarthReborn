@@ -1698,6 +1698,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
   - BATBOT : « And if they don't open the door? »
   - BADABOT : « We knock. »
 - **Les quatre robots sont toujours là.** Le véhicule porte toujours les quatre robots, un par pince, et les quatre parlent, quels que soient le nombre de joueurs et les robots choisis. Au sol, il ne largue que ceux qui sont incarnés par des joueurs et repart avec les autres. Un court échange au moment du largage l'explique : un robot qui reste passe la main, un robot qui descend répond (exemple de l'utilisateur, avec BadaBot et PetBot joués — EngiBot : « Bon les gars, on vous laisse gérer la situation » ; BadaBot : « Ça suffira avec PetBot, on s'en sortira »). La cinématique est donc la même pour toutes les parties, seule cette fin change.
+- **La régie est mitoyenne du plateau** (précision de l'utilisateur, le même jour : « c'est plus crédible, plus logique »). Les salles peuvent être redessinées si la cohérence le demande. Le niveau d'origine le permet sans travaux : voir `docs/narration/niveau-tvtv2.md`.
 - **Passer la cinématique** : seul l'hôte de la partie le peut, avec la barre d'espace.
 - **Ce que l'introduction ne dit pas** : aucune date ni époque (règle de l'arc narratif), rien sur SFHB, pas le virus de l'acte III. Pas de commandant humain qui donnerait un briefing : depuis la fin de l'acte I, les robots décident seuls.
 
