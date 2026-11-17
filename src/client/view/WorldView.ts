@@ -93,18 +93,27 @@ const BULLET_STYLE = {
 };
 
 /**
- * Prototype (GD-064) : les balles sont des projectiles entourés de lumière, comme des étoiles filantes. À la
- * sortie du canon elles ont la lumière de la déflagration (blanc au cœur, jaune autour) ; en refroidissant,
- * leur traînée vire au gris et l'on ne voit plus que la balle.
+ * Prototype (GD-064) : les balles sont des étoiles filantes, un trait de lumière net qui s'effile derrière
+ * elles. À la sortie du canon elles ont la lumière de la déflagration (blanc en tête, jaune derrière) ; en
+ * refroidissant, leur traînée vire au gris et l'on ne voit plus que la balle.
  */
 const TRACER_STYLE = {
   /** Longueur et largeur de la traînée en plein vol ; secondes pendant lesquelles elle s'efface après l'impact. */
   length: 900,
   width: 7.5,
   fade: 0.14,
-  /** Lumière d'une balle chaude : cœur et halo. Un peu plus orangée pour les ennemis, pour savoir qui tire. */
-  hero: { core: 0xfff3a0, glow: 0xffc21a },
-  enemy: { core: 0xffd9a0, glow: 0xff7a1f },
+  /**
+   * Lumière d'un tir : cœur et halo de la flamme, et jaune franc de la traînée (`trail`). Un peu plus orangée
+   * pour les ennemis, pour savoir qui tire.
+   */
+  hero: { core: 0xfff3a0, glow: 0xffc21a, trail: 0xffe01f },
+  enemy: { core: 0xffd9a0, glow: 0xff7a1f, trail: 0xff8f24 },
+  /**
+   * Forme de la traînée, une aiguille pleine aux bords francs : `tail`, sa largeur à la queue (part de sa
+   * largeur en tête) ; `fadeOver`, part arrière de sa longueur sur laquelle elle pâlit ; `white`, part avant
+   * chauffée à blanc.
+   */
+  streak: { tail: 0.2, fadeOver: 0.3, white: 0.22, pieces: 16 },
   /** Gris d'une balle refroidie. */
   cold: 0x8f949c,
   /** La balle reste chaude sur `hotUntil` pixels de vol, puis refroidit jusqu'à `coldAt`. */
@@ -115,9 +124,11 @@ const TRACER_STYLE = {
    * tenue `hold` secondes à pleine force puis éteinte selon une exponentielle de constante `decay`. Elle
    * éclaire ce qui est devant le canon, sur `light` pixels : une zone étroite mais intense, et presque rien
    * vers l'arrière (un canon n'éclaire pas derrière lui). La flamme est une gerbe de `rays` rayons pointus
-   * serrés dans un cône de `spread` radians de part et d'autre de l'axe du tir.
+   * serrés dans un cône de `spread` radians de part et d'autre de l'axe du tir. `size` grossit ou réduit
+   * toute la flamme d'un seul réglage, lueur comprise (1 : la taille de son premier dessin).
    */
   blast: {
+    size: 0.75,
     length: 190, width: 36, hold: 0.015, decay: 0.028, light: 250, lightAlpha: 0.95, rays: 9, spread: 0.14,
     /** Pixels dont toute la flamme avance, loin du canon, pendant qu'elle s'estompe. */
     drift: 40,
@@ -1194,40 +1205,41 @@ export class WorldView {
   }
 
   /**
-   * La traînée d'une balle, de sa queue à sa tête : un trait net, aux bords francs, qui s'estompe vers
-   * l'arrière. Chaude (`heat` à 1) elle a la lumière de la déflagration, blanche en tête et jaune derrière ;
-   * en refroidissant elle s'amincit, pâlit et vire au gris. Seule la balle elle-même porte un halo.
+   * La traînée d'une balle, de sa queue à sa tête : une étoile filante. C'est une aiguille pleine, d'une seule
+   * couleur, aux bords francs : large en tête, elle s'effile jusqu'à la queue, où elle pâlit. Aucun halo, ni le
+   * long du trait ni autour de la balle : c'est ce qui la rend nette. Chaude (`heat` à 1) elle est d'un jaune
+   * franc, avec une pointe chauffée à blanc en tête ; en refroidissant elle s'amincit, pâlit et vire au gris.
    */
   private drawStreak(x0: number, y0: number, x1: number, y1: number, enemy: boolean, alpha: number, head: boolean, heat: number): void {
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    if (length < 1) return;
     const g = this.tracers;
-    const hot = enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
-    const body = mixColor(TRACER_STYLE.cold, hot.glow, heat);
-    const core = mixColor(TRACER_STYLE.cold, hot.core, heat);
+    const shape = TRACER_STYLE.streak;
+    const body = mixColor(TRACER_STYLE.cold, (enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero).trail, heat);
     const tip = mixColor(0xc4c8ce, 0xffffff, heat);
-    const width = TRACER_STYLE.width * (0.4 + 0.6 * heat);
+    const half = (TRACER_STYLE.width * (0.4 + 0.6 * heat)) / 2;
     const strength = alpha * (0.5 + 0.5 * heat);
-    const at = (t: number): { x: number; y: number } => ({ x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t });
-    const pieces = 12;
-    for (let k = 0; k < pieces; k++) {
-      const a = at(k / pieces);
-      const b = at((k + 1) / pieces);
-      const q = (k + 1) / pieces;
-      // le corps du trait : sa largeur varie peu, c'est sa force qui baisse vers la queue
-      g.lineStyle(width * (0.5 + 0.5 * q), q > 0.5 ? core : body, Math.pow(q, 1.4) * strength);
-      g.lineBetween(a.x, a.y, b.x, b.y);
-      // un fil clair en son milieu, sur la moitié avant : c'est lui qui donne la netteté
-      if (q > 0.5) {
-        g.lineStyle(Math.max(1.5, width * 0.32), tip, ((q - 0.5) / 0.5) * strength);
-        g.lineBetween(a.x, a.y, b.x, b.y);
-      }
+    const ux = (x1 - x0) / length;
+    const uy = (y1 - y0) / length;
+    /** Point à la fraction `t` du trait (0 : la queue, 1 : la tête), écarté de `across` pixels de son axe. */
+    const at = (t: number, across: number): Phaser.Geom.Point =>
+      new Phaser.Geom.Point(x0 + ux * length * t - uy * across, y0 + uy * length * t + ux * across);
+    /** Demi-largeur du trait : elle croît de la queue à la tête, sans jamais passer sous le pixel. */
+    const girth = (t: number): number => Math.max(0.75, half * (shape.tail + (1 - shape.tail) * t));
+    for (let k = 0; k < shape.pieces; k++) {
+      const t0 = k / shape.pieces;
+      const t1 = (k + 1) / shape.pieces;
+      // pleine couleur sur tout l'avant ; seul le bout de la queue pâlit
+      g.fillStyle(body, Math.min(1, t1 / shape.fadeOver) * strength);
+      g.fillPoints([at(t0, girth(t0)), at(t1, girth(t1)), at(t1, -girth(t1)), at(t0, -girth(t0))], true);
     }
+    // la tête, chauffée à blanc : une pointe claire tournée vers l'arrière
+    const white = girth(1) * 0.5;
+    g.fillStyle(tip, strength).fillPoints([at(1 - shape.white, 0), at(1, white), at(1, -white)], true);
     if (head) {
-      g.fillStyle(tip, alpha).fillCircle(x1, y1, width * 0.7);
-      // le halo de la balle chaude, serré autour d'elle
-      if (heat > 0.02) {
-        this.shotLights.fillStyle(hot.glow, 0.18 * alpha * heat).fillCircle(x1, y1, 18);
-        this.shotLights.fillStyle(hot.core, 0.3 * alpha * heat).fillCircle(x1, y1, 9);
-      }
+      // le bout arrondi : la balle
+      g.fillStyle(body, strength).fillCircle(x1, y1, girth(1));
+      g.fillStyle(tip, strength).fillCircle(x1, y1, white);
     }
   }
 
@@ -1240,16 +1252,17 @@ export class WorldView {
     // bouche du canon et porte vers l'avant.
     const light = this.scene.add.image(x, y, cone.key).setOrigin(cone.focusX, 0.5).setRotation(angle)
       .setBlendMode(Phaser.BlendModes.ADD).setTint((enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero).glow)
-      .setScale(blast.light / cone.reach).setDepth(DEPTH.darkness + 1);
+      .setScale((blast.light * blast.size) / cone.reach).setDepth(DEPTH.darkness + 1);
     // la gerbe est tirée au sort une fois : elle garde sa forme pendant qu'elle s'éteint
     const rays = Array.from({ length: blast.rays }, (_, i) => {
       // un grand rayon dans l'axe, les autres plus courts à mesure qu'ils s'en écartent
       const offset = i === 0 ? (Math.random() - 0.5) * 0.06 : (Math.random() * 2 - 1) * blast.spread;
       const side = 1 - Math.abs(offset) / blast.spread;
-      return { offset, length: i === 0 ? 1.45 + Math.random() * 0.25 : 0.4 + 0.75 * side * (0.6 + Math.random() * 0.6), width: i === 0 ? 7 : 3 + Math.random() * 3.5 };
+      return { offset, length: i === 0 ? 1.45 + Math.random() * 0.25 : 0.4 + 0.75 * side * (0.6 + Math.random() * 0.6), width: (i === 0 ? 7 : 3 + Math.random() * 3.5) * blast.size };
     });
     const sparks = Array.from({ length: 7 }, () => ({
-      offset: (Math.random() * 2 - 1) * blast.spread * 1.5, from: 30 + Math.random() * 110, speed: 500 + Math.random() * 900, size: 6 + Math.random() * 10,
+      offset: (Math.random() * 2 - 1) * blast.spread * 1.5,
+      from: (30 + Math.random() * 110) * blast.size, speed: (500 + Math.random() * 900) * blast.size, size: (6 + Math.random() * 10) * blast.size,
     }));
     this.flashes.push({ x, y, angle, enemy, age: 0, light, rays, sparks });
   }
@@ -1303,9 +1316,10 @@ export class WorldView {
     const blast = TRACER_STYLE.blast;
     const hot = f.enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
     // elle frémit d'une image à l'autre
-    const reach = blast.length * (0.97 + Math.random() * 0.06);
+    const reach = blast.length * blast.size * (0.97 + Math.random() * 0.06);
+    const girth = blast.width * blast.size;
     // distance entre le canon et la base de la flamme : nulle au tir, elle grandit à mesure qu'elle s'estompe
-    const lift = blast.drift * (1 - k);
+    const lift = blast.drift * blast.size * (1 - k);
     const ax = Math.cos(f.angle);
     const ay = Math.sin(f.angle);
     f.light.setAlpha(blast.lightAlpha * k).setPosition(f.x + ax * lift, f.y + ay * lift);
@@ -1320,9 +1334,9 @@ export class WorldView {
       const points = [...side, ...side.slice().reverse().map((p) => ({ along: p.along, across: -p.across }))];
       return points.map((p) => new Phaser.Geom.Point(f.x + ax * p.along - ay * p.across, f.y + ay * p.along + ax * p.across));
     };
-    g.fillStyle(hot.glow, 0.45 * k).fillPoints(tongue(lift, lift + reach * 0.95, blast.width * 0.62), true);
-    g.fillStyle(hot.core, 0.75 * k).fillPoints(tongue(lift, lift + reach * 0.75, blast.width * 0.4), true);
-    g.fillStyle(0xffffff, k).fillPoints(tongue(lift, lift + reach * 0.5, blast.width * 0.2), true);
+    g.fillStyle(hot.glow, 0.45 * k).fillPoints(tongue(lift, lift + reach * 0.95, girth * 0.62), true);
+    g.fillStyle(hot.core, 0.75 * k).fillPoints(tongue(lift, lift + reach * 0.75, girth * 0.4), true);
+    g.fillStyle(0xffffff, k).fillPoints(tongue(lift, lift + reach * 0.5, girth * 0.2), true);
     /** Pointe : un losange très allongé, pointu à sa base (à `from` pixels du canon) comme à son sommet. */
     const spike = (angle: number, from: number, to: number, width: number): Phaser.Geom.Point[] => {
       const c = Math.cos(angle);
@@ -1352,10 +1366,11 @@ export class WorldView {
       g.lineStyle(2, hot.core, 0.9 * k).lineBetween(f.x + c * d, f.y + s * d, f.x + c * (d + p.size), f.y + s * (d + p.size));
     }
     // le cœur, chauffé à blanc, juste devant la base de la flamme : il ne recouvre jamais le canon
-    const cx = f.x + ax * (lift + 13);
-    const cy = f.y + ay * (lift + 13);
-    g.fillStyle(hot.core, 0.7 * k).fillCircle(cx, cy, 13);
-    g.fillStyle(0xffffff, k).fillCircle(cx, cy, 7);
+    const heart = 13 * blast.size;
+    const cx = f.x + ax * (lift + heart);
+    const cy = f.y + ay * (lift + heart);
+    g.fillStyle(hot.core, 0.7 * k).fillCircle(cx, cy, heart);
+    g.fillStyle(0xffffff, k).fillCircle(cx, cy, heart * 0.54);
   }
 
   /** Sprite et image du corps du héros selon son état. */

@@ -189,3 +189,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Tirs : toute la flamme avance de 80 px en s'estompant (GD-065). |
 | 2026-11-17 | Tirs : la flamme avance de 40 px au lieu de 80 et s'éteint en 0,16 s au lieu de 0,3 s (GD-065). |
 | 2026-11-17 | Tirs : flamme plus droite (pointes à 8° au lieu de 20°) et plus brève (0,11 s) (GD-065). |
+| 2026-11-17 | Tirs : flamme réduite d'un quart ; traînée en étoile filante, aiguille pleine et nette, sans halo (GD-065). |
