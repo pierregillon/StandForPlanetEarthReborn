@@ -37,6 +37,8 @@ export interface Session {
    * portes à bouton et couleurs des portes à carte à trouver ouvertes.
    */
   preOpened: Record<string, { buttons: number[]; cards: string[] }>;
+  /** L'introduction complète du niveau a déjà été jouée : un nouveau départ ne rejoue que le largage (GD-078). */
+  introSeen: boolean;
 }
 
 /**
@@ -69,5 +71,6 @@ export function createSession(heroNames: string | string[], room = GROUND_FLOOR)
     spawnNumber: 1,
     checkpoint: null,
     preOpened: {},
+    introSeen: false,
   };
 }

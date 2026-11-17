@@ -11,6 +11,8 @@ export class Synth {
   private chargeGain: GainNode | null = null;
   /** Multiplicateur de volume appliqué aux sons en cours de création. */
   private boost = 1;
+  /** Rotors du véhicule de largage en train de tourner, pour pouvoir les couper net. */
+  private rotors: { osc: OscillatorNode; gain: GainNode }[] = [];
 
   constructor(scene: Phaser.Scene) {
     const manager = scene.sound as unknown as { context?: AudioContext };
@@ -97,14 +99,52 @@ export class Synth {
     this.boost = 1;
   }
 
-  /** Véhicule de largage : grondement de rotors pendant son passage, plus aigu au décollage. */
+  /** Note tenue : elle monte en `attack` secondes, tient, puis s'éteint en `release` secondes. */
+  private hum(type: OscillatorType, from: number, to: number, duration: number, volume: number, delay: number, attack: number, release: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t0 = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(from, t0);
+    osc.frequency.linearRampToValueAtTime(to, t0 + duration);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.linearRampToValueAtTime(volume, t0 + attack);
+    gain.gain.setValueAtTime(volume, t0 + Math.max(attack, duration - release));
+    gain.gain.linearRampToValueAtTime(0.0001, t0 + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.05);
+    this.rotors.push({ osc, gain });
+    osc.onended = () => {
+      this.rotors = this.rotors.filter((r) => r.osc !== osc);
+    };
+  }
+
+  /**
+   * Véhicule de largage : un grondement de rotors tenu pendant toute sa présence (il peut rester en vol
+   * stationnaire plusieurs secondes, GD-078), puis plus aigu au décollage.
+   */
   vehicle(seconds: number): void {
-    this.boost = 1.6;
-    this.tone('sawtooth', 62, 48, seconds * 0.55, 0.11);
-    this.tone('triangle', 124, 96, seconds * 0.55, 0.07);
-    this.tone('sawtooth', 50, 95, seconds * 0.45, 0.11, seconds * 0.55);
-    this.tone('triangle', 100, 190, seconds * 0.45, 0.06, seconds * 0.55);
-    this.boost = 1;
+    const takeOff = Math.min(2, seconds * 0.4);
+    const stay = seconds - takeOff;
+    this.hum('sawtooth', 62, 50, stay + 0.3, 0.1, 0, 0.5, 0.4);
+    this.hum('triangle', 124, 100, stay + 0.3, 0.06, 0, 0.5, 0.4);
+    this.hum('sawtooth', 50, 95, takeOff, 0.12, stay, 0.25, takeOff * 0.7);
+    this.hum('triangle', 100, 190, takeOff, 0.07, stay, 0.25, takeOff * 0.7);
+  }
+
+  /** L'introduction est passée : les rotors se taisent tout de suite. */
+  vehicleStop(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    for (const { osc, gain } of this.rotors) {
+      gain.gain.cancelScheduledValues(ctx.currentTime);
+      gain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.04);
+      osc.stop(ctx.currentTime + 0.3);
+    }
+    this.rotors = [];
   }
 
   /** Lien entre héros (GD-043) : une note qui monte quand il se pose, qui retombe quand il casse. */
@@ -194,5 +234,6 @@ export class Synth {
 
   stop(): void {
     this.charge(false, 0);
+    this.vehicleStop();
   }
 }

@@ -27,6 +27,7 @@ export class Hud {
   private readonly bar?: Phaser.GameObjects.Image;
   private readonly portrait?: Phaser.GameObjects.Image;
   private readonly damage?: Phaser.GameObjects.Image;
+  private readonly nameLabel: Phaser.GameObjects.Text;
   private readonly objective: Phaser.GameObjects.Text;
   private readonly notice: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
@@ -40,6 +41,8 @@ export class Hud {
   private readonly ready: Phaser.GameObjects.Graphics;
   private readonly cardIcons = new Map<string, Phaser.GameObjects.Image>();
   private noticeUntil = 0;
+  /** L'introduction est en cours : l'interface est masquée. */
+  private intro = false;
 
   constructor(scene: Phaser.Scene, world: World) {
     this.scene = scene;
@@ -61,7 +64,7 @@ export class Hud {
     }
     // nom du robot sous son portrait. Pas de chiffres (GD-042) : le cadre montre l'énergie, le portrait qui
     // rougit montre la vie, la jauge sur l'arme montre les munitions.
-    scene.add.text(x - 6, y + 78, def.name.toUpperCase(), { fontFamily: 'Aldo', fontSize: '28px', color: '#ffffff', ...OUTLINE }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH + 3);
+    this.nameLabel = scene.add.text(x - 6, y + 78, def.name.toUpperCase(), { fontFamily: 'Aldo', fontSize: '28px', color: '#ffffff', ...OUTLINE }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH + 3);
     for (const color of ['green', 'purple']) {
       const key = `card:${color}`;
       if (scene.textures.exists(key)) {
@@ -113,7 +116,7 @@ export class Hud {
         this.mateCards.set(o.id, card);
       }
       if (!card) continue;
-      const shown = !o.gone;
+      const shown = !o.gone && !this.intro;
       for (const part of [card.bar, card.portrait, card.damage, card.label]) part?.setVisible(shown);
       if (!shown) continue;
       rank++;
@@ -170,13 +173,18 @@ export class Hud {
     const world = this.world;
     const h = world.hero;
     const now = this.scene.time.now;
+    // pendant l'introduction, l'interface s'efface : la consigne n'apparaît qu'une fois les robots au sol,
+    // comme le prévoyait obj_consigne_world2
+    const intro = h.arrivalSteps > 0;
+    this.intro = intro;
 
-    if (this.bar) this.bar.setTexture(frameKey('spr_healthBar', Math.max(0, Math.min(12, h.energy))));
+    if (this.bar) this.bar.setTexture(frameKey('spr_healthBar', Math.max(0, Math.min(12, h.energy)))).setVisible(!intro);
+    this.portrait?.setVisible(!intro);
+    this.nameLabel.setVisible(!intro);
     if (this.portrait && this.damage) {
       const missing = 1 - h.hp / h.def.maxHealth;
       const fh = this.portrait.height;
-      this.damage.setVisible(missing > 0).setCrop(0, fh * (1 - missing), this.portrait.width, fh * missing);
-
+      this.damage.setVisible(missing > 0 && !intro).setCrop(0, fh * (1 - missing), this.portrait.width, fh * missing);
     }
     // les cartes d'accès trouvées s'affichent à droite du dernier avatar
     this.ready.clear();
@@ -185,10 +193,10 @@ export class Hud {
     let cardX = AVATAR_X + (avatars - 1) * AVATAR_SPACING + 150;
     for (const [color, icon] of this.cardIcons) {
       const held = world.hasCard(color);
-      icon.setVisible(held).setX(cardX);
+      icon.setVisible(held && !intro).setX(cardX);
       if (held) cardX += 62;
     }
-    this.objective.setText(world.objective);
+    this.objective.setText(intro ? '' : world.objective);
 
     if (now > this.noticeUntil) this.notice.setAlpha(Math.max(0, this.notice.alpha - 0.02));
 

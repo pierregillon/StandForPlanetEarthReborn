@@ -141,7 +141,7 @@ Les cases vides ne peuvent pas se produire avec la règle ci-dessus.
 
 | Livraison | Contenu |
 |---|---|
-| **A. La radio et le largage** (plans 3 et 4, largage) | Bandes de cinéma (sprite d'origine `spr_cine_bande`), boîte de dialogue lettre par lettre avec portrait (`spr_textBox` et portraits des robots, déjà dans le jeu), horloge de séquence dans la simulation, passage par l'hôte, vol stationnaire du véhicule, quatre robots dans les pinces, largage des seuls robots joués, répliques de la section 5 |
+| **A. La radio et le largage** (plans 3 et 4, largage) — **livrée le 2026-11-17 (GD-078)** | Bandes de cinéma (sprite d'origine `spr_cine_bande`), boîte de dialogue lettre par lettre avec portrait (`spr_textBox` et portraits des robots, déjà dans le jeu), horloge de séquence dans la simulation, passage par l'hôte, vol stationnaire du véhicule, quatre robots dans les pinces, largage des seuls robots joués, répliques de la section 5 |
 | **B. Le direct** (plans 1 et 2) | Un présentateur et son pupitre sur le plateau, trois caméras (sprite d'origine `spr_camera`), le cadre « TvTv² LIVE » et son logo, le portrait du présentateur, les écrans qui clignotent, la neige à la coupure, le jingle. Le présentateur, son portrait et le logo sont à dessiner. |
 | **C. Le niveau** | Les consignes de la section 3, la fin du niveau, le retrait de la zone de forage et de SallyBot |
 
@@ -152,6 +152,8 @@ Les cases vides ne peuvent pas se produire avec la règle ci-dessus.
 - **Le journal parle de foreuses** : « a third drilling site destroyed » renvoie à la mission de l'acte I. Quand ce niveau existera, le joueur aura lui-même détruit ces foreuses.
 
 ## 9. Points à valider
+
+Les points 3, 4 et 5 sont appliqués tels quels dans la première livraison (GD-078), comme choix par défaut : à confirmer ou corriger après essai.
 
 1. Le plateau dans le hall de béton (moitié est de la pièce 29), la régie derrière la baie vitrée (moitié ouest), le décor devant l'alcôve.
 2. Montrer la régie et le plateau, donc l'objectif et ses gardes, dès l'introduction.

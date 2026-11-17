@@ -83,6 +83,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-075 | Un soldat qui retrouve sa cible met un instant à tirer | 2026-11-17 | Appliquée |
 | GD-076 | L'arc narratif de référence est le document « reborn » de l'utilisateur | 2026-11-17 | Acceptée |
 | GD-077 | Le niveau en construction est TvTv² ; il s'ouvre sur une cinématique en jeu | 2026-11-17 | Acceptée — à réaliser (rien n'est encore changé dans le jeu) |
+| GD-078 | Introduction, première livraison : la radio et le largage | 2026-11-17 | Acceptée — à ajuster après essai |
 
 ---
 
@@ -1707,3 +1708,27 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Conséquences.** Tranche le point ouvert de GD-076 sur le rattachement du niveau à l'arc. Remplacera GD-009 et GD-010 pour le contenu et les consignes du niveau quand la suite d'objectifs sera fixée. Complétera GD-035 et GD-060 pour le largage.
 
 **Points ouverts.** L'emplacement du plateau et de la régie dans les salles existantes ; la façon de montrer l'émission dans un jeu vu du dessus, où l'on ne voit pas la surface d'un écran ; les répliques du largage pour chaque composition d'équipe ; la fin du niveau sans SallyBot.
+
+## GD-078 — Introduction, première livraison : la radio et le largage
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — à ajuster après essai
+- **Décidée par** : l'utilisateur pour le principe (GD-077 : les quatre robots toujours à bord, on ne largue que ceux qui sont joués, un échange l'explique, seul l'hôte passe la séquence avec Espace) ; les durées, les répliques du largage, l'ordre des pinces et les points d'affichage ci-dessous sont des choix par défaut de Claude, proposés dans `docs/narration/niveau-tvtv2.md`
+
+**Contexte.** GD-077 fixe l'introduction du niveau TvTv² en trois temps. Cette livraison réalise les deux derniers : la radio entre robots et le largage. Le journal télévisé (le présentateur, le plateau) viendra ensuite. Jusqu'ici le véhicule arrivait, posait les robots des joueurs et repartait en 4,5 secondes, sans un mot (GD-035, GD-060).
+
+**Décision.**
+
+- **Déroulé** : le véhicule entre par la gauche (1,4 s), reste en vol stationnaire au-dessus du point de largage pendant les cinq répliques radio (8,5 s), descend (0,8 s), reste posé le temps de l'échange du largage (3,2 s, au lieu de 0,45 s), remonte et sort par la droite (1,8 s). Les robots joués se déploient ensuite. Durée : 15,7 s.
+- **Les quatre robots sont à bord**, chacun dans sa pince, toujours la même : BadaBot et EngiBot à l'avant, PetBot et BatBot à l'arrière. La pince ne dépend plus du rang du joueur (modifie GD-060). Les robots qui ne sont pas joués restent repliés dans leur pince et repartent avec le véhicule.
+- **L'échange du largage** : le premier robot resté à bord (dans l'ordre EngiBot, PetBot, BatBot, BadaBot) passe la main ; le premier robot largué (dans l'ordre BadaBot, BatBot, PetBot, EngiBot) répond en nommant son coéquipier s'ils sont deux. Les pinces des robots joués s'ouvrent au début de la réponse. Quand les quatre sont joués, BadaBot et BatBot se répondent. Le texte des répliques est dans `src/sim/intro.ts`.
+- **Passer** : la touche de dash de l'hôte (Espace ou Maj), et de lui seul ; en solo, le joueur. Le véhicule disparaît dans un fondu et les robots se déploient. L'écran affiche « SPACE: skip » chez l'hôte, « Host can skip » chez les autres.
+- **Une seule fois par partie** : après un « Retry » qui recommence le niveau depuis le début, le véhicule ne fait plus de vol stationnaire ; il ne reste que le largage et son échange (7,2 s). Revenir au menu et relancer une partie rejoue l'introduction complète.
+- **Habillage** : deux bandes noires de cinéma se ferment ; une boîte de dialogue bleu nuit à liseré blanc, sur le modèle de `spr_textBox` de l'original, montre le portrait et le nom du robot qui parle, et son texte s'écrit lettre par lettre. Un halo pulse autour de sa pince. La boîte se place du côté de l'écran que le véhicule laisse libre. L'interface de jeu (avatar, consigne) s'efface pendant la séquence : la consigne apparaît quand les robots sont au sol, comme le prévoyait l'original.
+- **Cadre** : la caméra reste centrée sur le véhicule. Le largage a lieu à 380 px du bord sud du niveau : pendant la séquence, la caméra peut dépasser le bord de la hauteur d'une bande, que la bande cache.
+
+**Pourquoi.** Que les quatre robots parlent toujours donne la même scène à toutes les parties, quel que soit le nombre de joueurs ; l'échange du largage explique sans commentaire pourquoi seuls certains descendent. L'horloge de la séquence est celle de l'arrivée des héros, déjà transmise aux navigateurs : en réseau, tout le monde voit la même réplique au même instant sans rien ajouter au protocole.
+
+**Conséquences.** `src/sim/intro.ts` (déroulé et répliques), `deployHero`, `skipArrival` et `hostSlot` dans `world.ts`, `startTeam` dans `match.ts`, `introSeen` dans la partie ; `IntroOverlay.ts`, `syncVehicle` et le son des rotors côté affichage. Modifie les durées de GD-035 et l'attribution des pinces de GD-060. Tests : `src/sim/intro.test.ts`, et le passage par l'hôte seul dans `src/net/net.test.ts`.
+
+**Points ouverts.** Le rythme des répliques et leur ton, à juger en jouant. BadaBot resté à bord est montré sans son orbe. Les répliques n'ont pas de son propre (voix ou bip).

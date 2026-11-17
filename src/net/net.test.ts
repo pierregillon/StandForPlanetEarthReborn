@@ -116,7 +116,18 @@ test('en jeu : les miroirs suivent le serveur, mon robot est prédit sans attend
     b.play(ib);
     server.tick();
   };
-  // arrivée par le véhicule puis déploiement
+  // l'introduction : seul l'hôte peut la passer, avec la touche de dash (GD-077)
+  for (let i = 0; i < 30; i++) step(idle, idle);
+  const riding = world.heroes[0].arrivalSteps;
+  assert.ok(riding > 600, 'introduction complète en cours');
+  step(idle, { ...idle, dashPressed: true });
+  for (let i = 0; i < 10; i++) step(idle, idle);
+  assert.ok(world.heroes[0].arrivalSteps > riding - 20, 'un autre joueur ne peut pas la passer');
+  step({ ...idle, dashPressed: true }, idle);
+  for (let i = 0; i < 10; i++) step(idle, idle);
+  assert.equal(world.heroes[0].arrivalSteps, 0, 'l\'hôte la passe');
+  assert.equal(world.heroes[1].arrivalSteps, 0);
+  // puis le déploiement
   for (let i = 0; i < 700 && world.heroes.some((h) => h.arrivalSteps > 0 || h.deploySteps > 0); i++) step(idle, idle);
   assert.equal(world.heroes[0].deploySteps, 0);
   assert.equal(a.mirror.world.heroes[0].deploySteps, 0, 'le miroir a suivi le déploiement');

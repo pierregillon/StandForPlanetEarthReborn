@@ -2,8 +2,8 @@
 // tourne ici et fait autorité. Les navigateurs envoient leurs entrées et reçoivent des instantanés.
 // Ce fichier ne connaît pas les WebSockets : il parle à des « pairs » abstraits, ce qui le rend testable.
 import { CONFIG } from '../src/sim/config.ts';
-import { isFreshStart, openRoom, retrySession } from '../src/sim/match.ts';
-import { GROUND_FLOOR, createSession } from '../src/sim/session.ts';
+import { isFreshStart, openRoom, retrySession, startTeam } from '../src/sim/match.ts';
+import { createSession } from '../src/sim/session.ts';
 import type { Session } from '../src/sim/session.ts';
 import { NO_INPUT } from '../src/sim/types.ts';
 import type { Hero, Input, LevelData, SimEvent, SpriteManifest } from '../src/sim/types.ts';
@@ -217,8 +217,8 @@ export class Lobby {
     const fresh = isFreshStart(session, arriving);
     const world = openRoom(session, this.levels[session.room], this.sprites, arriving, (Date.now() & 0xffff) + 1);
     for (const slot of this.gone) world.removeHero(slot);
-    // au rez-de-chaussée, le véhicule de largage amène l'équipe (GD-035)
-    if (fresh) world.deployHero(session.room === GROUND_FLOOR);
+    // au rez-de-chaussée, le véhicule de largage amène l'équipe (GD-035, GD-078)
+    if (fresh) startTeam(session, world);
     this.world = world;
     this.encoder.reset();
     this.events = [];
@@ -256,6 +256,8 @@ export class Lobby {
 
     const inputs: Input[] = [];
     for (const p of this.players) inputs[p.slot] = this.nextInput(p);
+    // seul l'hôte peut passer l'introduction
+    world.hostSlot = this.players.find((p) => p.peer.id === this.hostId)?.slot ?? 0;
     world.step(inputs);
 
     let nextRoom: { room: string; spawn: number } | null = null;

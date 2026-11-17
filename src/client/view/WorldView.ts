@@ -8,6 +8,8 @@ import { BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, angleDiff, localToWorld } from '
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
+import { arrivalPhases, clawOf, introLineAt, introLines } from '../../sim/intro.ts';
+import type { IntroLine } from '../../sim/intro.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
 import type { Bat, Bullet, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
@@ -568,7 +570,15 @@ export class WorldView {
   private readonly buttonImgs = new Map<number, Img>();
   private readonly alerts = new Map<number, { text: Phaser.GameObjects.Text; frames: number }>();
   private checkpointImg: Img | null = null;
-  private vehicle: { body: Img; shadow: Img | null } | null = null;
+  private vehicle: {
+    body: Img;
+    shadow: Img | null;
+    /** Les robots qui ne sont pas joués : ils restent dans leur pince et repartent avec le véhicule (GD-078). */
+    crew: Map<string, Img>;
+    /** Halo autour du robot qui parle. */
+    voice: Phaser.GameObjects.Graphics;
+    lines: IntroLine[];
+  } | null = null;
   private hasLamps = false;
   private cable!: Phaser.GameObjects.Graphics;
   private tracers!: Phaser.GameObjects.Graphics;
@@ -2471,9 +2481,9 @@ export class WorldView {
   }
 
   /**
-   * Véhicule de largage (GD-035, GD-059) : il entre par la gauche avec toute l'équipe, chaque robot replié dans
-   * sa pince (deux en haut, deux en bas), descend, les pose, remonte et sort par la droite. Sprites et position
-   * des pinces repris de obj_spawnVehicle.
+   * Véhicule de largage (GD-035, GD-060, GD-078) : il entre par la gauche avec les quatre robots, chacun replié
+   * dans sa pince, reste en vol le temps des répliques radio, descend, pose ceux qui sont joués, remonte et sort
+   * par la droite avec les autres. Sprites et position des pinces repris de obj_spawnVehicle.
    */
   private syncVehicle(): void {
     const a = CONFIG.arrival;
@@ -2483,6 +2493,8 @@ export class WorldView {
       if (this.vehicle) {
         this.vehicle.body.destroy();
         this.vehicle.shadow?.destroy();
+        this.vehicle.voice.destroy();
+        for (const img of this.vehicle.crew.values()) img.destroy();
         this.vehicle = null;
         for (const h of team) {
           const p = this.partsOf(h);
@@ -2492,44 +2504,58 @@ export class WorldView {
       }
       return;
     }
-    const clawOf = (h: Hero): { x: number; y: number } => a.claws[h.id % a.claws.length];
     if (!this.vehicle) {
       const shadow = this.scene.textures.exists(frameKey('spr_spawnVehicleShadow', 0))
         ? this.image('spr_spawnVehicleShadow', 0, lead.x, lead.y, DEPTH.fx + 40).setAlpha(0.5) : null;
-      this.vehicle = { body: this.image('spr_spawnVehicle', 0, lead.x, lead.y, DEPTH.fx + 42), shadow };
+      const crew = new Map<string, Img>();
+      for (const name of a.crew) {
+        const sprite = `spr_${name}_deploy`;
+        if (team.some((h) => h.def.name === name) || !this.scene.textures.exists(frameKey(sprite, 0))) continue;
+        crew.set(name, this.image(sprite, 0, lead.x, lead.y, DEPTH.fx + 41));
+      }
+      this.vehicle = {
+        body: this.image('spr_spawnVehicle', 0, lead.x, lead.y, DEPTH.fx + 42), shadow, crew,
+        voice: this.scene.add.graphics().setDepth(DEPTH.fx + 43),
+        lines: introLines(team.map((h) => h.def.name), lead.arrivalTotal),
+      };
     }
     const t = lead.arrivalTotal - lead.arrivalSteps;
+    const ph = arrivalPhases(lead.arrivalTotal);
     // le véhicule se pose de façon que chaque pince soit au-dessus du point de départ de son robot
-    const landed = { x: lead.x - clawOf(lead).x, y: lead.y - clawOf(lead).y };
-    const t1 = a.flyInSteps;
-    const t2 = t1 + a.descendSteps;
-    const t3 = t2 + a.holdSteps;
-    const t4 = t3 + a.ascendSteps;
+    const leadClaw = clawOf(lead.def.name);
+    const landed = { x: lead.x - leadClaw.x, y: lead.y - leadClaw.y };
     let x = landed.x;
+    let y = landed.y;
     let height = 0; // 1 = en vol, 0 = posé
-    if (t < t1) {
-      const p = t / t1;
+    if (t < ph.flyIn) {
+      const p = t / ph.flyIn;
       x = landed.x - a.travel * (1 - p) * (1 - p); // il ralentit en arrivant
       height = 1;
-    } else if (t < t2) {
-      height = 1 - (t - t1) / a.descendSteps;
-    } else if (t < t3) {
+    } else if (t < ph.hover) {
+      // vol stationnaire : il flotte doucement pendant que les robots parlent
+      height = 1;
+      y = landed.y + Math.sin((t - ph.flyIn) / 16) * 7;
+      x = landed.x + Math.sin((t - ph.flyIn) / 27) * 5;
+    } else if (t < ph.descend) {
+      height = 1 - (t - ph.hover) / a.descendSteps;
+    } else if (t < ph.hold) {
       height = 0;
-    } else if (t < t4) {
-      height = (t - t3) / a.ascendSteps;
+    } else if (t < ph.ascend) {
+      height = (t - ph.hold) / a.ascendSteps;
     } else {
-      const p = (t - t4) / a.flyOutSteps;
+      const p = (t - ph.ascend) / a.flyOutSteps;
       x = landed.x + a.travel * p * p; // il accélère en repartant
       height = 1;
     }
     const scale = 1 + (a.flightScale - 1) * height;
-    const { body, shadow } = this.vehicle;
+    const { body, shadow, crew, voice, lines } = this.vehicle;
     this.setFrame(body, 'spr_spawnVehicle', (this.scene.time.now / 60) % this.info('spr_spawnVehicle').frames);
-    body.setPosition(x, landed.y).setScale(scale);
+    body.setPosition(x, y).setScale(scale);
     // l'ombre s'écarte et s'agrandit avec l'altitude, comme dans l'original
-    shadow?.setPosition(x + (70 * height + 10) * 0.94, landed.y + (70 * height + 10) * 0.34).setScale(scale * (1 + height / 6));
-    // les robots restent dans leur pince jusqu'à ce que le véhicule soit posé
-    const carried = t < t3;
+    shadow?.setPosition(x + (70 * height + 10) * 0.94, y + (70 * height + 10) * 0.34).setScale(scale * (1 + height / 6));
+    const inClaw = (name: string): { x: number; y: number } => ({ x: x + clawOf(name).x * scale, y: y + clawOf(name).y * scale });
+    // les robots joués restent dans leur pince jusqu'à ce qu'elle s'ouvre, au milieu de l'échange du largage
+    const carried = t < ph.release;
     for (const h of team) {
       const p = this.partsOf(h);
       if (!carried) {
@@ -2537,14 +2563,29 @@ export class WorldView {
         p.orb?.setDepth(DEPTH.character + 1);
         continue;
       }
-      const claw = clawOf(h);
-      const bx = x + claw.x * scale;
-      const by = landed.y + claw.y * scale;
-      p.body.setPosition(bx, by).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
+      const at = inClaw(h.def.name);
+      p.body.setPosition(at.x, at.y).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
       // l'orbe de BadaBot est un calque à part : elle voyage avec lui au lieu de l'attendre au sol
       if (p.orb) {
-        p.orb.setPosition(bx + (p.orbX - h.x) * scale, by + (p.orbY - h.y) * scale).setScale(p.orb.scaleX * scale).setDepth(DEPTH.fx + 41.5);
+        p.orb.setPosition(at.x + (p.orbX - h.x) * scale, at.y + (p.orbY - h.y) * scale).setScale(p.orb.scaleX * scale).setDepth(DEPTH.fx + 41.5);
       }
+    }
+    // les autres ne quittent pas le véhicule
+    for (const [name, img] of crew) {
+      const at = inClaw(name);
+      img.setPosition(at.x, at.y).setScale(scale).setRotation(lead.angle);
+    }
+    // un halo pulse autour du robot qui parle
+    voice.clear();
+    const line = introLineAt(lines, t);
+    if (line) {
+      const speaker = team.find((h) => h.def.name === line.speaker);
+      const at = speaker && !carried ? { x: speaker.x, y: speaker.y } : inClaw(line.speaker);
+      const grounded = speaker !== undefined && !carried;
+      const pulse = 0.5 + 0.5 * Math.sin((t - line.from) / 5);
+      const radius = (grounded ? 62 : 62 * scale) + pulse * 6;
+      voice.lineStyle(5, 0xfff3a0, 0.55 + 0.35 * pulse).strokeCircle(at.x, at.y, radius);
+      voice.lineStyle(2, 0xffffff, 0.5).strokeCircle(at.x, at.y, radius + 9);
     }
   }
 

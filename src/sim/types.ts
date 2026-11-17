@@ -561,6 +561,8 @@ export type SimEvent =
   | { type: 'checkpoint'; x: number; y: number }
   | { type: 'deploy'; sound: string; hero: number }
   | { type: 'vehicleArrives'; seconds: number }
+  /** L'hôte a passé l'introduction : le véhicule disparaît, les robots se déploient. */
+  | { type: 'introSkipped' }
   | { type: 'heroHit'; x: number; y: number }
   | { type: 'heroDead'; x: number; y: number }
   | { type: 'reloadStart'; hero: number }

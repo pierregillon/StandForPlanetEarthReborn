@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CONFIG } from './config.ts';
+import { clawOf } from './intro.ts';
 import { World } from './world.ts';
 import { GROUND_FLOOR } from './session.ts';
 import { NO_INPUT } from './types.ts';
@@ -211,16 +212,19 @@ test('dashs : BadaBot n\'en a qu\'un, BatBot en recharge trois', () => {
   assert.equal(bada.dashCharges, 1);
 });
 
-test('largage : chaque robot arrive dans sa pince du véhicule, deux en haut, deux en bas', () => {
-  const claws = CONFIG.arrival.claws;
+test('largage : chaque robot arrive dans sa pince du véhicule, toujours la même (GD-078)', () => {
   const four = team('PetBot', 'EngiBot', 'BatBot', 'BadaBot');
   const first = { x: four.heroes[0].x, y: four.heroes[0].y };
   four.deployHero(true);
+  // le joueur 1 est posé sur son point de départ ; les autres là où se trouve leur pince
+  const lead = clawOf('PetBot');
   four.heroes.forEach((h, i) => {
-    assert.equal(h.x, first.x + claws[i].x - claws[0].x, `robot ${i + 1}`);
-    assert.equal(h.y, first.y + claws[i].y - claws[0].y);
+    assert.equal(h.x, first.x + clawOf(h.def.name).x - lead.x, `robot ${i + 1}`);
+    assert.equal(h.y, first.y + clawOf(h.def.name).y - lead.y);
     assert.ok(h.arrivalSteps > 0);
   });
+  // la pince ne dépend que du robot, pas du rang du joueur
+  assert.deepEqual(CONFIG.arrival.crew.map(clawOf), CONFIG.arrival.claws);
   // les quatre emplacements sont distincts et assez écartés pour quatre robots
   for (let i = 0; i < 4; i++) {
     for (let j = i + 1; j < 4; j++) {
@@ -228,10 +232,9 @@ test('largage : chaque robot arrive dans sa pince du véhicule, deux en haut, de
       assert.ok(d >= four.heroes[i].def.radius + four.heroes[j].def.radius, `pinces ${i + 1} et ${j + 1}`);
     }
   }
-  // à deux : un robot de chaque côté de la coque, l'un en haut, l'autre en bas
+  // à deux : chacun garde sa pince, ici deux coins opposés de la coque
   const two = team('BatBot', 'BadaBot');
   two.deployHero(true);
-  assert.equal(two.heroes[1].x, two.heroes[0].x);
-  assert.equal(two.heroes[1].y - two.heroes[0].y, claws[1].y - claws[0].y);
-  assert.ok(two.heroes[1].y > two.heroes[0].y);
+  assert.equal(two.heroes[1].x - two.heroes[0].x, clawOf('BadaBot').x - clawOf('BatBot').x);
+  assert.equal(two.heroes[1].y - two.heroes[0].y, clawOf('BadaBot').y - clawOf('BatBot').y);
 });

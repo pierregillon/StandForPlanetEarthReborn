@@ -74,10 +74,10 @@ Lire, dans cet ordre :
 
 | Dossier | Rôle | Fichiers clés |
 |---|---|---|
-| `src/sim/` | La simulation : toute la logique du jeu, 60 pas par seconde, sans Phaser ni navigateur | `config.ts` (**tous les réglages d'équilibrage**), `world.ts` (boucle, dégâts, objectifs), `hero.ts`, `abilities.ts`, `ulti.ts`, `link.ts`, `npc.ts` (soldats et civils), `boss.ts`, `nav.ts`, `visibility.ts`, `session.ts` (consignes, état de la partie), `types.ts` ; tests `*.test.ts` |
+| `src/sim/` | La simulation : toute la logique du jeu, 60 pas par seconde, sans Phaser ni navigateur | `config.ts` (**tous les réglages d'équilibrage**), `world.ts` (boucle, dégâts, objectifs), `hero.ts`, `abilities.ts`, `ulti.ts`, `link.ts`, `intro.ts` (déroulé et répliques de l'introduction), `npc.ts` (soldats et civils), `boss.ts`, `nav.ts`, `visibility.ts`, `session.ts` (consignes, état de la partie), `types.ts` ; tests `*.test.ts` |
 | `src/net/` | Multijoueur : instantanés et monde miroir du client | `snapshot.ts`, `mirror.ts`, `messages.ts`, `net.test.ts` |
 | `server/` | Serveur Node : fichiers statiques, WebSocket, salon de jeu | `main.ts`, `game.ts` |
-| `src/client/` | Affichage Phaser | `scenes/` (menu, choix du niveau et du héros, salon, jeu), `view/WorldView.ts` (dessin du monde et effets), `view/Hud.ts`, `assets.ts`, `sfx.ts`, `keys.ts`, `net/Connection.ts` |
+| `src/client/` | Affichage Phaser | `scenes/` (menu, choix du niveau et du héros, salon, jeu), `view/WorldView.ts` (dessin du monde et effets), `view/Hud.ts`, `view/IntroOverlay.ts` (bandes de cinéma et boîte de dialogue), `assets.ts`, `sfx.ts`, `keys.ts`, `net/Connection.ts` |
 | `tools/` | Outils de fabrication | `build.ts`, `convert-rooms.ts` (salles GameMaker → JSON), `extract-assets.ts` + `assets.config.json`, `make-sprites.ts` (sprites fabriqués), `level-map.ts` (plan annoté d'une salle, en SVG) |
 | `public/` | Ce que sert le serveur | `levels/*.json` (les salles du monde 2), `assets/sprites/` + `sprites.json`, `assets/floors/`, `assets/sounds/`, `fonts/`, `index.html` |
 

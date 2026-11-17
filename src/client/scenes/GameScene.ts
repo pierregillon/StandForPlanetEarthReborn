@@ -15,7 +15,9 @@ import { clamp } from '../../sim/geom.ts';
 import { NO_INPUT } from '../../sim/types.ts';
 import type { Hero, Input, LevelData, SpriteManifest } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
-import { isFreshStart, openRoom } from '../../sim/match.ts';
+import { isFreshStart, openRoom, retrySession, startTeam } from '../../sim/match.ts';
+import { clawOf } from '../../sim/intro.ts';
+import { IntroOverlay } from '../view/IntroOverlay.ts';
 import { createSession } from '../../sim/session.ts';
 import type { Session } from '../../sim/session.ts';
 
@@ -59,6 +61,7 @@ export class GameScene extends Phaser.Scene {
   private world!: World;
   private view!: WorldView;
   private hud!: Hud;
+  private intro!: IntroOverlay;
   private acc = 0;
   private camX = 0;
   private camY = 0;
@@ -95,6 +98,12 @@ export class GameScene extends Phaser.Scene {
     const room = net ? net.start.room : session?.room ?? 'rm_world2';
     const names = roomSprites(room, sprites);
     for (const hero of heroes) names.push(...heroSprites(hero.kind, sprites));
+    // les quatre robots sont dans le véhicule de largage, joués ou non : il faut leur image repliée (GD-078)
+    for (const name of CONFIG.arrival.crew) {
+      const key = frameKey(`spr_${name}_deploy`, 0);
+      const played = heroes.some((hero) => hero.name === name);
+      if (!played && sprites[`spr_${name}_deploy`] && !this.textures.exists(key)) this.load.image(key, `assets/sprites/spr_${name}_deploy/0.png`);
+    }
     for (const name of names) {
       for (let i = 0; i < sprites[name].frames; i++) {
         if (!this.textures.exists(frameKey(name, i))) this.load.image(frameKey(name, i), `assets/sprites/${name}/${i}.png`);
@@ -166,8 +175,8 @@ export class GameScene extends Phaser.Scene {
       const fresh = isFreshStart(session, arriving);
       const level = this.cache.json.get(`level:${session.room}`) as LevelData;
       world = openRoom(session, level, sprites, arriving, (Date.now() & 0xffff) + 1);
-      // au rez-de-chaussée, le véhicule de largage amène le robot (GD-035)
-      if (fresh) world.deployHero(session.room === 'rm_world2');
+      // au rez-de-chaussée, le véhicule de largage amène le robot (GD-035, GD-078)
+      if (fresh) startTeam(session, world);
     }
     this.world = world;
     this.synth = new Synth(this);
@@ -176,6 +185,7 @@ export class GameScene extends Phaser.Scene {
     if (arriving) this.cameras.main.fadeIn(200, 19, 19, 19);
     this.view = new WorldView(this, this.world, floors);
     this.hud = new Hud(this, this.world);
+    this.intro = new IntroOverlay(this, this.world);
     this.view.playerNames = this.mirror?.playerNames ?? [];
     this.hud.playerNames = this.view.playerNames;
     this.acc = 0;
@@ -230,6 +240,11 @@ export class GameScene extends Phaser.Scene {
   private cameraGoal(): { x: number; y: number } {
     const h = this.world.hero;
     if (h.state === 'dead') return { x: h.x, y: h.y };
+    if (h.arrivalSteps > 0) {
+      // pendant le largage, le cadre reste centré sur le véhicule
+      const claw = clawOf(h.def.name);
+      return { x: h.x - claw.x, y: h.y - claw.y };
+    }
     const pointer = this.input.activePointer;
     const { lookAhead, maxLookAhead, viewWidth, viewHeight } = CONFIG.camera;
     return {
@@ -250,7 +265,9 @@ export class GameScene extends Phaser.Scene {
     const hw = CONFIG.camera.viewWidth / 2;
     const hh = CONFIG.camera.viewHeight / 2;
     this.camX = clamp(this.camX, hw, Math.max(hw, this.world.width - hw));
-    this.camY = clamp(this.camY, hh, Math.max(hh, this.world.height - hh));
+    // pendant l'introduction, les bandes de cinéma cachent le haut et le bas : la caméra peut dépasser d'autant
+    const cover = this.intro.cover;
+    this.camY = clamp(this.camY, hh - cover, Math.max(hh, this.world.height - hh) + cover);
     cam.setScroll(this.camX - hw, this.camY - hh);
   }
 
@@ -370,6 +387,11 @@ export class GameScene extends Phaser.Scene {
         const h = world.heroes[e.hero] ?? world.hero;
         this.playSound(e.sound, h.x, h.y);
       } else if (e.type === 'vehicleArrives') this.synth.vehicle(e.seconds);
+      else if (e.type === 'introSkipped') {
+        // l'hôte a passé l'introduction : coupe franche, les robots sont déjà au sol
+        this.synth.vehicleStop();
+        this.cameras.main.fadeIn(260, 0, 0, 0);
+      }
       else if (e.type === 'buttonPressed') this.synth.buttonPress();
       else if (e.type === 'checkpoint') {
         this.synth.checkpoint();
@@ -402,6 +424,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.view.sync(delta / 1000);
     this.hud.update();
+    this.intro.update(!this.conn || this.conn.isHost, delta);
     this.synth.charge(world.hero.charging, world.hero.energy);
     if (world.gameOver && this.panel?.kind !== 'lose' && this.panel?.kind !== 'end') {
       this.closePanel();
@@ -451,7 +474,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     // GD-029 : sinon on repart du début du niveau, sans carte, avec le même héros
-    this.registry.set('session', null);
+    this.registry.set('session', retrySession(this.session));
     this.scene.restart();
   }
 

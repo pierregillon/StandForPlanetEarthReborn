@@ -46,7 +46,7 @@ En jeu à plusieurs : **A** (Q sur un clavier QWERTY) en visant un coéquipier p
 | Tirer (BadaBot : maintenir pour charger) | clic gauche |
 | Tir secondaire (coûte de l'énergie) | clic droit |
 | Recharger ; BatBot : rappeler ses battes | R |
-| Dash (en marchant) | Espace ou Maj |
+| Dash (en marchant) ; passer l'introduction du niveau (l'hôte seulement, à plusieurs) | Espace ou Maj |
 | Utiliser un bouton ; se recharger sur une borne (maintenir) | E |
 | Pause | Échap |
 

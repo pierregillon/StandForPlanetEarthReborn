@@ -8,6 +8,7 @@ import {
 } from './geom.ts';
 import type { Obstacle } from './geom.ts';
 import { NavGrid } from './nav.ts';
+import { arrivalTotal as arrivalDuration, clawOf } from './intro.ts';
 import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, stepAbilityObjects } from './abilities.ts';
 import type { NewExplosion } from './abilities.ts';
 import { deploySound, stepHero } from './hero.ts';
@@ -216,16 +217,16 @@ export class World {
   }
 
   /** Animation de déploiement au début d'une partie (présente dans l'original, où elle était désactivée). */
-  deployHero(withVehicle = false): void {
-    const a = CONFIG.arrival;
-    const arrivalTotal = a.flyInSteps + a.descendSteps + a.holdSteps + a.ascendSteps + a.flyOutSteps;
-    // chaque robot arrive dans sa pince : il est posé là où elle se trouve quand le véhicule touche le sol
-    // (le véhicule se pose de façon à déposer le joueur 1 sur son point de départ)
+  deployHero(withVehicle = false, fullIntro = true): void {
+    const arrivalTotal = arrivalDuration(fullIntro);
+    // chaque robot arrive dans sa pince, toujours la même (GD-078) : il est posé là où elle se trouve quand
+    // le véhicule touche le sol (le véhicule se pose de façon à déposer le joueur 1 sur son point de départ)
     const lead = this.heroes[0];
-    const origin = lead ? { x: lead.x - a.claws[0].x, y: lead.y - a.claws[0].y } : null;
+    const leadClaw = lead ? clawOf(lead.def.name) : null;
+    const origin = lead && leadClaw ? { x: lead.x - leadClaw.x, y: lead.y - leadClaw.y } : null;
     for (const h of this.heroes) {
       if (withVehicle && origin && h !== lead) {
-        const claw = a.claws[h.id % a.claws.length];
+        const claw = clawOf(h.def.name);
         const x = origin.x + claw.x;
         const y = origin.y + claw.y;
         if (this.collision.circleFree(x, y, h.def.radius, BLOCK_MOVE)) {
@@ -248,6 +249,18 @@ export class World {
       }
     }
     if (withVehicle) this.emit({ type: 'vehicleArrives', seconds: arrivalTotal / STEPS_PER_SECOND });
+  }
+
+  /**
+   * L'hôte passe l'introduction (GD-077) : le véhicule disparaît et les robots joués, déjà à leur place,
+   * commencent à se déployer au step suivant.
+   */
+  skipArrival(): boolean {
+    const riding = this.heroes.filter((h) => !h.gone && h.arrivalSteps > 1);
+    if (riding.length === 0) return false;
+    for (const h of riding) h.arrivalSteps = 1;
+    this.emit({ type: 'introSkipped' });
+    return true;
   }
 
   /** Chaises à roulettes : poussées par les héros, elles roulent puis ralentissent ; les murs les arrêtent. */
@@ -581,9 +594,14 @@ export class World {
   }
 
   /** Avance d'un step. `inputs` : l'entrée du joueur en solo, ou une entrée par héros, dans l'ordre de l'équipe. */
+  /** Rang du héros dont le joueur peut passer l'introduction : l'hôte de la partie (0 en solo). */
+  hostSlot = 0;
+
   step(inputs: Input | Input[]): void {
     this.tick++;
     const list = Array.isArray(inputs) ? inputs : [inputs];
+    // pendant l'arrivée, la touche de dash de l'hôte passe l'introduction
+    if (list[this.hostSlot]?.dashPressed) this.skipArrival();
     this.stepChairs();
     for (const o of this.outlets) o.inUse = false;
     for (const button of this.buttons) if (button.pressedSteps >= 0) button.pressedSteps++;

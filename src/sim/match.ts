@@ -1,5 +1,5 @@
 // Enchaînement des salles d'une partie, commun au jeu solo (dans le navigateur) et au serveur multijoueur.
-import { createSession } from './session.ts';
+import { GROUND_FLOOR, createSession } from './session.ts';
 import type { Session } from './session.ts';
 import type { Hero, LevelData, SpriteManifest } from './types.ts';
 import { World } from './world.ts';
@@ -25,12 +25,26 @@ export function isFreshStart(session: Session, arriving: Hero[] | null): boolean
 }
 
 /**
+ * Début d'une partie : l'équipe se déploie. Au rez-de-chaussée, le véhicule de largage l'amène d'abord
+ * (GD-035), avec l'introduction complète la première fois seulement (GD-078).
+ */
+export function startTeam(session: Session, world: World): void {
+  const withVehicle = session.room === GROUND_FLOOR;
+  world.deployHero(withVehicle, !session.introSeen);
+  if (withVehicle) session.introSeen = true;
+}
+
+/**
  * Retry après une défaite : reprise au point de sauvegarde s'il est activé (GD-031), sa salle étant remise à
  * neuf ; sinon tout le niveau recommence, sans carte, avec la même équipe (GD-029).
  */
 export function retrySession(session: Session): Session {
   const cp = session.checkpoint;
-  if (!cp) return createSession(session.heroNames);
+  if (!cp) {
+    const fresh = createSession(session.heroNames);
+    fresh.introSeen = session.introSeen;
+    return fresh;
+  }
   session.rooms.get(cp.room)?.forget();
   session.room = cp.room;
   session.objective = Math.min(session.objective, 3);

@@ -542,16 +542,26 @@ export const CONFIG = {
    */
   arrival: {
     flyInSteps: s(1.4),
+    /**
+     * Vol stationnaire au-dessus du parvis, le temps des répliques radio de l'introduction (GD-078). Il n'a
+     * lieu que la première fois : quand le niveau recommence, le véhicule descend aussitôt.
+     */
+    hoverSteps: s(8.5),
     descendSteps: s(0.8),
-    holdSteps: s(0.45),
+    /** Posé au sol : l'échange du largage ; les pinces des robots joués s'ouvrent à mi-parcours (0,45 s avant GD-078). */
+    holdSteps: s(3.2),
     ascendSteps: s(0.6),
     flyOutSteps: s(1.2),
     /**
      * Les quatre pinces du véhicule, par rapport à l'origine de son sprite (scr_arrayOfSpawnPositionRelativeToSprite
-     * de l'original) : deux en haut, deux en bas, de part et d'autre de la coque. Le joueur 1 prend la première,
-     * le joueur 2 la deuxième, et ainsi de suite : à deux, un robot de chaque côté ; à quatre, toutes sont prises.
+     * de l'original) : deux en haut, deux en bas, de part et d'autre de la coque.
      */
     claws: [{ x: 72, y: -95 }, { x: 72, y: 97 }, { x: -71, y: -95 }, { x: -71, y: 97 }],
+    /**
+     * Les quatre robots sont toujours à bord, chacun dans sa pince, dans l'ordre de `claws` (GD-078). Seuls
+     * ceux qui sont joués sont largués ; les autres repartent avec le véhicule.
+     */
+    crew: ['BadaBot', 'EngiBot', 'PetBot', 'BatBot'] as string[],
     /** Échelle du véhicule en vol (1,1 dans l'original ; accentuée pour qu'on lise la descente). */
     flightScale: 1.3,
     travel: 1900,
