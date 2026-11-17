@@ -162,7 +162,7 @@ export const CONFIG = {
       precisionDeg: 3,
       muzzle: { x: 90, y: 23 },
       bullet: { sprite: 'spr_bullet_PetBot', speed: 20, maxDistance: 1500, damage: 1, radius: 6 },
-      magazine: 24, // remake : un quart de l'ancien stock de 99
+      magazine: 12, // 99 en 2019, 24 au debut du remake ; 4 s de tir (GD-057)
       reloadSteps: s(1.2), // remake
       fire2CooldownSteps: 0,
       sprites: {
@@ -186,7 +186,7 @@ export const CONFIG = {
       precisionDeg: 10,
       muzzle: { x: 43, y: 57 },
       bullet: { sprite: 'spr_EngiBot_bullet', speed: 40, maxDistance: 1500, damage: 1, radius: 6, kind: 'bounce' },
-      magazine: 25, // remake : un quart de l'ancien stock de 100
+      magazine: 18, // 100 en 2019, 25 au debut du remake ; 3,6 s de tir (GD-057)
       reloadSteps: s(1.4), // remake
       fire2CooldownSteps: s(0.5),
       sprites: {
@@ -234,7 +234,7 @@ export const CONFIG = {
       precisionDeg: 3,
       muzzle: { x: 28, y: 0 },
       bullet: { sprite: 'spr_BadaBot_bullet', speed: 40, maxDistance: 1500, damage: 0, radius: 8, kind: 'plasma', scale: 0.25 },
-      magazine: 25, // remake : un quart de l'ancien stock de 100
+      magazine: 9, // 100 en 2019, 25 au debut du remake ; trois salves de 3 boules (GD-057)
       reloadSteps: s(1.5), // remake
       fire2CooldownSteps: s(0.25),
       sprites: {

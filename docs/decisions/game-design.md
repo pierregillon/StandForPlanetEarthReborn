@@ -1221,3 +1221,25 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 - Les soins de PetBot ont un débit fixe : remettre BadaBot à neuf prend plus de temps.
 - L'affichage de la vie est un rapport à la vie maximale : il s'adapte sans changement.
 - `maxHealth`, `walkSpeed`, `dashCharges` et `reviveSteps` dans `CONFIG.heroes` ; `swingDamage` dans `CONFIG.abilities.batBot`. Le nombre de dashs et la durée de la résurrection, jusque-là communs, sont maintenant propres à chaque robot. Deux tests dans `team.test.ts`. Contrôlé dans la page en solo avec BadaBot (16 PV, un dash, vitesse 630 px/s) ; les autres robots et le multijoueur ne sont couverts que par les tests.
+
+## GD-057 — Chargeurs réduits : 12, 18 et 9
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — équilibrage à ajuster après essai
+- **Décidée par** : l'utilisateur (« 25 c'est un peu trop »), sur les valeurs proposées par défaut
+
+**Contexte.** Les chargeurs valaient un quart des stocks de 2019 (GD-005) : 24 pour PetBot, 25 pour EngiBot et BadaBot. Depuis que la cadence de BadaBot est limitée (GD-055), ses 25 boules représentaient 11 secondes de tir sans recharger.
+
+**Décision.** Chaque chargeur vaut 3 à 4 secondes de tir.
+
+| | Avant | Maintenant | Temps de tir | Rechargement |
+|---|---|---|---|---|
+| PetBot | 24 | 12 | 4 s | 1,2 s |
+| EngiBot | 25 | 18 | 3,6 s | 1,4 s |
+| BadaBot | 25 | 9 | environ 4 s | 1,5 s |
+
+BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement trois salves chargées, une par segment de sa jauge.
+
+**Pourquoi.** Recharger doit être un choix de moment, pas un événement rare. Les rôles se retrouvent dans le chargeur : le tireur arrose le plus longtemps, l'arme lourde compte ses coups, le soigneur tire par courtes séries.
+
+**Conséquences.** `magazine` dans `CONFIG.heroes`. En comptant les rechargements, les dégâts par seconde deviennent environ 2,3 pour PetBot, 3,6 pour EngiBot et 3,3 pour BadaBot ; BatBot reste à 6. On recharge environ deux fois plus souvent : si le rythme paraît trop haché, raccourcir les rechargements plutôt que regrossir les chargeurs.
