@@ -16,11 +16,72 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-008 | Ennemis, civils et IA : ceux du code | 2026-11-15 | Acceptée |
 | GD-009 | Premier niveau : le monde 2 complet, avec le boss | 2026-11-15 | Acceptée |
 | GD-010 | Le niveau suit 6 consignes et se termine à la mort de SallyBot | 2026-11-15 | Acceptée |
-| GD-011 | Brouillard de guerre et lumières simples, sans ombres portées | 2026-11-15 | Acceptée |
+| GD-011 | Brouillard de guerre et lumières simples, sans ombres portées | 2026-11-15 | Acceptée pour le brouillard ; pour les lumières, remplacée par GD-038 (ombres portées et couleurs) |
 | GD-012 | Textes en anglais ; clavier-souris en ZQSD et WASD ; manette plus tard | 2026-11-15 | Acceptée |
 | GD-013 | Équilibrage : valeurs du code, ajustées pour un joueur seul | 2026-11-15 | Acceptée |
 | GD-014 | Les bogues du jeu d'origine sont corrigés, pas reproduits | 2026-11-15 | Acceptée |
 | GD-015 | Livraison en 4 étapes jouables | 2026-11-15 | Acceptée |
+| GD-016 | Touches lues par position physique ; se brancher avec la touche Utiliser | 2026-11-16 | Acceptée |
+| GD-017 | Coup de bouclier : 1 dégât et repoussement, toujours | 2026-11-16 | Acceptée |
+| GD-018 | Invulnérabilité après un dégât allongée pour le solo | 2026-11-16 | Acceptée — à ajuster après essai |
+| GD-019 | Corrections de collision par rapport à l'original | 2026-11-16 | Acceptée |
+| GD-020 | Prises de courant : emplacement et fonctionnement à l'étape 1 | 2026-11-16 | Acceptée — emplacements à revoir avec l'utilisateur |
+| GD-021 | Chargeur de PetBot et éléments d'interface ajoutés | 2026-11-16 | Acceptée — valeurs à ajuster après essai |
+| GD-022 | Projectiles plus visibles ; bornes utilisables de plus loin, avec un arc électrique | 2026-11-16 | Acceptée |
+| GD-023 | Les quatre héros et leurs tirs secondaires : écarts avec le code d'origine | 2026-11-16 | Acceptée — à ajuster après essai |
+| GD-024 | Carte verte et portes à carte avancées à l'étape 2 | 2026-11-16 | Acceptée |
+| GD-025 | BatBot : un clic droit sans batte en main rappelle les battes | 2026-11-16 | Acceptée (corrige un point de GD-023) |
+| GD-026 | Passage entre les salles, consignes et fin provisoire du niveau | 2026-11-16 | Acceptée |
+| GD-027 | Les boîtes bonus à ramasser sont retirées du jeu | 2026-11-16 | Acceptée |
+| GD-028 | Zone de forage, foreuses, boss SallyBot, brouillard, lumières et score | 2026-11-16 | Acceptée — équilibrage à ajuster après essai |
+| GD-029 | Retours d'essai du niveau complet : bornes, soins, tanks, caméra, lisibilité | 2026-11-16 | Acceptée — valeurs à ajuster après essai |
+| GD-030 | BatBot : R rappelle les battes, qui frappent aussi au retour | 2026-11-16 | Acceptée (complète GD-023 et GD-025) |
+| GD-031 | Deuxième série de retours : point de sauvegarde, mobilité, décor vivant, lisibilité | 2026-11-16 | Acceptée — valeurs à ajuster après essai |
+| GD-032 | Rechargement propre à chaque robot, jauge masquée à plein, choix du point de départ | 2026-11-16 | Acceptée — animations à remplacer par de vrais sprites si l'on en dessine |
+| GD-033 | Orbe de BadaBot calée sur sa tête ; ajustements du rechargement et des débris | 2026-11-16 | Acceptée |
+| GD-034 | Rechargement de PetBot joué avec ses propres sprites | 2026-11-16 | Acceptée (remplace le rechargement de PetBot de GD-032 et GD-033) |
+| GD-035 | Arrivée par le véhicule de largage au début du niveau | 2026-11-16 | Acceptée — durées à ajuster après essai |
+| GD-036 | Les soldats vont voir d'où vient le bruit ; le « ! » ne traverse pas le brouillard | 2026-11-16 | Acceptée — durées à ajuster après essai |
+| GD-037 | Départ à l'étage : les portes déjà franchies sont ouvertes | 2026-11-16 | Acceptée |
+| GD-038 | Lumières avec ombres portées et couleurs, comme dans l'original | 2026-11-16 | Acceptée |
+| GD-039 | Règles du jeu à plusieurs héros (jusqu'à 4) | 2026-11-16 | Acceptée — modifiée par GD-041 (balles de PetBot, collision entre héros, compte à rebours de 5 s) |
+| GD-040 | Premier multijoueur : créer ou rejoindre une partie, salon, choix des robots | 2026-11-16 | Acceptée — première version, à éprouver en jeu |
+| GD-041 | Retours du premier essai à deux joueurs | 2026-11-16 | Acceptée — modifiée par GD-042 (plus de soin par les balles de PetBot, avatars des coéquipiers) |
+| GD-042 | Balles de PetBot sans soin ; HUD allégé, avatars côte à côte | 2026-11-16 | Acceptée |
+| GD-043 | Le link entre héros, la surcharge et l'attaque ultime | 2026-11-16 | Acceptée — complétée et ajustée par GD-044 (les quatre ultis, débit du lien doublé, sprites refaits) |
+| GD-044 | Les quatre ultis, postures de lancement, lien plus rapide, avatar « ulti prêt » | 2026-11-16 | Acceptée — à éprouver en jeu |
+| GD-045 | Les mini-bots de PetBot l'accompagnent en permanence | 2026-11-17 | Acceptée |
+| GD-046 | Mini-bots de PetBot : plus gros, sortis du coffre, ombre sur PetBot | 2026-11-17 | Acceptée |
+| GD-047 | Ulti de PetBot : ses mini-bots tournent autour de lui | 2026-11-17 | Acceptée |
+| GD-048 | Lancement d'un ulti : le robot est immobile, l'énergie s'anime autour de lui | 2026-11-17 | Acceptée |
+| GD-049 | Lancement d'un ulti : l'énergie de surcharge prend la couleur du robot, halo discret | 2026-11-17 | Acceptée |
+| GD-050 | Ulti de PetBot : la ronde des mini-bots le suit avec un léger retard | 2026-11-17 | Acceptée |
+| GD-051 | Ulti de BadaBot : une vague d'énergie à la place du mur | 2026-11-17 | Acceptée ; remplace le mur d'énergie de GD-044 |
+| GD-052 | Vague de BadaBot : des dégâts, une onde qui épouse les obstacles, une détonation | 2026-11-17 | Acceptée ; modifie GD-051 |
+| GD-053 | L'onde de BadaBot fait 14 points de dégâts, comme le bond de BatBot | 2026-11-17 | Acceptée ; modifie la valeur par défaut de GD-052 |
+| GD-054 | Le boss est plus coriace à plusieurs joueurs | 2026-11-17 | Acceptée — équilibrage à ajuster après essai |
+| GD-055 | Tir principal de BadaBot : 2 points par boule, 0,4 s entre deux tirs | 2026-11-17 | Acceptée — équilibrage à ajuster après essai |
+| GD-056 | Des stats propres au rôle de chaque robot | 2026-11-17 | Acceptée — équilibrage à ajuster après essai |
+| GD-057 | Chargeurs réduits : 12, 18 et 9 | 2026-11-17 | Acceptée — équilibrage à ajuster après essai |
+| GD-058 | Ennemis : un rôle par type, plus solides à plusieurs, un déplacement adapté à leur arme | 2026-11-17 | Acceptée — équilibrage à ajuster après essai |
+| GD-059 | ShotBot : il surprend, tire d'un peu plus loin, et retrouve ses 10 plombs | 2026-11-17 | Acceptée ; modifie les valeurs du ShotBot de GD-058 |
+| GD-060 | Largage : un robot par pince du véhicule | 2026-11-17 | Acceptée |
+| GD-061 | Correction : les bornes gardées ne dépendent plus de l'entrée dans la salle | 2026-11-17 | Acceptée (correction de bogue) |
+| GD-062 | Toutes les balles à la même vitesse, et une traînée qui suit la vitesse | 2026-11-17 | Acceptée |
+| GD-063 | Correction : la posture de tir est tenue tant que le robot tire | 2026-11-17 | Acceptée (correction de bogue) |
+| GD-064 | Prototype à l'essai : les balles deviennent des traits de lumière | 2026-11-17 | À l'essai — à garder ou à retirer après test par l'utilisateur |
+| GD-065 | Prototype des traits de lumière : déflagration qui éclaire, balles qui refroidissent | 2026-11-17 | À l'essai, comme GD-064 qu'elle précise |
+| GD-066 | Les civils qui fuient courent plus vite | 2026-11-17 | Appliquée |
+| GD-067 | Mort d'un humain : explosion plus forte, flaque et projection de sang | 2026-11-17 | Appliquée |
+| GD-068 | Les viseurs laser des héros sont retirés | 2026-11-17 | Appliquée |
+| GD-069 | Traces de pas après une flaque de sang ou d'huile | 2026-11-17 | Appliquée |
+| GD-070 | Plus d'invulnérabilité après un dégât | 2026-11-17 | Appliquée |
+| GD-071 | Rechargement d'EngiBot : le fusil en accordéon se comprime et se détend | 2026-11-17 | Appliquée |
+| GD-072 | Rechargement de PetBot : une transfusion | 2026-11-17 | Appliquée |
+| GD-073 | BadaBot : salve de trois boules, tir plasma mis en lumière, bouclier plus solide | 2026-11-17 | Appliquée |
+| GD-074 | Le dash passe avant tout et annule l'action en cours | 2026-11-17 | Appliquée |
+| GD-075 | Un soldat qui retrouve sa cible met un instant à tirer | 2026-11-17 | Appliquée |
+| GD-076 | L'arc narratif de référence est le document « reborn » de l'utilisateur | 2026-11-17 | Acceptée |
 
 ---
 

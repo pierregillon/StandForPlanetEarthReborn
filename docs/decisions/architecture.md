@@ -12,6 +12,13 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | ADR-006 | Niveaux en JSON, convertis automatiquement depuis les salles GameMaker | 2026-11-15 | Acceptée |
 | ADR-007 | Assets repris du projet GameMaker de 2019 ; sprites manquants régénérés | 2026-11-15 | Acceptée |
 | ADR-008 | Documentation en français, décisions tracées, commits intermédiaires | 2026-11-15 | Acceptée |
+| ADR-009 | Node 22 portable dans le projet, sans nvm-windows | 2026-11-16 | Acceptée (remplace le moyen prévu par ADR-003, pas son objectif) |
+| ADR-010 | Outils minimaux : esbuild, TypeScript exécuté par Node, serveur sans dépendance | 2026-11-16 | Acceptée |
+| ADR-011 | Simulation à pas fixe de 60 par seconde, séparée de l'affichage | 2026-11-16 | Acceptée (précise ADR-005) |
+| ADR-012 | Images de sprites chargées une par une ; sprites sélectionnés par configuration | 2026-11-16 | Acceptée — à améliorer |
+| ADR-013 | Lumières : zone éclairée pré-dessinée par lampe, recalculée quand une porte bouge | 2026-11-16 | Acceptée |
+| ADR-014 | Multijoueur : le serveur fait tourner le jeu, les navigateurs en tiennent un miroir | 2026-11-16 | Acceptée — première version |
+| ADR-015 | Sprites manquants fabriqués par un outil, à partir des sprites d'origine | 2026-11-16 | Acceptée |
 
 ---
 
