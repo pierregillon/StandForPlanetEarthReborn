@@ -118,7 +118,7 @@ const TRACER_STYLE = {
    * serrés dans un cône de `spread` radians de part et d'autre de l'axe du tir.
    */
   blast: {
-    length: 190, width: 46, hold: 0.02, decay: 0.04, light: 250, lightAlpha: 0.95, rays: 9, spread: 0.36,
+    length: 190, width: 36, hold: 0.015, decay: 0.028, light: 250, lightAlpha: 0.95, rays: 9, spread: 0.14,
     /** Pixels dont toute la flamme avance, loin du canon, pendant qu'elle s'estompe. */
     drift: 40,
   },
