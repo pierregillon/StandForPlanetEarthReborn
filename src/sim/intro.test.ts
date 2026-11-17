@@ -56,7 +56,54 @@ test('arrivée : le journal et le vol stationnaire ne s\'ajoutent qu\'à l\'intr
   assert.equal(introShot(short, 0).kind, 'vehicle');
 });
 
-test('le plateau de TvTv² est en place : pupitre, présentateur à son poste, trois caméras (GD-080)', () => {
+test('le plateau de TvTv² est une pièce fermée, avec son sol, ses deux portes et son décor (GD-081)', () => {
+  const w = new World(ground, sprites, 'PetBot', 2);
+  const r = TV_STUDIO.room;
+  const blocked = (x1: number, y1: number, x2: number, y2: number): boolean => w.collision.segmentBlocked(x1, y1, x2, y2, 1);
+  // les murs nord et sud vont de la vitre de la régie à l'ancienne alcôve ; la cloison du décor coupe la pièce
+  assert.ok(blocked(9000, r.y0 - 120, 9000, r.y0 + 120), 'mur nord');
+  assert.ok(blocked(9000, r.y1 - 120, 9000, r.y1 + 120), 'mur sud');
+  assert.ok(blocked(r.x0 + 40, r.y0 - 120, r.x0 + 40, r.y0 + 120), 'le mur nord rejoint la vitre');
+  assert.ok(blocked(9560, 3856, 9740, 3856), 'cloison du fond de décor');
+  assert.ok(!blocked(9580, r.y0 + 80, 9860, r.y0 + 80), 'passage nord vers les coulisses');
+  assert.ok(!blocked(9580, r.y1 - 80, 9860, r.y1 - 80), 'passage sud vers les coulisses');
+  // deux portes automatiques : fermées elles arrêtent, et un robot qui approche les ouvre
+  const doors = w.doors.filter((d) => d.kind === 'auto' && Math.abs(d.x - 8480) < 2 && (Math.abs(d.y - (r.y0 - 16)) < 2 || Math.abs(d.y - (r.y1 + 16)) < 2));
+  assert.equal(doors.length, 2);
+  assert.ok(blocked(8480, r.y0 - 120, 8480, r.y0 + 120), 'porte nord fermée');
+  w.npcs = [];
+  w.hero.x = 8480;
+  w.hero.y = r.y0 - 150;
+  for (let i = 0; i < 150; i++) w.step({ ...NO_INPUT, moveY: 1, aimX: 8480, aimY: 9000 });
+  assert.ok(w.hero.y > r.y0 + 100, `le robot est entré sur le plateau (y = ${Math.round(w.hero.y)})`);
+  // le sol de studio couvre la pièce ; la grille de ventilation et les conteneurs de l'alcôve ont disparu
+  assert.ok(w.level.floors.some((f) => f.tileset === 'til_sol_studio' && f.x === r.x0 && f.w === r.x1 - r.x0));
+  assert.ok(!w.level.decals.some((d) => d.sprite === 'spr_ventilation'));
+  assert.ok(w.level.decals.some((d) => d.sprite === 'spr_tv_riser'));
+  assert.ok(!w.level.instances.some((i) => i.object === 'obj_container' && i.x >= r.x0 && i.x < r.x1 && i.y >= r.y0 && i.y < r.y1));
+  for (const sprite of ['spr_tv_desk', 'spr_tv_ledwall', 'spr_tv_spot', 'spr_tv_onair', 'spr_camera']) {
+    assert.ok(w.decor.some((d) => d.sprite === sprite), sprite);
+    assert.ok(sprites[sprite], `${sprite} est dans le manifeste des sprites`);
+  }
+});
+
+test('pendant le journal, personne ne bouge : ni les gardes en ronde, ni les civils (GD-081)', () => {
+  const w = new World(ground, sprites, 'PetBot', 7);
+  w.deployHero(true);
+  const p = arrivalPhases(w.hero.arrivalTotal);
+  const before = w.npcs.map((n) => [n.x, n.y]);
+  // le plateau, puis le hall : l'horloge est arrêtée sur la première phrase, puis sur la deuxième
+  for (let i = 0; i < 300; i++) w.step(NO_INPUT);
+  assert.ok(w.newsOnAir());
+  assert.deepEqual(w.npcs.map((n) => [n.x, n.y]), before, 'aucun personnage n\'a bougé');
+  // la caméra a retrouvé le véhicule : les rondes reprennent
+  while (clock(w) < p.exit) w.step(PRESS);
+  assert.ok(!w.newsOnAir());
+  for (let i = 0; i < 300; i++) w.step(NO_INPUT);
+  assert.ok(w.npcs.some((n, i) => n.x !== before[i][0] || n.y !== before[i][1]), 'les rondes ont repris');
+});
+
+test('le présentateur est à son poste derrière le pupitre, face à trois caméras (GD-080)', () => {
   const w = new World(ground, sprites, 'PetBot', 2);
   const anchor = w.npcs.find((n) => n.x === TV_STUDIO.anchor.x && n.y === TV_STUDIO.anchor.y);
   assert.ok(anchor, 'le présentateur');
@@ -64,7 +111,7 @@ test('le plateau de TvTv² est en place : pupitre, présentateur à son poste, t
   assert.equal(anchor.patrolType, 'none', 'il ne quitte pas son pupitre');
   assert.ok(w.collision.circleFree(anchor.x, anchor.y, anchor.def.radius, 1), 'il n\'est pas dans un obstacle');
   assert.equal(w.decor.filter((d) => d.sprite === 'spr_camera').length, 3);
-  assert.ok(w.decor.some((d) => d.sprite === 'spr_table_attente' && d.x === TV_STUDIO.desk.x));
+  assert.ok(w.decor.some((d) => d.sprite === 'spr_tv_desk' && d.x === TV_STUDIO.desk.x));
   // il reste à sa place tant que rien ne l'effraie
   for (let i = 0; i < 600; i++) w.step(NO_INPUT);
   assert.ok(Math.hypot(anchor.x - TV_STUDIO.anchor.x, anchor.y - TV_STUDIO.anchor.y) < 1);

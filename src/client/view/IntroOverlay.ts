@@ -23,49 +23,8 @@ const STYLE = {
   glitch: 420,
 };
 
-/** Portrait du présentateur de TvTv², tel qu'on le voit à l'antenne : dessiné par le code (GD-080). */
-const ANCHOR_PORTRAIT = 'intro:anchor';
-
-function anchorPortrait(scene: Phaser.Scene): string {
-  if (scene.textures.exists(ANCHOR_PORTRAIT)) return ANCHOR_PORTRAIT;
-  const g = scene.make.graphics({ x: 0, y: 0 }, false);
-  const size = 160;
-  const ink = 0x141826;
-  // le fond du plateau : un bleu de studio et ses bandes claires
-  g.fillStyle(0x12306e, 1).fillRect(0, 0, size, size);
-  g.fillStyle(0x1d4aa0, 1).fillTriangle(0, size, size * 0.75, 0, size * 0.35, 0).fillTriangle(0, size, 0, size * 0.45, size * 0.35, 0);
-  g.fillStyle(0x2f6fd0, 0.55).fillRect(0, size * 0.62, size, 10);
-  // le costume, bleu comme celui du personnage vu de dessus
-  g.fillStyle(ink, 1).fillRoundedRect(14, 104, 132, 70, 30);
-  g.fillStyle(0x2b55a8, 1).fillRoundedRect(19, 109, 122, 66, 26);
-  // chemise et cravate
-  g.fillStyle(0xf4f1e8, 1).fillTriangle(60, 109, 100, 109, 80, 150);
-  g.fillStyle(ink, 1).fillTriangle(73, 112, 87, 112, 80, 150);
-  g.fillStyle(0xd23a3a, 1).fillTriangle(75, 114, 85, 114, 80, 144);
-  // revers du costume
-  g.lineStyle(4, ink, 1).lineBetween(58, 110, 78, 152).lineBetween(102, 110, 82, 152);
-  // cou et tête
-  g.fillStyle(ink, 1).fillRect(66, 88, 28, 26);
-  g.fillStyle(0xe2b48c, 1).fillRect(70, 88, 20, 24);
-  g.fillStyle(ink, 1).fillEllipse(80, 62, 70, 80);
-  g.fillStyle(0xf0c9a2, 1).fillEllipse(80, 62, 62, 72);
-  // cheveux bruns, raie sur le côté
-  g.fillStyle(ink, 1).fillEllipse(80, 40, 72, 46);
-  g.fillStyle(0x5a3a24, 1).fillEllipse(80, 40, 64, 38);
-  g.fillStyle(0xf0c9a2, 1).fillEllipse(84, 56, 50, 30);
-  g.fillStyle(0x5a3a24, 1).fillTriangle(50, 40, 96, 30, 54, 58);
-  // le visage : sourcils, yeux, sourire de présentateur
-  g.lineStyle(4, ink, 1).lineBetween(60, 58, 74, 56).lineBetween(88, 56, 102, 58);
-  g.fillStyle(ink, 1).fillCircle(67, 66, 4).fillCircle(95, 66, 4);
-  g.lineStyle(3, ink, 1).beginPath().arc(81, 78, 13, 0.25, Math.PI - 0.25).strokePath();
-  g.fillStyle(0xffffff, 1).fillRect(73, 84, 16, 4);
-  // lignes de l'écran
-  for (let y = 0; y < size; y += 4) g.fillStyle(0x000000, 0.14).fillRect(0, y, size, 1);
-  g.lineStyle(6, ink, 1).strokeRect(3, 3, size - 6, size - 6);
-  g.generateTexture(ANCHOR_PORTRAIT, size, size);
-  g.destroy();
-  return ANCHOR_PORTRAIT;
-}
+/** Portrait du présentateur de TvTv², au même format que ceux des robots (fabriqué par `npm run make-studio`). */
+const ANCHOR_PORTRAIT = 'spr_cadre_anchor';
 
 export class IntroOverlay {
   private readonly scene: Phaser.Scene;
@@ -208,7 +167,7 @@ export class IntroOverlay {
       // les retours à la ligne sont fixés d'avance : un mot ne saute pas à la ligne pendant qu'il s'écrit
       this.wrapped = this.text.getWrappedText(line.text).join('\n');
       const sprite = CONFIG.heroes[line.speaker]?.sprites.portrait;
-      const texture = news ? anchorPortrait(this.scene) : sprite ? frameKey(sprite, 0) : '';
+      const texture = frameKey(news ? ANCHOR_PORTRAIT : sprite ?? '', 0);
       if (texture && this.scene.textures.exists(texture)) {
         this.portrait.setTexture(texture);
         this.portrait.setScale(s.portrait / Math.max(this.portrait.frame.width, this.portrait.frame.height));

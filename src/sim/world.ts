@@ -9,7 +9,7 @@ import {
 import type { Obstacle } from './geom.ts';
 import { NavGrid } from './nav.ts';
 import { withAdditions } from './additions.ts';
-import { arrivalPhases, arrivalTotal as arrivalDuration, clawOf, introLines, typingSteps } from './intro.ts';
+import { arrivalPhases, arrivalTotal as arrivalDuration, clawOf, introLines, introShot, typingSteps } from './intro.ts';
 import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, stepAbilityObjects } from './abilities.ts';
 import type { NewExplosion } from './abilities.ts';
 import { deploySound, stepHero } from './hero.ts';
@@ -271,6 +271,16 @@ export class World {
     this.introLine = 9999; // plus aucune réplique à jouer
     this.emit({ type: 'introSkipped' });
     return true;
+  }
+
+  /**
+   * Le journal de l'introduction est à l'image (GD-081) : la caméra montre des pièces loin des robots, et
+   * personne n'y bouge. Les rondes des gardes et les allées et venues des civils reprennent quand la caméra
+   * retrouve le véhicule.
+   */
+  newsOnAir(): boolean {
+    const lead = this.heroes.find((h) => !h.gone && h.arrivalSteps > 0);
+    return lead !== undefined && introShot(arrivalPhases(lead.arrivalTotal), lead.arrivalTotal - lead.arrivalSteps).kind !== 'vehicle';
   }
 
   /**
@@ -676,7 +686,7 @@ export class World {
       this.stepCards(h, input);
     }
     this.stepCheckpoint();
-    stepNpcs(this);
+    if (!this.newsOnAir()) stepNpcs(this);
     this.stepDoors();
     this.stepBullets();
     stepAbilityObjects(this);

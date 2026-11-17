@@ -35,6 +35,7 @@
 <rect x="9584" y="1936" width="1392" height="1440" fill="#55504a"/>
 <rect x="9584" y="4336" width="1392" height="1312" fill="#55504a"/>
 <rect x="8976" y="5648" width="2000" height="656" fill="#55504a"/>
+<rect x="8256" y="3392" width="2688" height="928" fill="#2b2e3a"/>
 <line x1="0" y1="20" x2="0" y2="8000" stroke="#fff" stroke-opacity="0.12" stroke-width="6"/>
 <text x="12" y="90" font-size="64" fill="#fff" fill-opacity="0.5">x 0</text>
 <line x1="1000" y1="20" x2="1000" y2="8000" stroke="#fff" stroke-opacity="0.12" stroke-width="6"/>
@@ -165,6 +166,11 @@
 <rect x="5792" y="5984" width="32" height="320" fill="#b9bcc2"/>
 <rect x="6080" y="5984" width="64" height="32" fill="#b9bcc2"/>
 <rect x="8224" y="6176" width="32" height="96" fill="#b9bcc2"/>
+<rect x="8256" y="3360" width="96" height="32" fill="#b9bcc2"/>
+<rect x="8608" y="3360" width="960" height="32" fill="#b9bcc2"/>
+<rect x="8256" y="4320" width="96" height="32" fill="#b9bcc2"/>
+<rect x="8608" y="4320" width="960" height="32" fill="#b9bcc2"/>
+<rect x="9632" y="3552" width="32" height="608" fill="#b9bcc2"/>
 <circle cx="5179" cy="7616" r="50" fill="#3d7bff" stroke="#fff" stroke-width="8"/>
 <circle cx="5339" cy="7616" r="50" fill="#3d7bff" stroke="#fff" stroke-width="8"/>
 <circle cx="5435" cy="7616" r="50" fill="#3d7bff" stroke="#fff" stroke-width="8"/>
@@ -687,11 +693,6 @@
 <circle cx="9440" cy="5425" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="9308" cy="5452" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="9376" cy="4800" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="10816" cy="3599" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="10720" cy="3936" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="10720" cy="4192" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="10767" cy="3820" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="10740" cy="4167" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="8063" cy="4943" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="7808" cy="4944" r="16" fill="#fff" fill-opacity="0.35"/>
 <circle cx="7295" cy="5574" r="16" fill="#fff" fill-opacity="0.35"/>
@@ -712,10 +713,10 @@
 <rect x="8224" y="3584" width="32" height="256" fill="#9fd8ff" transform="rotate(0 8224 3584)"/>
 <rect x="8224" y="3328" width="32" height="256" fill="#9fd8ff" transform="rotate(0 8224 3328)"/>
 <rect x="8224" y="3072" width="32" height="256" fill="#9fd8ff" transform="rotate(0 8224 3072)"/>
-<circle cx="10368" cy="4128" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
-<text x="10368" y="4152" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
-<circle cx="9856" cy="3680" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
-<text x="9856" y="3704" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
+<circle cx="8615" cy="3618" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
+<text x="8615" y="3642" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
+<circle cx="8615" cy="4094" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
+<text x="8615" y="4118" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
 <circle cx="8896" cy="5248" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
 <text x="8896" y="5272" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
 <circle cx="8352" cy="4800" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
@@ -724,10 +725,10 @@
 <text x="8352" y="2104" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
 <circle cx="8480" cy="2496" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
 <text x="8480" y="2520" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
-<circle cx="10016" cy="4128" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
-<text x="10016" y="4152" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
-<circle cx="10272" cy="3616" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
-<text x="10272" y="3640" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
+<circle cx="8480" cy="4180" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
+<text x="8480" y="4204" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
+<circle cx="8480" cy="3540" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
+<text x="8480" y="3564" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
 <circle cx="9312" cy="3008" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
 <text x="9312" y="3032" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
 <circle cx="9728" cy="2752" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
@@ -742,26 +743,54 @@
 <text x="10752" y="5880" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
 <circle cx="9952" cy="4608" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
 <text x="9952" y="4632" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
-<circle cx="8832" cy="3328" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
-<text x="8832" y="3352" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">L</text>
+<circle cx="8832" cy="3180" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
+<text x="8832" y="3204" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">L</text>
 <circle cx="8704" cy="4544" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
 <text x="8704" y="4568" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">S</text>
 <circle cx="8544" cy="3040" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
 <text x="8544" y="3064" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">S</text>
-<circle cx="9120" cy="3712" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
-<text x="9120" y="3736" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">B</text>
+<circle cx="9900" cy="3900" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
+<text x="9900" y="3924" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">B</text>
 <circle cx="8896" cy="2560" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
 <text x="8896" y="2584" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">B</text>
 <circle cx="6560" cy="320" r="60" fill="none" stroke="#fff" stroke-width="12"/>
 <rect x="10976" y="1376" width="2088" height="4928" fill="none" stroke="#ffd9a0" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="30 22"/>
 <rect x="0" y="1376" width="2272" height="4928" fill="none" stroke="#ffd9a0" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="30 22"/>
 <rect x="2864" y="2864" width="3936" height="1056" fill="none" stroke="#ffd9a0" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="30 22"/>
-<circle cx="9440" cy="3850" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="9535" cy="3850" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
-<text x="9535" y="3874" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">c</text>
-<circle cx="9200" cy="3650" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="9140" cy="3850" r="16" fill="#fff" fill-opacity="0.35"/>
-<circle cx="9200" cy="4050" r="16" fill="#fff" fill-opacity="0.35"/>
+<rect x="8385" y="3354" width="190" height="44" fill="#ffffff" stroke="#000" stroke-width="5"/>
+<rect x="8385" y="4314" width="190" height="44" fill="#ffffff" stroke="#000" stroke-width="5"/>
+<circle cx="8690" cy="3376" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="8690" cy="4336" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9400" cy="3856" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9510" cy="3856" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
+<text x="9510" y="3880" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">c</text>
+<circle cx="8700" cy="3640" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="8640" cy="3856" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="8700" cy="4072" r="16" fill="#fff" fill-opacity="0.35"/>
+<rect x="8762" y="3732" width="56" height="56" fill="#35e0ff"/>
+<rect x="8762" y="3924" width="56" height="56" fill="#35e0ff"/>
+<circle cx="8960" cy="3470" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="8960" cy="4242" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9556" cy="3606" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9556" cy="4106" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9612" cy="3856" r="16" fill="#fff" fill-opacity="0.35"/>
+<rect x="9960" y="3424" width="100" height="100" fill="#c77dff"/>
+<rect x="10180" y="3424" width="100" height="100" fill="#c77dff"/>
+<rect x="10400" y="3424" width="100" height="100" fill="#c77dff"/>
+<circle cx="9760" cy="3680" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9846" cy="3690" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9800" cy="3764" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9990" cy="4270" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10180" cy="4270" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10370" cy="4270" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10560" cy="4236" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10700" cy="3462" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10850" cy="3690" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10690" cy="3640" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10890" cy="3450" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10760" cy="4226" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10660" cy="4226" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="10860" cy="4226" r="16" fill="#fff" fill-opacity="0.35"/>
 <text x="5179" y="7640" font-size="64" font-weight="bold" text-anchor="middle" fill="#fff">1</text>
 <text x="5339" y="7640" font-size="64" font-weight="bold" text-anchor="middle" fill="#fff">2</text>
 <text x="5435" y="7640" font-size="64" font-weight="bold" text-anchor="middle" fill="#fff">3</text>

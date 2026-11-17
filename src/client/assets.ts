@@ -21,7 +21,7 @@ export function frameKey(sprite: string, frame: number): string {
 
 /** Sprites de l'interface et des effets, en plus de ceux du niveau et des personnages. */
 const UI_SPRITES = [
-  'spr_healthBar', 'spr_fondMenu_1', 'spr_title', 'spr_btn_play', 'spr_btn_exit', 'spr_btn_resume', 'spr_btn_retry',
+  'spr_healthBar', 'spr_cadre_anchor', 'spr_fondMenu_1', 'spr_title', 'spr_btn_play', 'spr_btn_exit', 'spr_btn_resume', 'spr_btn_retry',
   'spr_electricity1', 'spr_electricity2', 'spr_electricity3',
   'spr_teleporteur_waiting', 'spr_teleporteur_active', 'spr_fenetre_eclats', 'spr_explosion_robot',
   'spr_spawnVehicle', 'spr_spawnVehicleShadow',

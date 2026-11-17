@@ -293,4 +293,8 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 
 **Pourquoi.** La conversion reste fidèle et rejouable ; on voit d'un coup d'œil ce qui vient du remake. Le serveur, le navigateur et les tests passent par le même point, donc voient la même salle. Piste écartée : un second fichier JSON par salle, qui aurait demandé un chargement de plus et un outil pour l'écrire.
 
-**Conséquences.** Les ajouts suivent les règles des instances d'origine (collisions, PNJ, décor). `npm run level-map` les dessine aussi. Retirer ou déplacer un élément d'origine n'est pas prévu : il faudra l'ajouter à ce mécanisme le jour où le niveau le demandera.
+**Conséquences.** Les ajouts suivent les règles des instances d'origine (collisions, PNJ, décor). `npm run level-map` les dessine aussi.
+
+**Étendu par GD-081** (même jour). Le mécanisme sait aussi ajouter des pièces de mur et leurs rectangles de collision, des sols et des décalques, et retirer ou modifier un élément d'origine : une fonction reçoit chaque instance et la rend telle quelle, déplacée, ou la supprime ; deux autres désignent les décalques et les pièces de mur à retirer. Le fichier s'appelle toujours `additions.ts`, bien qu'il fasse plus qu'ajouter.
+
+**Sprites du studio.** `tools/make-studio.ts` suit ADR-015 (de vrais sprites, produits par un outil rejouable), mais dessine ses formes au lieu de recomposer des images du jeu : il n'existait rien à recomposer pour un pupitre ou un projecteur. Seul le logo de la chaîne est repris d'un sprite d'origine. Comme pour `make-sprites`, il faut relancer l'outil après un `npm run extract-assets`, qui réécrit les manifestes.

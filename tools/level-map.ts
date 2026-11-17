@@ -28,6 +28,7 @@ const FLOOR_COLORS: Record<string, string> = {
   til_sol_accueil: '#5d6b78',
   til_sol_cafet: '#6f6a55',
   til_sol_beton: '#4a4a4a',
+  til_sol_studio: '#2b2e3a',
   til_sol_pave: '#55504a',
   til_sol_carreau: '#56707a',
   til_sol_moquette1: '#5b4a6b',

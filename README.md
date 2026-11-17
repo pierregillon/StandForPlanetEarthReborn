@@ -58,6 +58,8 @@ En jeu à plusieurs : **A** (Q sur un clavier QWERTY) en visant un coéquipier p
 | `npm test` | Tests de la simulation, sans navigateur |
 | `npm run typecheck` | Vérification des types |
 | `npm run convert-rooms` | Reconvertit les salles GameMaker en `public/levels/*.json` |
+| `npm run make-sprites`, `npm run make-studio` | Refabriquent les sprites que l'original n'avait pas (ultis et rechargements des robots ; plateau de TvTv²) |
+| `npm run level-map` | Redessine les plans annotés des salles dans `docs/narration/plans/` |
 | `npm run extract-assets` | Recopie sprites, sols et sons depuis le projet GameMaker (réglages : `tools/assets.config.json`) |
 
 Organisation du code : `src/sim` (logique du jeu, sans Phaser ni navigateur ; réglages dans `src/sim/config.ts`), `src/client` (affichage Phaser), `server` (serveur Node), `tools` (build et conversion), `public` (assets et niveaux).

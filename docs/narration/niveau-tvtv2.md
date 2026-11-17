@@ -29,7 +29,7 @@ Proposé. Aucune salle n'est à construire : les pièces du monde 2 se lisent d�
 | Salle des serveurs | Étage, pièce 21 | 7 écrans, 4 serveurs, une baie |
 | Bureau de la direction | Étage, pièce 27 | La carte violette, un aquarium, des fauteuils |
 | **Régie** | Rez-de-chaussée, moitié ouest de la pièce 29 (x 6800 à 8224) | Une salle moquettée : une rangée de 6 écrans avec tables et sièges, 4 techniciens assis, 3 policiers, une baie de serveurs derrière une cloison vitrée, et un bouton |
-| **Plateau** | Rez-de-chaussée, moitié est de la pièce 29 (x 8256 à 10976) | Un grand hall au sol de béton, avec une alcôve de 1375 × 950 px au fond : 3 robots ennemis, 4 policiers, 3 techniciens, des caisses de matériel |
+| **Plateau** | Rez-de-chaussée, moitié est de la pièce 29 : une pièce fermée de 2688 × 928 px (x 8256 à 10944, y 3392 à 4320), aménagée par GD-081 | Sol de résine sombre ; côté régie, trois caméras, l'estrade au logo, le pupitre courbe, le présentateur, quatre projecteurs, le mur d'écrans ; derrière la cloison, les coulisses. Deux policiers aux portes, un robot bouclier en coulisses |
 | Quais de livraison | Rez-de-chaussée, pièces 30 et 31, de part et d'autre de l'alcôve | Deux fourgons, deux portails à bouton vers l'extérieur |
 
 **La régie est mitoyenne du plateau** (demande de l'utilisateur), et elle l'est déjà dans le niveau d'origine. La pièce 29 du plan est une seule zone de brouillard, mais ce sont deux salles séparées par une baie vitrée de 1800 px de long : d'un côté la rangée d'écrans, tournée vers la vitre ; de l'autre le hall de béton. Détail : [plan de l'aile est](plans/rm_world2-aile-est.svg). Et le bouton qui se trouve dans la régie est celui qui ouvre les deux portes du hall : prendre la régie ouvre le plateau.
@@ -43,7 +43,7 @@ Le parcours existant mène au plateau en dernier (vérifié avec les collisions 
 5. Le bouton de la régie ouvre les deux portes du hall de béton.
 6. Dans les quais, deux boutons ouvrent les portails vers l'extérieur.
 
-**Aménagé** (GD-080, positions dans `src/sim/additions.ts`) : seulement le décor du plateau. Proposé à l'origine : le pupitre du présentateur devant l'alcôve, vers x 9450, face à la vitre ; trois caméras entre le pupitre et la vitre ; l'alcôve sert de fond de décor, ses caisses sont poussées sur les côtés. Ainsi un seul plan de 1920 px de large montre la rangée d'écrans de la régie, la vitre et le présentateur.
+**Aménagé** (GD-081, tout est dans `src/sim/additions.ts`) : le plateau est une pièce fermée, entre la vitre de la régie et le mur extérieur, avec une porte automatique au nord et une au sud. Le reste du hall de béton, de part et d'autre, reste une aire de livraison. Première idée, remplacée : le pupitre du présentateur devant l'alcôve, vers x 9450, face à la vitre ; trois caméras entre le pupitre et la vitre ; l'alcôve sert de fond de décor, ses caisses sont poussées sur les côtés. Ainsi un seul plan de 1920 px de large montre la rangée d'écrans de la régie, la vitre et le présentateur.
 
 ## 3. La suite d'objectifs
 
@@ -142,7 +142,7 @@ Les cases vides ne peuvent pas se produire avec la règle ci-dessus.
 | Livraison | Contenu |
 |---|---|
 | **A. La radio et le largage** (plans 3 et 4, largage) — **livrée le 2026-11-17 (GD-078)** | Bandes de cinéma (sprite d'origine `spr_cine_bande`), boîte de dialogue lettre par lettre avec portrait (`spr_textBox` et portraits des robots, déjà dans le jeu), horloge de séquence dans la simulation, passage par l'hôte, vol stationnaire du véhicule, quatre robots dans les pinces, largage des seuls robots joués, répliques de la section 5 |
-| **B. Le direct** (plans 1 et 2) — **livrée le 2026-11-17 (GD-080)**, avec un portrait du présentateur dessiné par le code en attendant un vrai sprite | Un présentateur et son pupitre sur le plateau, trois caméras (sprite d'origine `spr_camera`), le cadre « TvTv² LIVE » et son logo, le portrait du présentateur, les écrans qui clignotent, la neige à la coupure, le jingle. Le présentateur, son portrait et le logo sont à dessiner. |
+| **B. Le direct** (plans 1 et 2) — **livrée le 2026-11-17 (GD-080)**, puis reprise par GD-081 : vrai sprite pour le portrait, vraie pièce de studio | Un présentateur et son pupitre sur le plateau, trois caméras (sprite d'origine `spr_camera`), le cadre « TvTv² LIVE » et son logo, le portrait du présentateur, les écrans qui clignotent, la neige à la coupure, le jingle. Le présentateur, son portrait et le logo sont à dessiner. |
 | **C. Le niveau** | Les consignes de la section 3, la fin du niveau, le retrait de la zone de forage et de SallyBot |
 
 ## 8. Les échos à préparer

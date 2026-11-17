@@ -7,5 +7,6 @@
   "til_sol_moquette1": { "image": "floors/til_sol_moquette1.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
   "til_sol_moquette2": { "image": "floors/til_sol_moquette2.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
   "til_sol_parquet": { "image": "floors/til_sol_parquet.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
-  "til_sol_pave": { "image": "floors/til_sol_pave.png", "srcX": 0, "srcY": 0, "periodW": 168, "periodH": 168, "cellSize": 8 }
+  "til_sol_pave": { "image": "floors/til_sol_pave.png", "srcX": 0, "srcY": 0, "periodW": 168, "periodH": 168, "cellSize": 8 },
+  "til_sol_studio": { "image": "floors/til_sol_studio.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 }
 }

@@ -86,6 +86,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-078 | Introduction, première livraison : la radio et le largage | 2026-11-17 | Acceptée — à ajuster après essai |
 | GD-079 | Dialogues : Espace pour la réplique suivante, Espace tenu pour passer la cinématique | 2026-11-17 | Acceptée ; modifie GD-077 (un appui ne passe plus la séquence) et GD-078 (les répliques n'ont plus de durée fixe) |
 | GD-080 | Introduction, deuxième livraison : le journal de TvTv² et le plateau | 2026-11-17 | Acceptée — à ajuster après essai |
+| GD-081 | Le plateau de TvTv² devient une vraie pièce de studio | 2026-11-17 | Acceptée — à ajuster après essai ; précise et corrige GD-080 |
 
 ---
 
@@ -1781,3 +1782,27 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Conséquences.** `src/sim/additions.ts` (ADR-016) porte le décor et les cadrages ; `introShot`, les phases `news`, `cut`, `exit` et les deux phrases dans `src/sim/intro.ts` ; plans de caméra dans `GameScene.ts` ; lueur des écrans et brouillard dans `WorldView.ts` ; bandeau, portrait et parasites dans `IntroOverlay.ts`. L'introduction complète dure environ 8 secondes hors temps de lecture.
 
 **Points ouverts.** Le portrait du présentateur est dessiné par le code, faute de sprite : c'est un écart avec la règle d'ADR-015 (de vrais sprites), à remplacer par un vrai dessin. Les civils du hall ne se tournent pas vers les écrans. Les gardes du plateau continuent leurs rondes pendant le plan : l'un d'eux peut passer devant les caméras.
+
+## GD-081 — Le plateau de TvTv² devient une vraie pièce de studio
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — à ajuster après essai ; précise et corrige GD-080
+- **Décidée par** : l'utilisateur (retour d'essai : « le studio doit vraiment ressembler à un studio », une pièce complète, cohérente et fermée, en réutilisant les décors existants et en en créant si besoin ; retirer le ventilateur au sol ; revoir le sol de béton ; un vrai sprite pour le portrait du présentateur, « cf. portrait des robots mais pour un humain » ; pas de patrouille pendant le plan) ; le plan de la pièce, son mobilier et le dessin des sprites sont des choix de Claude
+
+**Contexte.** GD-080 avait posé un pupitre, un présentateur et trois caméras au milieu du hall de béton, entre une grille de ventilation et des conteneurs de livraison : rien d'un plateau de télévision. Or l'introduction du niveau s'ouvre sur cette pièce.
+
+**Décision.**
+
+- **Une pièce fermée** de 2688 × 928 px, entre la baie vitrée de la régie et le mur extérieur. Les deux murs de l'ancienne alcôve sont prolongés jusqu'à la vitre ; chacun est percé d'une porte automatique, côté régie, surmontée d'une enseigne « ON AIR ». Le reste du hall, au nord et au sud, reste une aire de livraison en béton.
+- **Le sol** : une résine sombre en grandes dalles, à la place du béton fissuré. La grille de ventilation, les conteneurs et la boîte bonus de l'alcôve sont retirés.
+- **Le plateau**, côté régie : trois caméras, dont deux tenues par un technicien, deux moniteurs de retour, des câbles scotchés au sol ; une estrade ronde aux couleurs de la chaîne avec son logo d'origine (le tapis de l'accueil du jeu de 2019) ; un pupitre courbe ; le présentateur ; quatre projecteurs sur trépied ; un mur d'écrans en fond de décor, qui baigne le plateau de bleu.
+- **Les coulisses**, derrière la cloison du décor, avec un passage de chaque côté : baies techniques, caisses, vestiaires, distributeur, et un coin repos (canapé, fauteuil, table).
+- **Le personnel** : deux policiers gardent les portes de l'intérieur ; le robot bouclier garde les coulisses ; les techniciens du plateau et de la régie restent à leur poste au lieu de se promener.
+- **Pendant le journal de l'introduction, personne ne bouge**, ni garde ni civil, dans tout le niveau. Les rondes reprennent quand la caméra retrouve le véhicule.
+- **Le portrait du présentateur est un vrai sprite**, au format des portraits des robots : buste de bande dessinée au trait noir épais, ombres en aplats, bas inscrit dans un disque. Le dessin par le code de GD-080 disparaît.
+
+**Pourquoi.** Demande de l'utilisateur : c'est la pièce que l'on voit en premier, elle doit se lire d'un coup d'œil comme un studio. Le pupitre fait face à la vitre de la régie, ce qui garde dans un même plan les techniciens devant leurs écrans, les caméras et le présentateur.
+
+**Conséquences.** Huit sprites et une texture de sol fabriqués par `npm run make-studio` (`tools/make-studio.ts`, dessin vectoriel dans `tools/lib/draw.ts`) : `spr_cadre_anchor`, `spr_tv_desk`, `spr_tv_riser`, `spr_tv_spot`, `spr_tv_ledwall`, `spr_tv_onair`, `spr_tv_cables`, `til_sol_studio`. La pièce est décrite dans `src/sim/additions.ts`, qui sait désormais ajouter des murs, des sols et des décalques, et retirer ou déplacer des éléments d'origine (ADR-016). `newsOnAir` dans `world.ts`. Le parcours du niveau ne change pas : on entre toujours dans le hall par les deux portes que le bouton de la régie ouvre, puis sur le plateau par ses portes automatiques.
+
+**Points ouverts.** Les sprites sont dessinés par le code : à retoucher ou remplacer si le style ne convient pas. La pièce n'a pas sa propre zone de brouillard : elle se découvre avec la régie, comme avant. Le présentateur n'a pas de siège.
