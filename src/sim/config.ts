@@ -169,7 +169,7 @@ export const CONFIG = {
       shotsPerSecond: 3,
       precisionDeg: 3,
       muzzle: { x: 90, y: 23 },
-      bullet: { sprite: 'spr_bullet_PetBot', speed: 20, maxDistance: 1500, damage: 1, radius: 6 },
+      bullet: { sprite: 'spr_bullet_PetBot', speed: 40, maxDistance: 1500, damage: 1, radius: 6 }, // vitesse 20 dans le code de 2019 ; 40 comme toutes les balles (GD-062)
       magazine: 12, // 99 en 2019, 24 au debut du remake ; 4 s de tir (GD-057)
       reloadSteps: s(1.2), // remake
       fire2CooldownSteps: 0,

@@ -1003,7 +1003,8 @@ export class WorldView {
       // traînée lumineuse : les balles d'origine, petites et grises, se perdaient sur le sol (GD-022)
       const style = b.owner === 'enemy' ? BULLET_STYLE.enemy : BULLET_STYLE.hero;
       const travelled = Math.hypot(b.x - b.startX, b.y - b.startY);
-      const len = Math.min(style.length, travelled);
+      // sa longueur suit la vitesse de la balle : celle d'EngiBot, qui ralentit, voit sa traînée raccourcir (GD-062)
+      const len = Math.min(style.length * Math.min(1, b.speed / b.def.speed), travelled);
       const tx = b.x - Math.cos(b.angle) * len;
       const ty = b.y - Math.sin(b.angle) * len;
       g.lineStyle(style.width * 2.4, style.glow, 0.3).lineBetween(tx, ty, b.x, b.y);

@@ -1339,3 +1339,19 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 **Décision.** Les bornes gardées sont toujours choisies depuis l'entrée principale de la salle, quel que soit l'endroit par où l'on arrive.
 
 **Conséquences.** Les quatre bornes du rez-de-chaussée sont les mêmes qu'avant pour une partie commencée normalement. Un test dans `net.test.ts` compare les bornes obtenues par les deux entrées. Le solo n'était pas touché.
+
+## GD-062 — Toutes les balles à la même vitesse, et une traînée qui suit la vitesse
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (« 2 400 pour tout le monde sauf BatBot », traînée qui raccourcit quand la balle ralentit)
+
+**Contexte.** Relevé des vitesses demandé par l'utilisateur : les balles ennemies, celles d'EngiBot et de sa tourelle et la boule de BadaBot partaient à 2 400 px/s, la batte de BatBot à 1 500, la balle de PetBot à 1 200 seulement, deux fois moins que les autres. Par ailleurs la traînée lumineuse des balles (GD-022) gardait la même longueur quelle que soit leur vitesse : une balle d'EngiBot ralentie par ses rebonds traînait une queue aussi longue qu'au départ.
+
+**Décision.**
+
+- **2 400 px/s pour toutes les balles**, sauf la batte lancée de BatBot (1 500). Seule la balle de PetBot change, de 1 200 à 2 400.
+- **La longueur de la traînée est proportionnelle à la vitesse de la balle** par rapport à sa vitesse de départ. Celle d'EngiBot raccourcit donc à mesure qu'elle ralentit, surtout après un rebond (vitesse divisée par deux contre un mur, par quatre contre un ennemi).
+- *Par défaut* : les mini-bots de PetBot (tir secondaire, 900 px/s au plus) ne sont pas concernés : ce sont des drones, pas des balles.
+
+**Conséquences.** `speed` de la balle de PetBot dans `CONFIG.heroes` ; traînée dans `syncBullets` (`WorldView.ts`). PetBot touche plus facilement une cible en mouvement. La proposition de ralentir les balles ennemies pour les rendre esquivables n'a pas été retenue. Contrôlé dans la page en solo : des balles d'EngiBot ralenties par un rebond ont une traînée courte.
