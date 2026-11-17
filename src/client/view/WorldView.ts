@@ -139,13 +139,14 @@ const TRACER_STYLE = {
    * `spread` pixels devant le canon, partent vers l'avant à `speed` px/s, freinées par `drag` ; chacune
    * gonfle de `radius` à `radius × grow` pixels et s'efface en `life` secondes. Chaude à sa naissance
    * (`hot`), elle vire au gris (`cold`) : c'est elle qui dit que le canon vient de chauffer. Chaque bouffée
-   * est un petit nuage dessiné comme le reste du jeu, cerné d'un trait ; elles n'ont pas toutes la même
-   * opacité (de `thin` à `alpha`), restent pleines pendant la part `hold` de leur vie puis s'effacent, et
-   * tournent lentement sur elles-mêmes (`spin`, en radians par seconde).
+   * est une nappe dessinée comme le brouillard du jeu (`spr_fog`) : des aplats gris sans contour, à demi
+   * transparents, qui se recouvrent. Elles n'ont pas toutes la même opacité (de `thin` à `alpha`), restent
+   * pleines pendant la part `hold` de leur vie puis s'effacent, et tournent à peine (`spin`, en radians par
+   * seconde).
    */
   smoke: {
     at: 0.4, puffs: 6, spread: 100, speed: 320, drag: 6, radius: 20, grow: 2.5, life: 0.55,
-    alpha: 1, thin: 0.55, hold: 0.4, spin: 2, hot: 0xffe9c4, cold: 0xe4e4e4,
+    alpha: 1, thin: 0.6, hold: 0.35, spin: 0.5, hot: 0xffe9c4, cold: 0xdcdce0,
   },
 };
 
@@ -1224,7 +1225,7 @@ export class WorldView {
       const y = f.y + Math.sin(f.angle) * along + Math.cos(f.angle) * across;
       const speed = smoke.speed * size * (0.6 + 0.7 * t) * (0.85 + Math.random() * 0.3);
       const img = this.scene.add.image(x, y, keys[Math.floor(Math.random() * keys.length)])
-        .setDepth(DEPTH.bullet + 0.5).setAlpha(0).setRotation(Math.random() * Math.PI * 2);
+        .setDepth(DEPTH.bullet + 0.5).setAlpha(0).setRotation(f.angle + (Math.random() - 0.5) * 1.2 + (Math.random() < 0.5 ? Math.PI : 0));
       this.smokes.push({
         img, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, age: 0,
         life: smoke.life * (0.8 + Math.random() * 0.4), radius: smoke.radius * size * (0.75 + Math.random() * 0.5),
@@ -1261,15 +1262,16 @@ export class WorldView {
   }
 
   /**
-   * Bouffées de fumée, dessinées comme le reste du jeu : un petit nuage en aplats, cerné d'un trait. Chacune
-   * est faite de lobes ronds autour d'un cœur, avec une ombre sur un bord, un reflet sur l'autre et une volute
-   * tracée à l'intérieur. Elles sont en blanc et gris, à teinter. `reach` : rayon du nuage dans son image.
+   * Bouffées de fumée, dessinées comme le brouillard du jeu (`spr_fog`) : des nappes en aplats, sans contour,
+   * aux bords bosselés, faites de ronds qui se touchent, plus longues que hautes. Chacune superpose trois
+   * nappes à demi transparentes : là où elles se recouvrent la fumée est plus dense, ce qui donne plusieurs
+   * tons francs. Elles sont blanches, à teinter. `reach` : demi-longueur d'une bouffée dans son image.
    */
   private smokeTextures(): { keys: string[]; reach: number } {
-    const reach = 56;
+    const reach = 58;
     const keys = [0, 1, 2, 3].map((i) => `shotSmoke${i}`);
     if (this.scene.textures.exists(keys[0])) return { keys, reach };
-    // un tirage fixe : les mêmes nuages à chaque partie
+    // un tirage fixe : les mêmes nappes à chaque partie
     let seed = 20261117;
     const random = (): number => {
       seed = (seed * 16807) % 2147483647;
@@ -1280,65 +1282,30 @@ export class WorldView {
       const canvas = this.scene.textures.createCanvas(key, 128, 128);
       if (!canvas) continue;
       const ctx = canvas.context;
-      const lobes = [{ x: 0, y: 0, r: 30 }];
-      const count = 5 + Math.floor(random() * 3);
-      const turn = random() * Math.PI * 2;
-      for (let i = 0; i < count; i++) {
-        const a = turn + (i / count) * Math.PI * 2 + (random() - 0.5) * 0.5;
-        const r = 14 + random() * 11;
-        const d = reach - 4 - r - random() * 7;
-        lobes.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r });
-      }
-      /** Trace le nuage : ses lobes grossis de `grow` pixels, décalés de (dx, dy) et ramenés à l'échelle `scale`. */
-      const trace = (grow: number, dx = 0, dy = 0, scale = 1): void => {
+      /** Une nappe : un ou deux gros ronds et un chapelet de petits, étirés sur `half` pixels de part et d'autre. */
+      const sheet = (half: number, thick: number, dx: number, dy: number): void => {
         ctx.beginPath();
-        for (const l of lobes) {
-          const r = Math.max(1, l.r * scale + grow);
-          const x = centre + l.x * scale + dx;
-          const y = centre + l.y * scale + dy;
-          ctx.moveTo(x + r, y);
-          ctx.arc(x, y, r, 0, Math.PI * 2);
+        const round = (x: number, y: number, r: number): void => {
+          // rien ne sort de l'image
+          const cx = Math.max(r + 2, Math.min(126 - r, centre + dx + x));
+          const cy = Math.max(r + 2, Math.min(126 - r, centre + dy + y));
+          ctx.moveTo(cx + r, cy);
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        };
+        const big = 1 + Math.floor(random() * 2);
+        for (let i = 0; i < big; i++) round((random() - 0.5) * half, (random() - 0.5) * thick * 0.4, thick * (0.75 + random() * 0.35));
+        const small = 7 + Math.floor(random() * 4);
+        for (let i = 0; i < small; i++) {
+          const u = (i + random() * 0.8) / small;
+          const r = thick * (0.35 + random() * 0.4);
+          round((u * 2 - 1) * (half - r), (random() - 0.5) * thick * 0.9, r);
         }
+        ctx.fill();
       };
-      // le cerne, puis l'ombre qui remplit tout le nuage
-      ctx.fillStyle = '#56565e';
-      trace(4);
-      ctx.fill();
-      ctx.fillStyle = '#aeaeb8';
-      trace(0);
-      ctx.fill();
-      // tout le reste est dessiné à l'intérieur du nuage
-      ctx.save();
-      trace(0);
-      ctx.clip();
-      // le corps clair, décalé : il laisse l'ombre en croissant sur un bord
-      ctx.fillStyle = '#e6e6ea';
-      trace(-1, -6, -6);
-      ctx.fill();
-      // le reflet, plus petit, du côté opposé à l'ombre
-      ctx.fillStyle = '#ffffff';
-      trace(-2, -13, -13, 0.62);
-      ctx.fill();
-      // la volute : une spirale qui s'enroule vers le cœur
-      const sx = centre + (random() - 0.5) * 14 + 4;
-      const sy = centre + (random() - 0.5) * 14 + 4;
-      const from = random() * Math.PI * 2;
-      const way = random() < 0.5 ? -1 : 1;
-      ctx.strokeStyle = '#8a8a94';
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      for (let i = 0; i <= 30; i++) {
-        const u = i / 30;
-        const a = from + way * u * Math.PI * 2.6;
-        const r = 5 + u * 19;
-        const x = sx + Math.cos(a) * r;
-        const y = sy + Math.sin(a) * r;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.66)';
+      sheet(reach - 4, 22, 0, 0);
+      sheet(reach * 0.72, 17, (random() - 0.5) * 22, (random() - 0.5) * 18);
+      sheet(reach * 0.5, 13, (random() - 0.5) * 34, (random() - 0.5) * 22);
       canvas.refresh();
     }
     return { keys, reach };
