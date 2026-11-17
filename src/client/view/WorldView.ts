@@ -62,7 +62,22 @@ interface Lamp {
 }
 
 const CARD_COLORS: Record<string, number> = { green: 0x35d05a, purple: 0xb04cff };
-const MAX_REMAINS = 900;
+const MAX_REMAINS = 2400;
+/**
+ * Mort d'un humain (GD-067). L'animation d'origine est agrandie (`burst`) et doublée d'un souffle rouge ; une
+ * flaque s'étale sous le corps (`pool` : nombre de nappes, dispersion, taille finale, durée d'étalement en
+ * millisecondes) ; des gouttes giclent tout autour (`drops` : nombre, portée de `near` à `far` pixels, durée
+ * du vol en secondes, taille de la tache laissée) et s'écrasent sur le sol ou sur le premier mur ; les
+ * personnages à moins de `splash.range` pixels sont éclaboussés (`marks` taches chacun, qui tiennent `life`
+ * secondes et s'effacent sur les `fade` dernières).
+ */
+const GORE = {
+  burst: 1.45,
+  pieces: [8, 14],
+  pool: { count: [4, 6], spread: 46, scale: [1.7, 3.1], growMs: 520 },
+  drops: { count: [40, 56], near: 70, far: 360, flight: [0.16, 0.34], stain: [0.12, 0.5] },
+  splash: { range: 230, marks: [2, 4], life: 14, fade: 3 },
+};
 /** Nombre d'images de la fin du déploiement de PetBot utilisées pour son rechargement. */
 const PETBOT_RELOAD_FRAMES = 29;
 /**
@@ -256,6 +271,30 @@ interface Debris {
   glide?: number;
 }
 
+/** Goutte de sang en vol, du corps jusqu'à l'endroit où elle s'écrase (sur un mur si `onWall`). */
+interface BloodDrop {
+  img: Img;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  age: number;
+  flight: number;
+  size: number;
+  onWall: boolean;
+}
+
+/** Tache de sang sur un personnage : elle le suit, à (lx, ly) dans son repère, puis s'efface. */
+interface BloodStain {
+  img: Img;
+  on: 'hero' | 'npc';
+  id: number;
+  lx: number;
+  ly: number;
+  turn: number;
+  age: number;
+}
+
 /** BadaBot frappe ses boucliers sur les derniers steps de son lancement (GD-051). */
 const SLAM_STEPS = 6;
 
@@ -419,6 +458,8 @@ export class WorldView {
   private readonly zoneImgs: Img[] = [];
   private readonly anims: PlayingAnim[] = [];
   private readonly debris: Debris[] = [];
+  private readonly drops: BloodDrop[] = [];
+  private readonly stains: BloodStain[] = [];
   /** Restes qui ont volé (membres, éclats de verre) : la vague de BadaBot peut les emporter. Et par quelle vague ils l'ont déjà été. */
   private readonly loose = new WeakSet<Img>();
   private readonly sweptBy = new WeakMap<Img, number>();
@@ -426,7 +467,6 @@ export class WorldView {
   private readonly parts = new Map<number, HeroParts>();
   /** Noms des joueurs, par rang de héros (partie en réseau). */
   playerNames: string[] = [];
-  private laser!: Phaser.GameObjects.Graphics;
   /** Arcs d'énergie autour d'un robot qui lance son ulti (GD-048). */
   private ultiArcs!: Phaser.GameObjects.Graphics;
   /** Onde de l'ulti de BadaBot (GD-052), redessinée à chaque image. */
@@ -544,7 +584,6 @@ export class WorldView {
       this.zoneImgs.push(this.image(zone.sprite, 0, zone.x, zone.y, DEPTH.zone));
     }
     for (const h of world.heroes) this.partsOf(h);
-    this.laser = scene.add.graphics().setDepth(DEPTH.laser);
     this.ultiArcs = scene.add.graphics().setDepth(DEPTH.character + 2.2).setBlendMode(Phaser.BlendModes.ADD);
     this.waveFx = scene.add.graphics().setDepth(DEPTH.fx + 3).setBlendMode(Phaser.BlendModes.ADD);
     this.heroFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
@@ -621,11 +660,11 @@ export class WorldView {
     }
     this.stepAnims(dt);
     this.stepDebris(dt);
+    this.stepBlood(dt);
   }
 
   /** Tous les robots de l'équipe, avec toutes leurs animations, chez tous les joueurs (GD-041). */
   private syncHeroes(dt: number): void {
-    this.laser.clear();
     this.ultiArcs.clear();
     this.cable.clear();
     this.heroFx.clear();
@@ -697,16 +736,7 @@ export class WorldView {
     if (h.invuln > 0) body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
     else body.setAlpha(1).clearTint();
 
-    // viseur laser : 200 px depuis le canon, raccourci au premier obstacle
-    const m = muzzlePosition(h);
-    const ex = m.x + Math.cos(h.angle) * 200;
-    const ey = m.y + Math.sin(h.angle) * 200;
-    const hit = this.world.collision.raycast(m.x, m.y, ex, ey, BLOCK_MOVE);
-    const t = hit ? hit.t : 1;
-    if (def.laserColor !== null && h.deploySteps === 0 && h.ultiPhase === 0) {
-      this.laser.lineStyle(2, def.laserColor, h.state === 'firing1' ? 0.7 : 0.4);
-      this.laser.lineBetween(m.x, m.y, m.x + (ex - m.x) * t, m.y + (ey - m.y) * t);
-    }
+    // pas de viseur laser : retiré à la demande de l'utilisateur (GD-068)
     this.drawHeroFx(h, p, local);
   }
 
@@ -2734,9 +2764,10 @@ export class WorldView {
     const robot = genre === 'robot';
     if (scene.textures.exists(frameKey(sprite, 0))) {
       const sp = this.info(sprite);
-      const img = this.image(sprite, 0, x, y, DEPTH.character).setRotation(angle);
+      const img = this.image(sprite, 0, x, y, DEPTH.character).setRotation(angle).setScale(robot ? 1 : GORE.burst);
       this.anims.push({ img, sprite, frames: sp.frames, fps: spriteFps(sp), elapsed: 0, keepLast: false });
     }
+    if (!robot) this.spillBlood(x, y);
     if (robot) {
       // un robot détruit explose et laisse une vraie carcasse (GD-031)
       if (sprite !== 'spr_explosion_robot' && scene.textures.exists(frameKey('spr_explosion_robot', 0))) {
@@ -2745,27 +2776,117 @@ export class WorldView {
         this.anims.push({ img: boom, sprite: 'spr_explosion_robot', frames: sp.frames, fps: spriteFps(sp), elapsed: 0, keepLast: false });
       }
     }
-    const puddle = robot ? 'spr_membreMortRobot_huile' : 'spr_membreMortHumain_sang';
-    if (scene.textures.exists(frameKey(puddle, 0))) {
-      const count = robot ? 4 + Math.floor(Math.random() * 3) : 2 + Math.floor(Math.random() * 3);
-      const spread = robot ? 90 : 30;
+    // l'huile d'un robot ; le sang d'un humain est versé par spillBlood
+    const puddle = 'spr_membreMortRobot_huile';
+    if (robot && scene.textures.exists(frameKey(puddle, 0))) {
+      const count = 4 + Math.floor(Math.random() * 3);
       for (let i = 0; i < count; i++) {
-        const img = this.image(puddle, Math.floor(Math.random() * this.info(puddle).frames), x + (Math.random() - 0.5) * spread, y + (Math.random() - 0.5) * spread, DEPTH.remains - 1)
-          .setRotation(Math.random() * Math.PI * 2).setScale(robot ? 1.3 + Math.random() * 0.7 : 1);
+        const img = this.image(puddle, Math.floor(Math.random() * this.info(puddle).frames), x + (Math.random() - 0.5) * 90, y + (Math.random() - 0.5) * 90, DEPTH.remains - 1)
+          .setRotation(Math.random() * Math.PI * 2).setScale(1.3 + Math.random() * 0.7);
         this.keepRemains(img);
       }
     }
     const prefix = robot ? 'spr_membreMortRobot_' : 'spr_membreMortHumain_';
-    const pieces = robot ? 14 + Math.floor(Math.random() * 9) : 4 + Math.floor(Math.random() * 8);
+    const pieces = robot ? 14 + Math.floor(Math.random() * 9) : GORE.pieces[0] + Math.floor(Math.random() * (GORE.pieces[1] - GORE.pieces[0] + 1));
     for (let i = 0; i < pieces; i++) {
       const name = `${prefix}${1 + Math.floor(Math.random() * 11)}`;
       if (!scene.textures.exists(frameKey(name, 0))) continue;
       const img = this.image(name, 0, x + (Math.random() - 0.5) * 10, y + (Math.random() - 0.5) * 10, DEPTH.remains)
         .setRotation(Math.random() * Math.PI * 2).setScale(robot ? 1.3 + Math.random() * 0.9 : 1);
       const a = Math.random() * Math.PI * 2;
-      const speed = (20 + Math.random() * 20) * STEPS_PER_SECOND * (robot ? 0.5 : 0.35);
+      const speed = (20 + Math.random() * 20) * STEPS_PER_SECOND * 0.5;
       this.toss({ img, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: 1 + Math.random() * 3 });
       this.keepRemains(img);
+    }
+  }
+
+  /**
+   * Le sang d'un humain qui meurt (GD-067) : un souffle rouge, une flaque qui s'étale sous lui, des gouttes qui
+   * giclent tout autour et vont s'écraser sur le sol ou sur les murs, et des éclaboussures sur les personnages
+   * qui se tenaient près de lui.
+   */
+  private spillBlood(x: number, y: number): void {
+    const scene = this.scene;
+    const sang = 'spr_membreMortHumain_sang';
+    if (!scene.textures.exists(frameKey(sang, 0))) return;
+    const frames = this.info(sang).frames;
+    const within = (range: number[]): number => range[0] + Math.random() * (range[1] - range[0]);
+    const frame = (): number => Math.floor(Math.random() * frames);
+    // le souffle : un disque rouge qui s'ouvre d'un coup et se dissipe
+    const mist = scene.add.circle(x, y, 60, 0xb5161c).setAlpha(0.4).setDepth(DEPTH.remains + 2);
+    scene.tweens.add({ targets: mist, scale: 2.6, alpha: 0, duration: 260, ease: 'Cubic.easeOut', onComplete: () => mist.destroy() });
+    // la flaque : des nappes qui s'étalent
+    const pools = Math.round(within(GORE.pool.count));
+    for (let i = 0; i < pools; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = i === 0 ? 0 : Math.random() * GORE.pool.spread;
+      const scale = within(GORE.pool.scale);
+      const img = this.image(sang, frame(), x + Math.cos(a) * d, y + Math.sin(a) * d, DEPTH.remains - 1).setRotation(Math.random() * Math.PI * 2).setScale(scale * 0.25);
+      scene.tweens.add({ targets: img, scale, duration: GORE.pool.growMs * (0.7 + Math.random() * 0.6), ease: 'Cubic.easeOut' });
+      this.keepRemains(img);
+    }
+    // les gouttes : beaucoup retombent près, quelques-unes partent loin ; un mur les arrête
+    const count = Math.round(within(GORE.drops.count));
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const reach = GORE.drops.near + (GORE.drops.far - GORE.drops.near) * Math.pow(Math.random(), 1.8);
+      const hit = this.world.collision.raycast(x, y, x + Math.cos(a) * reach, y + Math.sin(a) * reach, BLOCK_MOVE);
+      // sur un mur, la tache se pose juste au-delà de son bord
+      const dist = hit ? reach * hit.t + 5 + Math.random() * 9 : reach;
+      const img = this.image(sang, frame(), x, y, DEPTH.fx).setRotation(a).setScale(0.2, 0.1);
+      this.drops.push({
+        img, x0: x, y0: y, x1: x + Math.cos(a) * dist, y1: y + Math.sin(a) * dist, age: 0,
+        flight: within(GORE.drops.flight) * (0.55 + 0.45 * (dist / GORE.drops.far)), size: within(GORE.drops.stain), onWall: hit !== null,
+      });
+    }
+    // les personnages tout près sont éclaboussés, du côté tourné vers le corps
+    const splash = (on: 'hero' | 'npc', id: number, tx: number, ty: number, angle: number, radius: number): void => {
+      const d = Math.hypot(tx - x, ty - y);
+      if (d < 1 || d > GORE.splash.range || this.world.collision.raycast(x, y, tx, ty, BLOCK_MOVE)) return;
+      const marks = Math.max(1, Math.round(within(GORE.splash.marks) * (1 - (0.5 * d) / GORE.splash.range)));
+      const toward = Math.atan2(y - ty, x - tx) - angle;
+      for (let i = 0; i < marks; i++) {
+        const a = toward + (Math.random() - 0.5) * 1.8;
+        const r = radius * (0.25 + Math.random() * 0.55);
+        const img = this.image(sang, frame(), tx, ty, DEPTH.character + 0.4).setScale(0.2 + Math.random() * 0.3).setAlpha(0);
+        // la tache apparaît quand les gouttes arrivent
+        this.stains.push({ img, on, id, lx: Math.cos(a) * r, ly: Math.sin(a) * r, turn: Math.random() * Math.PI * 2, age: -(0.08 + d / 900) });
+      }
+    };
+    for (const h of this.world.heroes) if (!h.gone && h.state !== 'dead') splash('hero', h.id, h.x, h.y, h.angle, h.def.radius);
+    for (const npc of this.world.npcs) splash('npc', npc.id, npc.x, npc.y, npc.angle, npc.def.radius);
+  }
+
+  /** Fait voler les gouttes de sang jusqu'à leur tache, et suivre aux éclaboussures le personnage qui les porte. */
+  private stepBlood(dt: number): void {
+    for (let i = this.drops.length - 1; i >= 0; i--) {
+      const d = this.drops[i];
+      d.age += dt;
+      const t = Math.min(1, d.age / d.flight);
+      // partie vite, elle ralentit en arrivant
+      const e = 1 - (1 - t) * (1 - t);
+      d.img.setPosition(d.x0 + (d.x1 - d.x0) * e, d.y0 + (d.y1 - d.y0) * e);
+      if (t < 1) continue;
+      // elle s'écrase : une tache étirée dans le sens du vol, qui reste
+      d.img.setScale(d.size * (1.3 + Math.random() * 0.9), d.size * (0.7 + Math.random() * 0.4)).setAlpha(0.92)
+        .setDepth(d.onWall ? DEPTH.wallThick + 1 : DEPTH.remains - 1);
+      this.keepRemains(d.img);
+      this.drops.splice(i, 1);
+    }
+    const { life, fade } = GORE.splash;
+    for (let i = this.stains.length - 1; i >= 0; i--) {
+      const s = this.stains[i];
+      s.age += dt;
+      const who = s.on === 'hero' ? this.world.heroes.find((h) => h.id === s.id && !h.gone && h.state !== 'dead') : this.world.npcs.find((n) => n.id === s.id);
+      if (!who || s.age >= life) {
+        s.img.destroy();
+        this.stains.splice(i, 1);
+        continue;
+      }
+      if (s.age < 0) continue;
+      const at = localToWorld(who.x, who.y, who.angle, s.lx, s.ly);
+      s.img.setPosition(at.x, at.y).setRotation(who.angle + s.turn)
+        .setAlpha(0.9 * Math.min(1, s.age / 0.05) * Math.min(1, (life - s.age) / fade));
     }
   }
 

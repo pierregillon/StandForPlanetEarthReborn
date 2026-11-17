@@ -32,7 +32,6 @@ export interface HeroDef {
   sprites: { stand: string; move: string; shot: string; fire2: string | null; legs: string; dead: string; portrait: string; select: string };
   sounds: { fire1: string[]; fire2: string[] };
   /** Couleur du viseur laser, ou null s'il n'y en a pas. */
-  laserColor: number | null;
   /** Résumé affiché à l'écran de choix du héros. */
   blurb: string;
 }
@@ -190,7 +189,6 @@ export const CONFIG = {
         legs: 'spr_PetBot_jambes2', dead: 'spr_PetBot_mort', portrait: 'spr_cadre_PetBot', select: 'spr_selectionPetBot',
       },
       sounds: { fire1: ['snd_petBot_fire1'], fire2: [] },
-      laserColor: 0x00ff00,
       blurb: 'Healer. Right click: 3 drones that explode, hurt enemies and heal you.',
     },
     EngiBot: {
@@ -214,7 +212,6 @@ export const CONFIG = {
         legs: 'spr_EngiBot_jambes', dead: 'spr_EngiBot_mort', portrait: 'spr_cadre_EngiBot', select: 'spr_selectionEngiBot',
       },
       sounds: { fire1: ['snd_engiBot_tourelleFire_3'], fire2: ['snd_engiBot_fire2'] },
-      laserColor: 0xff0000,
       blurb: 'Fast gunner, bouncing bullets. Right click: drops a turret (3 energy).',
     },
     BatBot: {
@@ -238,7 +235,6 @@ export const CONFIG = {
         legs: 'spr_BatBot_jambes2', dead: 'spr_BatBot_mort_2', portrait: 'spr_cadre_BatBot', select: 'spr_selectionBatBot',
       },
       sounds: { fire1: ['snd_batBot_fire1_1'], fire2: ['snd_batBot_fire2_1'] },
-      laserColor: null,
       blurb: 'Melee with two bats. Right click: throw a bat. Hold: call the bats back.',
     },
     BadaBot: {
@@ -262,7 +258,6 @@ export const CONFIG = {
         legs: 'spr_BadaBot_jambes', dead: 'spr_BadaBot_mort', portrait: 'spr_cadre_BadaBot', select: 'spr_selectionBadaBot',
       },
       sounds: { fire1: ['snd_badaBot_fire1_1', 'snd_badaBot_fire1_2', 'snd_badaBot_fire1_3'], fire2: ['snd_badaBot_fire2_1', 'snd_badaBot_fire2_2', 'snd_badaBot_fire2_3'] },
-      laserColor: 0xa000ff,
       blurb: 'Tank. Hold left click to charge up to 3 plasma balls. Right click: shield.',
     },
   } as Record<string, HeroDef>,
@@ -430,7 +425,8 @@ export const CONFIG = {
       rushStop: 220,
     },
     fearSteps: s(30),
-    fearSpeedFactor: 2,
+    // 2 dans le code de 2019 (6 px par step) : un civil qui fuit court maintenant à 10,2 px par step (GD-066)
+    fearSpeedFactor: 3.4,
     chaseSpeedFactor: 2,
     /** Zone du coup de bouclier, relative au robot (boîte du sprite spr_npc2_bullet). */
     meleeBox: { x0: 26, y0: -62, x1: 75, y1: 59 },

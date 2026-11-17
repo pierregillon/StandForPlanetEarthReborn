@@ -159,3 +159,24 @@ test('ShotBot : il arrive à tirer sur un héros qui ne cesse de bouger', () => 
   }
   assert.ok(salvos >= 5, `il tire régulièrement (${salvos} salves en 10 s)`);
 });
+
+test('civil : il fuit en courant, presque aussi vite que le heros le plus lent (GD-066)', () => {
+  const w = new World(level, sprites, 'PetBot', 7);
+  const npc = w.npcs.find((n) => n.def.kind === 'civil' && n.spd > 0);
+  assert.ok(npc);
+  w.npcs = [npc];
+  npc.x = w.hero.x + 300;
+  npc.y = w.hero.y;
+  npc.fear = true;
+  npc.fearTimer = 600;
+  npc.path = null;
+  let fastest = 0;
+  for (let i = 0; i < 300; i++) {
+    const { x, y } = npc;
+    w.step(NO_INPUT);
+    if (npc.state === 'running') fastest = Math.max(fastest, Math.hypot(npc.x - x, npc.y - y));
+  }
+  const expected = npc.spd * CONFIG.npc.fearSpeedFactor;
+  assert.ok(Math.abs(fastest - expected) < 0.5, `il court a ${fastest.toFixed(1)} px par step (attendu ${expected.toFixed(1)})`);
+  assert.ok(fastest > 9 && fastest < CONFIG.heroes.BadaBot.walkSpeed, 'plus vite qu\'avant, mais on peut encore le rattraper');
+});

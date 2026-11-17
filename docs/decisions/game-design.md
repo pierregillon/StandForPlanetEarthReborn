@@ -1427,3 +1427,45 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 - *Par défaut* : la lumière des ennemis reste un peu plus orangée que celle des héros, déflagration comprise, pour qu'on sache qui tire.
 
 **Conséquences.** `TRACER_STYLE` dans `WorldView.ts` regroupe tous ces réglages ; la lueur est une image en lumière ajoutée posée au-dessus de l'ombre de la salle. Affichage seulement : la simulation de GD-064 ne change pas. La lueur n'est pas arrêtée par les murs : elle déborde un peu de l'autre côté d'une cloison proche. Vu dans la page en solo, sur des images figées : la flamme, la lueur en cône sur le sol, son extinction, une balle refroidie au loin.
+
+## GD-066 — Les civils qui fuient courent plus vite
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (« les civils sont trop lents lorsqu'ils courent ») ; la valeur est un choix par défaut
+
+**Contexte.** Dans le code de 2019, un civil marche à 3 px par step et fuit à deux fois cette vitesse, soit 6 px par step. Depuis GD-056 les héros marchent de 10,5 à 14 px par step : un civil en fuite se faisait rattraper en marchant.
+
+**Décision.** Un civil qui fuit court à 3,4 fois sa vitesse de marche, soit 10,2 px par step (+70 %). C'est juste sous le héros le plus lent (BadaBot, 10,5) : on peut encore le rattraper, mais il faut le vouloir. Sa marche ne change pas.
+
+**Conséquences.** `fearSpeedFactor` dans `src/sim/config.ts`. L'animation de course suit la distance parcourue : elle accélère d'autant.
+
+## GD-067 — Mort d'un humain : explosion plus forte, flaque et projection de sang
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (l'explosion des civils est « vraiment petite et pas assez impressionnante » ; le sang doit faire une flaque mais aussi un jet de gouttes qui arrose le décor, voire les personnages à côté) ; les valeurs sont des choix par défaut
+
+**Contexte.** À la mort d'un humain, le remake jouait l'animation d'origine à sa taille, posait deux à quatre petites taches de sang dans un rayon de 30 px et lançait quelques membres.
+
+**Décision.**
+
+- **Explosion** : l'animation d'origine est agrandie de 45 % et doublée d'un souffle rouge qui s'ouvre et se dissipe en un quart de seconde. Huit à quatorze membres sont projetés (quatre à onze avant), aussi fort que les débris d'un robot.
+- **Flaque** : quatre à six nappes de sang, bien plus grandes (1,7 à 3,1 fois la tache d'origine), s'étalent en une demi-seconde sous le corps.
+- **Gouttes** : quarante à cinquante-six gouttes giclent dans toutes les directions. La plupart retombent près, quelques-unes partent jusqu'à 360 px. Chacune laisse une tache étirée dans le sens de son vol. Un mur ou un meuble les arrête : la tache se pose alors sur son bord.
+- **Personnages éclaboussés** : tout personnage (héros, soldat, civil) à moins de 230 px et en vue directe reçoit une à quatre taches, du côté tourné vers le corps. Elles le suivent, tiennent 14 s et s'effacent sur les 3 dernières.
+- *Par défaut* : cela vaut pour tous les humains, soldats au pistolet compris, pas seulement les civils. Les robots gardent leur explosion et leur huile.
+
+**Conséquences.** Affichage seulement (`GORE`, `spillBlood` et `stepBlood` dans `WorldView.ts`), avec le sprite de sang d'origine `spr_membreMortHumain_sang` : aucun sprite nouveau. Le nombre de restes gardés au sol passe de 900 à 2 400 pour que les taches ne chassent pas trop vite les restes plus anciens. En réseau, chaque joueur tire ses propres gouttes au sort : les taches ne sont pas aux mêmes endroits d'un écran à l'autre.
+
+## GD-068 — Les viseurs laser des héros sont retirés
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur
+
+**Contexte.** PetBot, EngiBot et BadaBot portaient un trait de visée de 200 px devant leur canon, repris du jeu d'origine. Depuis le prototype des tirs en traits de lumière (GD-064), flamme et traînée montrent déjà où part le tir.
+
+**Décision.** Plus aucun viseur laser. Écart voulu avec le jeu d'origine.
+
+**Conséquences.** Le tracé est retiré de `WorldView.ts` et la couleur de laser (`laserColor`) de la définition des héros. La visée elle-même ne change pas.
