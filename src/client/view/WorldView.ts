@@ -133,6 +133,14 @@ const TRACER_STYLE = {
     /** Pixels dont toute la flamme avance, loin du canon, pendant qu'elle s'estompe. */
     drift: 40,
   },
+  /**
+   * Fumée qui prend la place de la flamme : elle naît quand la force de la flamme passe sous `at`, là où la
+   * flamme se trouve alors, puis reste dans l'air (elle ne suit plus le canon). `puffs` bouffées, étalées sur
+   * `spread` pixels devant le canon, partent vers l'avant à `speed` px/s, freinées par `drag` ; chacune
+   * gonfle de `radius` à `radius × grow` pixels et s'efface en `life` secondes. Chaude à sa naissance
+   * (`hot`), elle vire au gris (`cold`) : c'est elle qui dit que le canon vient de chauffer.
+   */
+  smoke: { at: 0.4, puffs: 5, spread: 80, speed: 320, drag: 6, radius: 18, grow: 2.6, life: 0.45, alpha: 0.85, hot: 0xffe9c4, cold: 0xdcdcdc },
 };
 
 /**
@@ -195,6 +203,8 @@ interface MuzzleFlash {
   angle: number;
   gun: Gun | null;
   turn: number;
+  /** Vrai une fois que sa fumée est née. */
+  smoked: boolean;
   enemy: boolean;
   age: number;
   light: Img;
@@ -205,6 +215,18 @@ interface MuzzleFlash {
 }
 
 type Img = Phaser.GameObjects.Image;
+
+/** Bouffée de fumée laissée par un tir : elle avance, gonfle et s'efface. `age` et `life` en secondes. */
+interface Smoke {
+  img: Img;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  age: number;
+  life: number;
+  radius: number;
+}
 
 interface PlayingAnim {
   img: Img;
@@ -365,6 +387,7 @@ export class WorldView {
   private readonly streaks = new Map<number, Streak>();
   private readonly afterglows: Afterglow[] = [];
   private readonly flashes: MuzzleFlash[] = [];
+  private readonly smokes: Smoke[] = [];
   private readonly droneImgs = new Map<number, Img>();
   private readonly droneShadowImgs = new Map<number, Img>();
   private readonly explosionImgs = new Map<number, Img>();
@@ -1161,13 +1184,86 @@ export class WorldView {
       f.age += dt;
       // pleine force un instant, puis extinction exponentielle : vive au début, de plus en plus lente
       const k = f.age < blast.hold ? 1 : Math.exp(-(f.age - blast.hold) / blast.decay);
+      if (k >= 0.03) this.drawMuzzleFlash(f, k);
+      // la flamme faiblit : la fumée prend sa place
+      if (!f.smoked && k < TRACER_STYLE.smoke.at) {
+        f.smoked = true;
+        this.addSmoke(f, k);
+      }
       if (k < 0.03) {
         f.light.destroy();
         this.flashes.splice(i, 1);
-      } else {
-        this.drawMuzzleFlash(f, k);
       }
     }
+    this.syncSmoke(dt);
+  }
+
+  /** La fumée d'un tir : quelques bouffées étalées là où brûlait la flamme, lancées vers l'avant. */
+  private addSmoke(f: MuzzleFlash, k: number): void {
+    const smoke = TRACER_STYLE.smoke;
+    const size = TRACER_STYLE.blast.size;
+    const key = this.smokeTexture();
+    // la base de la flamme à cet instant : elle a déjà un peu avancé
+    const lift = TRACER_STYLE.blast.drift * size * (1 - k);
+    for (let i = 0; i < smoke.puffs; i++) {
+      // les bouffées s'échelonnent du canon vers l'avant ; les plus lointaines sont les plus rapides
+      const t = (i + Math.random() * 0.6) / smoke.puffs;
+      const angle = f.angle + (Math.random() - 0.5) * 0.24;
+      const along = lift + 6 + t * smoke.spread * size;
+      const across = (Math.random() - 0.5) * 8;
+      const x = f.x + Math.cos(f.angle) * along - Math.sin(f.angle) * across;
+      const y = f.y + Math.sin(f.angle) * along + Math.cos(f.angle) * across;
+      const speed = smoke.speed * size * (0.6 + 0.7 * t) * (0.85 + Math.random() * 0.3);
+      const img = this.scene.add.image(x, y, key).setDepth(DEPTH.bullet + 0.5).setAlpha(0).setRotation(Math.random() * Math.PI * 2);
+      this.smokes.push({
+        img, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, age: 0,
+        life: smoke.life * (0.8 + Math.random() * 0.4), radius: smoke.radius * size * (0.8 + Math.random() * 0.5),
+      });
+    }
+  }
+
+  /** Fait vivre la fumée des tirs : elle avance en ralentissant, gonfle, refroidit et s'efface. */
+  private syncSmoke(dt: number): void {
+    const smoke = TRACER_STYLE.smoke;
+    const slow = Math.exp(-smoke.drag * dt);
+    for (let i = this.smokes.length - 1; i >= 0; i--) {
+      const p = this.smokes[i];
+      p.age += dt;
+      const t = p.age / p.life;
+      if (t >= 1) {
+        p.img.destroy();
+        this.smokes.splice(i, 1);
+        continue;
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= slow;
+      p.vy *= slow;
+      // elle gonfle vite puis de moins en moins ; elle apparaît en un instant et s'efface en douceur
+      const swell = 1 + (smoke.grow - 1) * (1 - (1 - t) * (1 - t));
+      const strength = Math.min(1, p.age / 0.035) * Math.pow(1 - t, 1.2);
+      p.img.setPosition(p.x, p.y).setScale((p.radius * swell) / 32).setAlpha(smoke.alpha * strength)
+        .setTint(mixColor(smoke.cold, smoke.hot, Math.max(0, 1 - t * 3)));
+    }
+  }
+
+  /** Bouffée de fumée : un disque blanc aux bords fondus, de 32 px de rayon, à teinter. */
+  private smokeTexture(): string {
+    const key = 'shotSmoke';
+    if (!this.scene.textures.exists(key)) {
+      const canvas = this.scene.textures.createCanvas(key, 64, 64);
+      if (canvas) {
+        const ctx = canvas.context;
+        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gradient.addColorStop(0, 'rgba(255,255,255,1)');
+        gradient.addColorStop(0.45, 'rgba(255,255,255,0.6)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 64, 64);
+        canvas.refresh();
+      }
+    }
+    return key;
   }
 
   /**
@@ -1352,7 +1448,7 @@ export class WorldView {
       offset: (Math.random() * 2 - 1) * blast.spread * 1.5,
       from: (30 + Math.random() * 110) * blast.size, speed: (500 + Math.random() * 900) * blast.size, size: (6 + Math.random() * 10) * blast.size,
     }));
-    this.flashes.push({ x, y, angle, gun, turn, enemy, age: 0, light, rays, sparks });
+    this.flashes.push({ x, y, angle, gun, turn, smoked: false, enemy, age: 0, light, rays, sparks });
   }
 
   /**
