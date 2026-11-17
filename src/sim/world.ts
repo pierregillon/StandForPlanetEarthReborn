@@ -8,6 +8,7 @@ import {
 } from './geom.ts';
 import type { Obstacle } from './geom.ts';
 import { NavGrid } from './nav.ts';
+import { withAdditions } from './additions.ts';
 import { arrivalPhases, arrivalTotal as arrivalDuration, clawOf, introLines, typingSteps } from './intro.ts';
 import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, stepAbilityObjects } from './abilities.ts';
 import type { NewExplosion } from './abilities.ts';
@@ -129,6 +130,7 @@ export class World {
   constructor(level: LevelData, sprites: SpriteManifest, heroNames: string | string[], seed = 1, session: Session = createSession(heroNames, level.name)) {
     this.session = session;
     this.stats = session.stats;
+    level = withAdditions(level);
     this.level = level;
     this.sprites = sprites;
     this.width = level.width;
@@ -251,7 +253,9 @@ export class World {
     this.introLine = 0;
     this.introLineSteps = 0;
     this.introHold = 0;
-    if (withVehicle) this.emit({ type: 'vehicleArrives', seconds: arrivalTotal / STEPS_PER_SECOND });
+    // introduction complète : le journal d'abord, les rotors ne s'entendent qu'à la fin de sa dernière phrase
+    this.introRumbled = !(withVehicle && fullIntro);
+    if (withVehicle) this.emit(fullIntro ? { type: 'introNews' } : { type: 'vehicleArrives', seconds: arrivalTotal / STEPS_PER_SECOND });
   }
 
   /**
@@ -264,6 +268,7 @@ export class World {
     for (const h of riding) h.arrivalSteps = 1;
     this.introWaiting = false;
     this.introHold = 0;
+    this.introLine = 9999; // plus aucune réplique à jouer
     this.emit({ type: 'introSkipped' });
     return true;
   }
@@ -300,6 +305,10 @@ export class World {
     }
     this.introWaiting = true;
     const written = typingSteps(line.text);
+    if (line.rumble && !this.introRumbled && this.introLineSteps >= written) {
+      this.introRumbled = true;
+      this.emit({ type: 'vehicleArrives', seconds: (phases.total - line.at) / STEPS_PER_SECOND });
+    }
     if (host?.dashPressed && this.introLineSteps < written) {
       // premier appui : la réplique s'écrit d'un coup
       this.introLineSteps = written;
@@ -649,6 +658,8 @@ export class World {
   introHold = 0;
   /** Une réplique est à l'écran : l'horloge de l'arrivée est arrêtée. */
   introWaiting = false;
+  /** Les rotors du véhicule ont commencé à se faire entendre. */
+  private introRumbled = true;
 
   step(inputs: Input | Input[]): void {
     this.tick++;

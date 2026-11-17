@@ -16,7 +16,8 @@ import { NO_INPUT } from '../../sim/types.ts';
 import type { Hero, Input, LevelData, SpriteManifest } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 import { isFreshStart, openRoom, retrySession, startTeam } from '../../sim/match.ts';
-import { clawOf } from '../../sim/intro.ts';
+import { arrivalPhases, clawOf, introShot } from '../../sim/intro.ts';
+import { TV_STUDIO } from '../../sim/additions.ts';
 import { IntroOverlay } from '../view/IntroOverlay.ts';
 import { createSession } from '../../sim/session.ts';
 import type { Session } from '../../sim/session.ts';
@@ -187,6 +188,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new Hud(this, this.world);
     this.intro = new IntroOverlay(this, this.world);
     this.intro.onLine = () => this.synth.radioBlip();
+    this.intro.onGlitch = () => this.synth.staticBurst();
     this.view.playerNames = this.mirror?.playerNames ?? [];
     this.hud.playerNames = this.view.playerNames;
     this.acc = 0;
@@ -244,7 +246,17 @@ export class GameScene extends Phaser.Scene {
     if (h.arrivalSteps > 0) {
       // pendant le largage, le cadre reste centré sur le véhicule
       const claw = clawOf(h.def.name);
-      return { x: h.x - claw.x, y: h.y - claw.y };
+      const vehicle = { x: h.x - claw.x, y: h.y - claw.y };
+      // avant lui, le journal : le plateau, le hall d'accueil, puis la caméra sort du bâtiment (GD-080)
+      const shot = introShot(arrivalPhases(h.arrivalTotal), h.arrivalTotal - h.arrivalSteps);
+      if (shot.kind === 'studio') return TV_STUDIO.shots.studio;
+      if (shot.kind === 'hall') return TV_STUDIO.shots.hall;
+      if (shot.kind === 'exit') {
+        const k = Phaser.Math.Easing.Cubic.InOut(shot.k);
+        const from = TV_STUDIO.shots.hall;
+        return { x: from.x + (vehicle.x - from.x) * k, y: from.y + (vehicle.y - from.y) * k };
+      }
+      return vehicle;
     }
     const pointer = this.input.activePointer;
     const { lookAhead, maxLookAhead, viewWidth, viewHeight } = CONFIG.camera;
@@ -252,6 +264,12 @@ export class GameScene extends Phaser.Scene {
       x: h.x + clamp((pointer.x - viewWidth / 2) * lookAhead, -maxLookAhead, maxLookAhead),
       y: h.y + clamp((pointer.y - viewHeight / 2) * lookAhead, -maxLookAhead, maxLookAhead),
     };
+  }
+
+  /** La caméra montre-t-elle un plan du journal de l'introduction, loin des robots ? */
+  private inNewsShot(): boolean {
+    const h = this.world.hero;
+    return h.arrivalSteps > 0 && introShot(arrivalPhases(h.arrivalTotal), h.arrivalTotal - h.arrivalSteps).kind !== 'vehicle';
   }
 
   private snapCamera(): void {
@@ -372,8 +390,14 @@ export class GameScene extends Phaser.Scene {
       }
       first = false;
       const target = this.cameraGoal();
-      this.camX += (target.x - this.camX) / CONFIG.camera.smoothing;
-      this.camY += (target.y - this.camY) / CONFIG.camera.smoothing;
+      if (this.inNewsShot()) {
+        // les plans du journal sont des coupes franches et un travelling réglé : pas de lissage
+        this.camX = target.x;
+        this.camY = target.y;
+      } else {
+        this.camX += (target.x - this.camX) / CONFIG.camera.smoothing;
+        this.camY += (target.y - this.camY) / CONFIG.camera.smoothing;
+      }
     }
     mirror?.frame(delta);
     this.placeCamera();
@@ -389,6 +413,7 @@ export class GameScene extends Phaser.Scene {
         const h = world.heroes[e.hero] ?? world.hero;
         this.playSound(e.sound, h.x, h.y);
       } else if (e.type === 'vehicleArrives') this.synth.vehicle();
+      else if (e.type === 'introNews') this.synth.newsJingle();
       else if (e.type === 'vehicleLeaves') this.synth.vehicleLeaves(e.seconds);
       else if (e.type === 'introSkipped') {
         // l'hôte a passé l'introduction : coupe franche, les robots sont déjà au sol

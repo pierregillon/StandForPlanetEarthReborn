@@ -17,7 +17,7 @@ function makeWorld(): World {
 test('le niveau se charge avec ses entités', () => {
   const w = makeWorld();
   assert.equal(w.stats.totalSoldier, 36);
-  assert.equal(w.stats.totalCivil, 52);
+  assert.equal(w.stats.totalCivil, 53);
   assert.ok(w.doors.length >= 36, `portes : ${w.doors.length}`);
   assert.equal(w.buttons.length, 4);
   assert.equal(w.windows.length, 20);

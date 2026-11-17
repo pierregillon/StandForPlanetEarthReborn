@@ -756,6 +756,12 @@
 <rect x="10976" y="1376" width="2088" height="4928" fill="none" stroke="#ffd9a0" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="30 22"/>
 <rect x="0" y="1376" width="2272" height="4928" fill="none" stroke="#ffd9a0" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="30 22"/>
 <rect x="2864" y="2864" width="3936" height="1056" fill="none" stroke="#ffd9a0" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="30 22"/>
+<circle cx="9440" cy="3850" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9535" cy="3850" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
+<text x="9535" y="3874" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">c</text>
+<circle cx="9200" cy="3650" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9140" cy="3850" r="16" fill="#fff" fill-opacity="0.35"/>
+<circle cx="9200" cy="4050" r="16" fill="#fff" fill-opacity="0.35"/>
 <text x="5179" y="7640" font-size="64" font-weight="bold" text-anchor="middle" fill="#fff">1</text>
 <text x="5339" y="7640" font-size="64" font-weight="bold" text-anchor="middle" fill="#fff">2</text>
 <text x="5435" y="7640" font-size="64" font-weight="bold" text-anchor="middle" fill="#fff">3</text>

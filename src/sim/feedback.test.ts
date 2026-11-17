@@ -117,13 +117,18 @@ test('arrivée par le véhicule : le robot attend d\'être posé, puis se déplo
   const h = w.hero;
   w.npcs = [];
   w.deployHero(true);
-  assert.ok(w.drainEvents().some((e) => e.type === 'vehicleArrives'));
+  assert.ok(w.drainEvents().some((e) => e.type === 'introNews'), 'l\'introduction commence par le journal (GD-080)');
   const total = h.arrivalTotal;
   assert.ok(total > 120 && h.arrivalSteps === total);
   const y0 = h.y;
   // le joueur fait défiler les répliques de l'introduction en appuyant (GD-079) ; son robot ne bouge pas
   const press = { ...NO_INPUT, moveY: -1, dashPressed: true, aimX: h.x, aimY: h.y - 300 };
-  for (let i = 0; i < total * 2 && h.arrivalSteps > 1; i++) w.step(press);
+  let rotors = false;
+  for (let i = 0; i < total * 2 && h.arrivalSteps > 1; i++) {
+    w.step(press);
+    rotors ||= w.drainEvents().some((e) => e.type === 'vehicleArrives');
+  }
+  assert.ok(rotors, 'puis le véhicule arrive');
   assert.equal(h.arrivalSteps, 1);
   assert.equal(h.y, y0);
   assert.equal(h.deploySteps, h.deployTotal, 'le déploiement n\'a pas commencé');

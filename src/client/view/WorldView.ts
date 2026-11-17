@@ -8,7 +8,7 @@ import { BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, angleDiff, localToWorld } from '
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
-import { arrivalPhases, clawOf, crewReleased, introLines } from '../../sim/intro.ts';
+import { ANCHOR, arrivalPhases, clawOf, crewReleased, introLines, introShot } from '../../sim/intro.ts';
 import type { IntroLine } from '../../sim/intro.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
 import type { Bat, Bullet, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
@@ -570,6 +570,8 @@ export class WorldView {
   private readonly buttonImgs = new Map<number, Img>();
   private readonly alerts = new Map<number, { text: Phaser.GameObjects.Text; frames: number }>();
   private checkpointImg: Img | null = null;
+  /** Lueurs des écrans de la chaîne pendant le journal de l'introduction. */
+  private screenGlows: Img[] = [];
   private vehicle: {
     body: Img;
     shadow: Img | null;
@@ -2224,11 +2226,52 @@ export class WorldView {
    * Brouillard de guerre. La lumière qui entre dans une pièce encore cachée (porte qui s'ouvre, vitre) perce
    * le brouillard là où elle éclaire : on entrevoit la pièce sans la découvrir entièrement (GD-041).
    */
+  /**
+   * Journal de l'introduction (GD-080) : la caméra montre des pièces où les robots ne sont pas encore entrés.
+   * Retourne le plan en cours, ou null hors de ces plans.
+   */
+  private newsShot(): 'studio' | 'hall' | 'exit' | null {
+    const lead = this.world.heroes.find((h) => !h.gone && h.arrivalSteps > 0);
+    if (!lead) return null;
+    const kind = introShot(arrivalPhases(lead.arrivalTotal), lead.arrivalTotal - lead.arrivalSteps).kind;
+    return kind === 'vehicle' ? null : kind;
+  }
+
+  /** Pendant le journal, les écrans de la chaîne scintillent : une lueur bleutée qui tremble sur chacun. */
+  private syncScreens(): void {
+    const shot = this.newsShot();
+    const on = shot === 'studio' || shot === 'hall';
+    if (!on && this.screenGlows.length === 0) return;
+    if (on && this.screenGlows.length === 0) {
+      this.ensureHalo();
+      for (const d of this.world.decor) {
+        if (d.sprite !== 'spr_ecran') continue;
+        this.screenGlows.push(this.scene.add.image(d.x, d.y, 'lightHalo').setDepth(DEPTH.fx + 30).setBlendMode(Phaser.BlendModes.ADD).setTint(0x7fd6ff));
+      }
+    }
+    const cam = this.scene.cameras.main.worldView;
+    const beat = Math.floor(this.scene.time.now / 70);
+    this.screenGlows.forEach((glow, i) => {
+      const near = on && glow.x > cam.x - 200 && glow.x < cam.right + 200 && glow.y > cam.y - 200 && glow.y < cam.bottom + 200;
+      glow.setVisible(near);
+      if (!near) return;
+      // un tirage par écran et par battement : l'image change, la lueur tremble
+      const noise = Math.abs(Math.sin((beat + i * 7.3) * 12.9898) * 43758.5453) % 1;
+      glow.setAlpha(0.28 + 0.3 * noise).setScale(0.62 + 0.14 * noise);
+    });
+  }
+
   private syncFogs(): void {
     const rt = this.fogLayer;
     const cam = this.scene.cameras.main;
     let any = false;
     rt.clear();
+    this.syncScreens();
+    if (this.newsShot()) {
+      // le brouillard de guerre est levé le temps du journal : il revient quand la caméra retrouve les robots
+      rt.setVisible(false);
+      return;
+    }
     for (const fog of this.world.fogs) {
       const x = fog.x - cam.scrollX;
       const y = fog.y - cam.scrollY;
@@ -2498,8 +2541,8 @@ export class WorldView {
         this.vehicle = null;
         for (const h of team) {
           const p = this.partsOf(h);
-          p.body.setScale(1).setDepth(DEPTH.character);
-          p.orb?.setDepth(DEPTH.character + 1);
+          p.body.setScale(1).setDepth(DEPTH.character).setVisible(true);
+          p.orb?.setDepth(DEPTH.character + 1).setVisible(true);
         }
       }
       return;
@@ -2528,7 +2571,8 @@ export class WorldView {
     let y = landed.y;
     let height = 0; // 1 = en vol, 0 = posé
     if (t < ph.flyIn) {
-      const p = t / ph.flyIn;
+      // pendant le journal il n'est pas encore là ; il entre quand la caméra arrive sur le parvis
+      const p = Math.max(0, t - ph.exit) / a.flyInSteps;
       x = landed.x - a.travel * (1 - p) * (1 - p); // il ralentit en arrivant
       height = 1;
     } else if (ph.full && t <= ph.hover) {
@@ -2550,6 +2594,10 @@ export class WorldView {
     }
     const scale = 1 + (a.flightScale - 1) * height;
     const { body, shadow, crew, voice, lines } = this.vehicle;
+    const present = t >= ph.exit;
+    body.setVisible(present);
+    shadow?.setVisible(present);
+    for (const img of crew.values()) img.setVisible(present);
     this.setFrame(body, 'spr_spawnVehicle', (this.scene.time.now / 60) % this.info('spr_spawnVehicle').frames);
     body.setPosition(x, y).setScale(scale);
     // l'ombre s'écarte et s'agrandit avec l'altitude, comme dans l'original
@@ -2565,7 +2613,8 @@ export class WorldView {
         continue;
       }
       const at = inClaw(h.def.name);
-      p.body.setPosition(at.x, at.y).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
+      p.body.setPosition(at.x, at.y).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41).setVisible(present);
+      p.orb?.setVisible(present);
       // l'orbe de BadaBot est un calque à part : elle voyage avec lui au lieu de l'attendre au sol
       if (p.orb) {
         p.orb.setPosition(at.x + (p.orbX - h.x) * scale, at.y + (p.orbY - h.y) * scale).setScale(p.orb.scaleX * scale).setDepth(DEPTH.fx + 41.5);
@@ -2579,7 +2628,7 @@ export class WorldView {
     // un halo pulse autour du robot qui parle
     voice.clear();
     const next = lines[this.world.introLine];
-    const line = next && next.at <= t ? next : null;
+    const line = next && next.at <= t && next.speaker !== ANCHOR ? next : null;
     if (line) {
       const speaker = team.find((h) => h.def.name === line.speaker);
       const at = speaker && !carried ? { x: speaker.x, y: speaker.y } : inClaw(line.speaker);

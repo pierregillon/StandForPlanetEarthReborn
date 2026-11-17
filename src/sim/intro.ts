@@ -1,12 +1,18 @@
-// Introduction du niveau (GD-077, GD-078, GD-079) : déroulé du largage et répliques des robots.
+// Introduction du niveau (GD-077 à GD-080) : le journal télévisé, la radio des robots, le largage.
 // L'horloge de la séquence est celle de l'arrivée des héros. Elle s'arrête sur chaque réplique, jusqu'à ce
 // que l'hôte passe à la suivante : le joueur lit à son rythme.
 import { CONFIG } from './config.ts';
 
 /** Instants de l'arrivée, en steps de son horloge. Chaque valeur est la fin de la phase nommée. */
 export interface ArrivalPhases {
-  /** Introduction complète (la radio est jouée) ou simple largage. */
+  /** Introduction complète (le journal et la radio sont joués) ou simple largage. */
   full: boolean;
+  /** L'image s'est ouverte sur le plateau : l'horloge s'arrête ici pour la première phrase du présentateur. */
+  news: number;
+  /** Coupe vers le hall d'accueil : l'horloge s'arrête ici pour sa deuxième phrase. */
+  cut: number;
+  /** La caméra est sortie du bâtiment : le véhicule entre. Vaut 0 sans introduction complète. */
+  exit: number;
   /** Le véhicule est entré et s'est arrêté au-dessus du parvis. */
   flyIn: number;
   /** Il s'est stabilisé en vol : l'horloge s'arrête ici pour les répliques radio. */
@@ -20,20 +26,24 @@ export interface ArrivalPhases {
   total: number;
 }
 
-/** Durée de l'arrivée, répliques non comprises ; l'introduction complète ajoute le vol stationnaire. */
+/** Durée de l'arrivée, répliques non comprises ; l'introduction complète ajoute le journal et le vol stationnaire. */
 export function arrivalTotal(fullIntro: boolean): number {
   const a = CONFIG.arrival;
-  return a.flyInSteps + (fullIntro ? a.hoverSteps : 0) + a.descendSteps + a.holdSteps + a.ascendSteps + a.flyOutSteps;
+  const intro = fullIntro ? a.news.inSteps + a.news.cutSteps + a.news.exitSteps + a.hoverSteps : 0;
+  return intro + a.flyInSteps + a.descendSteps + a.holdSteps + a.ascendSteps + a.flyOutSteps;
 }
 
 export function arrivalPhases(total: number): ArrivalPhases {
   const a = CONFIG.arrival;
   const full = total > arrivalTotal(false);
-  const flyIn = a.flyInSteps;
+  const news = full ? a.news.inSteps : 0;
+  const cut = news + (full ? a.news.cutSteps : 0);
+  const exit = cut + (full ? a.news.exitSteps : 0);
+  const flyIn = exit + a.flyInSteps;
   const hover = flyIn + (full ? a.hoverSteps : 0);
   const descend = hover + a.descendSteps;
   const hold = descend + a.holdSteps;
-  return { full, flyIn, hover, descend, hold, ascend: hold + a.ascendSteps, total };
+  return { full, news, cut, exit, flyIn, hover, descend, hold, ascend: hold + a.ascendSteps, total };
 }
 
 /** Pince d'un robot, par rapport à l'origine du véhicule : chaque robot a toujours la même. */
@@ -51,6 +61,27 @@ export interface IntroLine {
   text: string;
   /** L'échange du largage : les pinces des robots joués s'ouvrent quand cette réplique commence. */
   release?: boolean;
+  /** Les rotors du véhicule se font entendre quand cette réplique est écrite : c'est eux qui la coupent. */
+  rumble?: boolean;
+}
+
+/** Nom du présentateur du journal dans les répliques. */
+export const ANCHOR = 'Anchor';
+
+/** Le journal de TvTv², sur le plateau puis sur les écrans du hall (texte accepté, GD-077). */
+const NEWS = [
+  '...a third drilling site destroyed this month. The \'Stand For Planet Earth\' unit is now considered out of control.',
+  'Authorities say there is no reason to panic. Stay with us on TvTv², right after th—',
+];
+
+/** Ce que la caméra montre : le plateau, le hall, le trajet vers le parvis (`k` de 0 à 1), puis le véhicule. */
+export type IntroShot = { kind: 'studio' | 'hall' | 'vehicle' } | { kind: 'exit'; k: number };
+
+export function introShot(p: ArrivalPhases, t: number): IntroShot {
+  if (!p.full || t >= p.exit) return { kind: 'vehicle' };
+  if (t <= p.news) return { kind: 'studio' };
+  if (t <= p.cut) return { kind: 'hall' };
+  return { kind: 'exit', k: (t - p.cut) / (p.exit - p.cut) };
 }
 
 /** La radio, pendant le vol stationnaire (texte accepté, GD-077). */
@@ -106,7 +137,10 @@ export function dropExchange(players: string[]): [string, string][] {
 export function introLines(players: string[], total: number): IntroLine[] {
   const p = arrivalPhases(total);
   const lines: IntroLine[] = [];
-  if (p.full) for (const [speaker, text] of RADIO) lines.push({ at: p.hover, speaker, text });
+  if (p.full) {
+    lines.push({ at: p.news, speaker: ANCHOR, text: NEWS[0] }, { at: p.cut, speaker: ANCHOR, text: NEWS[1], rumble: true });
+    for (const [speaker, text] of RADIO) lines.push({ at: p.hover, speaker, text });
+  }
   const exchange = dropExchange(players);
   exchange.forEach(([speaker, text], i) => {
     lines.push({ at: p.descend, speaker, text, release: i === exchange.length - 1 });

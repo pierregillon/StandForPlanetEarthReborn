@@ -565,6 +565,8 @@ export type SimEvent =
   | { type: 'vehicleArrives'; seconds: number }
   /** Le véhicule redécolle ; `seconds` : le temps qu'il met à sortir de l'écran. */
   | { type: 'vehicleLeaves'; seconds: number }
+  /** L'introduction complète commence : le journal de TvTv² est à l'antenne. */
+  | { type: 'introNews' }
   /** L'hôte a passé l'introduction : le véhicule disparaît, les robots se déploient. */
   | { type: 'introSkipped' }
   | { type: 'heroHit'; x: number; y: number }

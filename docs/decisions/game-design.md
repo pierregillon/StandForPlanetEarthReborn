@@ -85,6 +85,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-077 | Le niveau en construction est TvTv² ; il s'ouvre sur une cinématique en jeu | 2026-11-17 | Acceptée — à réaliser (rien n'est encore changé dans le jeu) |
 | GD-078 | Introduction, première livraison : la radio et le largage | 2026-11-17 | Acceptée — à ajuster après essai |
 | GD-079 | Dialogues : Espace pour la réplique suivante, Espace tenu pour passer la cinématique | 2026-11-17 | Acceptée ; modifie GD-077 (un appui ne passe plus la séquence) et GD-078 (les répliques n'ont plus de durée fixe) |
+| GD-080 | Introduction, deuxième livraison : le journal de TvTv² et le plateau | 2026-11-17 | Acceptée — à ajuster après essai |
 
 ---
 
@@ -1754,3 +1755,29 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Pourquoi.** Lire à son rythme est la demande ; faire attendre le véhicule plutôt que couper les répliques garde l'image et le texte accordés.
 
 **Conséquences.** L'horloge de l'arrivée s'arrête pendant une réplique (`stepIntro`, `introLine`, `introLineSteps`, `introHold` dans `world.ts`) ; ces trois valeurs rejoignent l'état commun transmis aux navigateurs. Les entrées des joueurs gagnent la touche de dash tenue (`dash`). Le son des rotors n'a plus de durée connue d'avance : il dure jusqu'au départ du véhicule (`vehicleLeaves`). Réglages : `lettersPerStep`, `autoAdvanceSteps`, `skipHoldSteps` dans `CONFIG.arrival`.
+
+## GD-080 — Introduction, deuxième livraison : le journal de TvTv² et le plateau
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — à ajuster après essai
+- **Décidée par** : l'utilisateur pour le principe (GD-077 : le journal en ouverture, le plateau et la régie mitoyens ; « tu peux enchaîner ») ; le décor du plateau, les cadrages, l'habillage et le portrait sont des choix par défaut de Claude, proposés dans `docs/narration/niveau-tvtv2.md`
+
+**Contexte.** GD-077 fait commencer l'introduction par le journal télévisé. Le niveau d'origine a déjà une régie et un grand hall séparés par une baie vitrée, mais rien qui fasse du hall un plateau.
+
+**Décision.**
+
+- **Le plateau est aménagé** dans le hall de béton : un pupitre (la table en verre aux tablettes de l'original) devant l'alcôve, un présentateur derrière, trois caméras de plateau (le sprite `spr_camera` de l'original, qu'aucun objet n'utilisait) entre la grille de ventilation et le pupitre.
+- **Le présentateur est un civil comme les autres** : il reste à son poste tant que rien ne l'effraie, puis fuit ; on peut le tuer, et il compte dans les civils du niveau (53 au lieu de 52).
+- **Déroulé du journal**, avant la radio et le largage de GD-078 :
+  1. un indicatif, puis l'image s'ouvre sur la régie et le plateau, à cheval sur la baie vitrée ; première phrase du présentateur ;
+  2. coupe vers le comptoir du hall d'accueil ; deuxième phrase. Quand elle est écrite, les rotors du véhicule se font entendre ;
+  3. à l'appui, l'image saute sous des parasites et la caméra sort du bâtiment par l'entrée jusqu'au parvis, où le véhicule arrive.
+- **Habillage** : les phrases du présentateur s'affichent dans la boîte de dialogue, en bas de l'écran comme un bandeau de télévision, sous le titre « TvTv² NEWS » avec une pastille « LIVE » et son portrait. Les écrans de la chaîne scintillent d'une lueur bleutée tant que le journal est à l'antenne.
+- **Le brouillard de guerre est levé** pendant ces plans : le joueur voit la régie, le plateau, leurs gardes et le hall avant d'y entrer. Il revient quand la caméra retrouve les robots.
+- **Lecture** : comme toutes les répliques (GD-079), les phrases du présentateur attendent l'appui de l'hôte ; tenir la touche passe tout.
+
+**Pourquoi.** Montrer l'objectif et ses défenses avant de donner la main dit au joueur où il va. Le présentateur vu du dessus est déjà à l'antenne quand les robots arrivent : à la fin de la mission, ils prendront sa place sur les mêmes écrans.
+
+**Conséquences.** `src/sim/additions.ts` (ADR-016) porte le décor et les cadrages ; `introShot`, les phases `news`, `cut`, `exit` et les deux phrases dans `src/sim/intro.ts` ; plans de caméra dans `GameScene.ts` ; lueur des écrans et brouillard dans `WorldView.ts` ; bandeau, portrait et parasites dans `IntroOverlay.ts`. L'introduction complète dure environ 8 secondes hors temps de lecture.
+
+**Points ouverts.** Le portrait du présentateur est dessiné par le code, faute de sprite : c'est un écart avec la règle d'ADR-015 (de vrais sprites), à remplacer par un vrai dessin. Les civils du hall ne se tournent pas vers les écrans. Les gardes du plateau continuent leurs rondes pendant le plan : l'un d'eux peut passer devant les caméras.

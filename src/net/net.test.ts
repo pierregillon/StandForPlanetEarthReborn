@@ -119,7 +119,6 @@ test('en jeu : les miroirs suivent le serveur, mon robot est prédit sans attend
   // l'introduction : l'horloge s'arrête sur la première réplique, que seul l'hôte peut faire avancer (GD-079)
   for (let i = 0; i < 200; i++) step(idle, idle);
   assert.equal(world.introLine, 0);
-  const riding = world.heroes[0].arrivalSteps;
   step(idle, { ...idle, dashPressed: true, dash: true });
   for (let i = 0; i < 10; i++) step(idle, idle);
   assert.equal(world.introLine, 0, 'un autre joueur ne fait pas défiler les répliques');
@@ -128,10 +127,14 @@ test('en jeu : les miroirs suivent le serveur, mon robot est prédit sans attend
   assert.equal(world.introLine, 1, 'l\'hôte passe à la réplique suivante');
   assert.equal(a.mirror.world.introLine, 1, 'les miroirs suivent la réplique en cours');
   assert.equal(b.mirror.world.introLine, 1);
-  assert.equal(world.heroes[0].arrivalSteps, riding, 'l\'horloge de l\'arrivée est arrêtée pendant les répliques');
+  // coupe vers le plan suivant, puis l'horloge de l'arrivée s'arrête de nouveau sur la réplique
+  for (let i = 0; i < 60; i++) step(idle, idle);
+  const stopped = world.heroes[0].arrivalSteps;
+  for (let i = 0; i < 60; i++) step(idle, idle);
+  assert.equal(world.heroes[0].arrivalSteps, stopped, 'l\'horloge de l\'arrivée est arrêtée pendant les répliques');
   // un autre joueur tient la touche : rien ; l'hôte la tient : la séquence est passée
   for (let i = 0; i < 80; i++) step(idle, { ...idle, dash: true });
-  assert.equal(world.heroes[0].arrivalSteps, riding);
+  assert.equal(world.heroes[0].arrivalSteps, stopped);
   for (let i = 0; i < 80; i++) step({ ...idle, dash: true }, idle);
   assert.equal(world.heroes[0].arrivalSteps, 0, 'l\'hôte passe la séquence en tenant la touche');
   assert.equal(world.heroes[1].arrivalSteps, 0);

@@ -541,6 +541,13 @@ export const CONFIG = {
    * descend, lâche le robot, remonte et repart par la droite ; le robot se déploie ensuite.
    */
   arrival: {
+    /**
+     * Le journal télévisé qui ouvre l'introduction complète (GD-080) : l'image s'ouvre sur le plateau
+     * (`inSteps`) et l'horloge s'arrête pour la première phrase du présentateur ; coupe vers le hall d'accueil
+     * (`cutSteps`), deuxième phrase ; puis l'image saute et la caméra sort du bâtiment jusqu'au parvis
+     * (`exitSteps`), où le véhicule arrive.
+     */
+    news: { inSteps: s(1), cutSteps: s(0.35), exitSteps: s(1.8) },
     flyInSteps: s(1.4),
     /**
      * Le véhicule se stabilise au-dessus du parvis, puis l'horloge s'arrête pour les répliques radio de

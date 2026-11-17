@@ -2,6 +2,7 @@
 import { CONFIG } from '../sim/config.ts';
 import type { HeroKind } from '../sim/config.ts';
 import type { LevelData, SpriteManifest } from '../sim/types.ts';
+import { withAdditions } from '../sim/additions.ts';
 
 export interface FloorInfo {
   image: string;
@@ -32,7 +33,8 @@ const UI_SPRITES = [
 ];
 
 /** Sprites communs à toutes les parties de ce niveau (les sprites du héros choisi sont chargés ensuite). */
-export function spritesNeeded(level: LevelData, manifest: SpriteManifest): string[] {
+export function spritesNeeded(original: LevelData, manifest: SpriteManifest): string[] {
+  const level = withAdditions(original);
   const names = new Set<string>(UI_SPRITES);
   if (level.background.sprite) names.add(level.background.sprite);
   for (const o of Object.values(level.objects)) if (o.sprite) names.add(o.sprite);

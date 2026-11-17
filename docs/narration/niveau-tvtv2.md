@@ -43,7 +43,7 @@ Le parcours existant mène au plateau en dernier (vérifié avec les collisions 
 5. Le bouton de la régie ouvre les deux portes du hall de béton.
 6. Dans les quais, deux boutons ouvrent les portails vers l'extérieur.
 
-**À aménager** (l'utilisateur autorise à redessiner les salles) : seulement le décor du plateau. Proposé : le pupitre du présentateur devant l'alcôve, vers x 9450, face à la vitre ; trois caméras entre le pupitre et la vitre ; l'alcôve sert de fond de décor, ses caisses sont poussées sur les côtés. Ainsi un seul plan de 1920 px de large montre la rangée d'écrans de la régie, la vitre et le présentateur.
+**Aménagé** (GD-080, positions dans `src/sim/additions.ts`) : seulement le décor du plateau. Proposé à l'origine : le pupitre du présentateur devant l'alcôve, vers x 9450, face à la vitre ; trois caméras entre le pupitre et la vitre ; l'alcôve sert de fond de décor, ses caisses sont poussées sur les côtés. Ainsi un seul plan de 1920 px de large montre la rangée d'écrans de la régie, la vitre et le présentateur.
 
 ## 3. La suite d'objectifs
 
@@ -142,7 +142,7 @@ Les cases vides ne peuvent pas se produire avec la règle ci-dessus.
 | Livraison | Contenu |
 |---|---|
 | **A. La radio et le largage** (plans 3 et 4, largage) — **livrée le 2026-11-17 (GD-078)** | Bandes de cinéma (sprite d'origine `spr_cine_bande`), boîte de dialogue lettre par lettre avec portrait (`spr_textBox` et portraits des robots, déjà dans le jeu), horloge de séquence dans la simulation, passage par l'hôte, vol stationnaire du véhicule, quatre robots dans les pinces, largage des seuls robots joués, répliques de la section 5 |
-| **B. Le direct** (plans 1 et 2) | Un présentateur et son pupitre sur le plateau, trois caméras (sprite d'origine `spr_camera`), le cadre « TvTv² LIVE » et son logo, le portrait du présentateur, les écrans qui clignotent, la neige à la coupure, le jingle. Le présentateur, son portrait et le logo sont à dessiner. |
+| **B. Le direct** (plans 1 et 2) — **livrée le 2026-11-17 (GD-080)**, avec un portrait du présentateur dessiné par le code en attendant un vrai sprite | Un présentateur et son pupitre sur le plateau, trois caméras (sprite d'origine `spr_camera`), le cadre « TvTv² LIVE » et son logo, le portrait du présentateur, les écrans qui clignotent, la neige à la coupure, le jingle. Le présentateur, son portrait et le logo sont à dessiner. |
 | **C. Le niveau** | Les consignes de la section 3, la fin du niveau, le retrait de la zone de forage et de SallyBot |
 
 ## 8. Les échos à préparer

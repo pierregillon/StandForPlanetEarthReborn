@@ -140,6 +140,20 @@ export class Synth {
     this.hum('triangle', 100, 190, seconds, 0.07, 0, 0.25, seconds * 0.7);
   }
 
+  /** Le journal de TvTv² prend l'antenne : un indicatif de quatre notes et son accord. */
+  newsJingle(): void {
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((f, i) => this.tone('triangle', f, f, 0.16, 0.1, i * 0.11));
+    for (const f of [523, 784, 1047]) this.tone('sine', f, f, 0.9, 0.06, 0.46);
+    this.tone('square', 131, 131, 0.5, 0.04, 0.46);
+  }
+
+  /** L'image saute : un grésillement de parasites. */
+  staticBurst(): void {
+    this.noise(9000, 1800, 0.4, 0.35);
+    this.tone('sawtooth', 2400, 300, 0.25, 0.05);
+  }
+
   /** Une réplique commence : deux notes brèves, comme un poste radio qui s'ouvre. */
   radioBlip(): void {
     this.tone('square', 880, 880, 0.035, 0.05);

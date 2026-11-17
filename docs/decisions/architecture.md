@@ -19,6 +19,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | ADR-013 | Lumières : zone éclairée pré-dessinée par lampe, recalculée quand une porte bouge | 2026-11-16 | Acceptée |
 | ADR-014 | Multijoueur : le serveur fait tourner le jeu, les navigateurs en tiennent un miroir | 2026-11-16 | Acceptée — première version |
 | ADR-015 | Sprites manquants fabriqués par un outil, à partir des sprites d'origine | 2026-11-16 | Acceptée |
+| ADR-016 | Les ajouts aux salles d'origine sont décrits à part et greffés au chargement | 2026-11-17 | Acceptée |
 
 ---
 
@@ -279,3 +280,17 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 **Conséquences.** Les poses sont limitées à ce que l'original a dessiné : l'outil réagence et habille, il ne dessine pas de nouvelle pose de robot. 4 Mo pour les quatre ultis.
 
 **Règle ajoutée par GD-044.** Le sprite d'un robot ne contient que le robot. Les effets (énergie, poussière, ondes) sont des sprites séparés, dessinés en blanc quand ils doivent prendre la couleur du robot, et superposés par le jeu. On planche d'abord l'animation sur une planche-contact avant de l'essayer en jeu.
+
+## ADR-016 — Les ajouts aux salles d'origine sont décrits à part et greffés au chargement
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : Claude (choix par défaut, à signaler à l'utilisateur), à la suite de son accord pour redessiner les salles (GD-077)
+
+**Contexte.** Les fichiers de `public/levels` sont produits par `npm run convert-rooms` à partir des salles GameMaker (ADR-006) : toute retouche à la main y serait perdue à la conversion suivante. Le niveau TvTv² demande pourtant d'ajouter du décor et un personnage (GD-080).
+
+**Décision.** Ce que le remake ajoute à une salle est décrit dans `src/sim/additions.ts` : des instances au format de la salle, et au besoin de nouveaux types d'objets. `withAdditions(level)` rend la salle complétée ; le monde l'appelle à sa construction, et le préchargement des sprites aussi. Le fichier d'origine n'est jamais modifié.
+
+**Pourquoi.** La conversion reste fidèle et rejouable ; on voit d'un coup d'œil ce qui vient du remake. Le serveur, le navigateur et les tests passent par le même point, donc voient la même salle. Piste écartée : un second fichier JSON par salle, qui aurait demandé un chargement de plus et un outil pour l'écrire.
+
+**Conséquences.** Les ajouts suivent les règles des instances d'origine (collisions, PNJ, décor). `npm run level-map` les dessine aussi. Retirer ou déplacer un élément d'origine n'est pas prévu : il faudra l'ajouter à ce mécanisme le jour où le niveau le demandera.

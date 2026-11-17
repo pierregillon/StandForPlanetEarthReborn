@@ -3,6 +3,8 @@
 // Usage : node tools/level-map.ts rm_world2 rm_world2_1   → docs/narration/plans/<salle>.svg
 //         node tools/level-map.ts rm_world2 --crop=x,y,largeur,hauteur --name=aile-est   → un détail, <salle>-aile-est.svg
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { withAdditions } from '../src/sim/additions.ts';
+import type { LevelData } from '../src/sim/types.ts';
 
 interface Instance {
   object: string;
@@ -148,7 +150,8 @@ const rooms = args.filter((a) => !a.startsWith('--'));
 if (rooms.length === 0) throw new Error('Usage : node tools/level-map.ts <salle> [<salle>...]');
 mkdirSync('docs/narration/plans', { recursive: true });
 for (const room of rooms) {
-  const level = JSON.parse(readFileSync(`public/levels/${room}.json`, 'utf8')) as Level;
+  // la salle telle que le jeu la charge : la conversion d'origine, plus les ajouts du remake (ADR-016)
+  const level = withAdditions(JSON.parse(readFileSync(`public/levels/${room}.json`, 'utf8')) as LevelData) as unknown as Level;
   const file = `docs/narration/plans/${room}${suffix ? `-${suffix}` : ''}.svg`;
   writeFileSync(file, drawLevel(level, crop));
   console.log(file);
