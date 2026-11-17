@@ -38,7 +38,7 @@ export function createNpc(world: World, id: number, inst: LevelInstance, def: Np
     attackRange: soldier ? world.rng.int(soldier.attackRangeMin, soldier.attackRangeMax) : 0,
     ammo: soldier ? soldier.magazine : 0,
     fireTimer: 0, reloadTimer: 0, repathTimer: 0, surpriseTimer: 0, spotted: false, viewRange: N.viewRange,
-    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0, thrown: 0, thrownAngle: 0, daze: 0, strafe: 0,
+    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0, thrown: 0, thrownAngle: 0, daze: 0, strafe: 0, unseen: 0,
     shieldHp: soldier && soldier.frontShield ? N.shieldHits + N.shieldHitsPerExtraPlayer * extra : 0, shieldBroken: false,
     fear: false, fearTimer: 0, stateSteps: 0, walkDist: 0,
   };
@@ -142,11 +142,18 @@ function stepSoldier(world: World, npc: Npc, def: SoldierDef): void {
   npc.spotted = visible;
   npc.viewRange = visible ? N.viewRangeAlerted : N.viewRange;
   if (!hero) {
+    npc.unseen = Math.min(npc.unseen + 1, 100000);
     const heard = heardHero(world, npc.x, npc.y);
     if (heard) alertSoldier(npc, heard.x, heard.y);
     investigate(world, npc, def);
     return;
   }
+  // il retrouve une cible qu'il avait perdue de vue : le temps de comprendre qu'elle est là, il ne tire pas
+  // (GD-075). Un soldat plus vif que les autres (ShotBot) garde son propre temps de réaction, plus court.
+  if (npc.alerted && npc.unseen >= N.reacquireAfterSteps) {
+    npc.fireTimer = Math.max(npc.fireTimer, Math.min(N.reacquireSteps, def.reactionSteps ?? N.reacquireSteps));
+  }
+  npc.unseen = 0;
   alertSoldier(npc, hero.x, hero.y);
   const dist = Math.hypot(hero.x - npc.x, hero.y - npc.y);
   const prev = npc.behaviour;

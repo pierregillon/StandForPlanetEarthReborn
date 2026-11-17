@@ -345,6 +345,8 @@ export interface Npc {
   daze: number;
   /** Côté vers lequel il se décale en combat (1 ou -1 ; 0 tant qu'il n'a pas choisi) (GD-058). */
   strafe: number;
+  /** Steps écoulés depuis qu'il a vu un héros pour la dernière fois (GD-075). */
+  unseen: number;
   /** Coups que le bouclier frontal peut encore encaisser (robot bouclier). */
   shieldHp: number;
   shieldBroken: boolean;

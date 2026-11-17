@@ -1553,7 +1553,7 @@ Le robot lui-même ne bouge pas (GD-048). La dernière image est sa posture de r
 
 **Décision.**
 
-- **Tir principal** : chaque tir est une salve de trois boules de plasma, tirées ensemble, aussi dispersée que l'ancien tir chargé à fond (±9°). Plus de charge à tenir. *Par défaut* : une salve par seconde en gardant le clic, ce qui correspond au rythme de l'ancien tir chargé (deux tiers de seconde de charge, puis le délai entre deux tirs) ; son chargeur reste de neuf boules, soit trois salves.
+- **Tir principal** : chaque tir est une salve de trois boules de plasma, tirées ensemble, aussi dispersée que l'ancien tir chargé à fond (±9°). Plus de charge à tenir. *Par défaut* : une salve par seconde en gardant le clic, ce qui correspond au rythme de l'ancien tir chargé (deux tiers de seconde de charge, puis le délai entre deux tirs) ; son chargeur passe de neuf à douze boules, soit quatre salves avant de recharger (demande de l'utilisateur après essai : trois salves, c'était trop peu).
 - **L'orbe** montre le rythme : elle se disperse au tir, se reforme pendant la seconde qui suit, puis pulse quand la salve est prête.
 - **Effet de tir** : pas de flamme ni de trait de lumière, mais une décharge d'énergie violette, sa couleur. À la salve : une floraison de lumière devant l'orbe, un anneau de choc qui s'ouvre vers l'avant, des arcs électriques en éventail et une lueur violette jetée sur le sol, le tout éteint en un cinquième de seconde. En vol, chaque boule garde son sprite d'origine et traîne un sillage ionisé de 190 px, effilé, parcouru de filaments qui crépitent.
 - **Bouclier** : il coûte une énergie toutes les cinq balles encaissées, au lieu de trois.
@@ -1578,3 +1578,15 @@ Le robot lui-même ne bouge pas (GD-048). La dernière image est sa posture de r
 Relever un coéquipier et lancer un ulti restent des moments où le robot ne peut pas dasher.
 
 **Conséquences.** `steerHero` et `interruptForDash` dans `src/sim/hero.ts` ; trois tests dans `abilities.test.ts`. Écart voulu avec le jeu d'origine.
+
+## GD-075 — Un soldat qui retrouve sa cible met un instant à tirer
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (un ennemi déjà alerté qui entre dans la salle du joueur tirait à l'instant même où il passait la porte : il faut un temps de réaction, très court mais perceptible, le temps qu'il comprenne que le robot est là ; « là ça fait un peu trop IA ») ; la durée est un choix par défaut
+
+**Contexte.** Un soldat marque un temps de surprise la première fois qu'il voit un héros (0,8 s ; 0,2 s pour le ShotBot). Ensuite plus rien ne le retenait : dès qu'il retrouvait une ligne de vue, il tirait au même soixantième de seconde.
+
+**Décision.** Un soldat déjà alerté qui retrouve une cible perdue de vue depuis au moins un quart de seconde attend 0,35 s avant de pouvoir tirer. Pendant ce temps il se tourne vers elle, la met en joue et se déplace normalement ; seul le tir est retenu. Le ShotBot, plus vif, garde son propre temps de réaction, 0,2 s. Cela vaut dans les deux sens : l'ennemi qui entre dans la salle du joueur comme le joueur qui débouche devant un ennemi qui l'attendait. Une cible cachée moins d'un quart de seconde (elle passe derrière un pilier) ne déclenche pas ce temps.
+
+**Conséquences.** `reacquireSteps` et `reacquireAfterSteps` dans `src/sim/config.ts`, `stepSoldier` dans `npc.ts`, un test dans `enemies.test.ts`. Se mettre à couvert devient plus payant : chaque fois qu'on rompt la ligne de vue assez longtemps, on gagne ce tiers de seconde. Le robot bouclier, qui frappe au contact, est concerné comme les autres.

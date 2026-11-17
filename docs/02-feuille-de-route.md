@@ -205,3 +205,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | L'éclair de fin de rechargement est retiré pour tous les héros (GD-071). |
 | 2026-11-17 | Rechargement de PetBot : nouveau sprite fabriqué, trois doses de sérum pompées du dos vers l'arme par le tuyau (GD-072). |
 | 2026-11-17 | Plus de chargeur éjecté au rechargement (GD-071, GD-072) ; BadaBot : salve de trois boules, effet de tir plasma, bouclier à cinq balles par énergie (GD-073) ; dash prioritaire qui annule l'action en cours (GD-074). |
+| 2026-11-17 | BadaBot : chargeur de douze boules, quatre salves (GD-073) ; un soldat qui retrouve sa cible attend 0,35 s avant de tirer (GD-075). |

@@ -198,3 +198,39 @@ test('degats : chaque coup compte, sans invulnerabilite apres un degat (GD-070)'
   assert.equal(h.hp, full - 4);
   assert.equal(h.invuln, 0);
 });
+
+test('un soldat qui retrouve sa cible marque un court temps avant de tirer (GD-075)', () => {
+  const { w, npc } = duel('obj_npc_human_pistol', 400);
+  const seen = new Set<number>();
+  /** Fait tourner le jeu et compte les balles ennemies nées pendant ce temps. */
+  const shotsDuring = (steps: number): number => {
+    let shots = 0;
+    for (let i = 0; i < steps; i++) {
+      w.step(NO_INPUT);
+      for (const b of w.bullets) {
+        if (b.owner === 'enemy' && !seen.has(b.id)) {
+          seen.add(b.id);
+          shots++;
+        }
+      }
+    }
+    return shots;
+  };
+  assert.ok(shotsDuring(150) > 0, 'il voit le héros, se remet de sa surprise et tire');
+  // le héros disparaît, loin, le temps que le soldat le perde de vue ; le soldat est tenu sur place
+  const hero = { x: w.hero.x, y: w.hero.y };
+  const post = { x: npc.x, y: npc.y };
+  w.hero.x += 9000;
+  for (let i = 0; i < 40; i++) {
+    shotsDuring(1);
+    npc.x = post.x;
+    npc.y = post.y;
+    npc.path = null;
+  }
+  // il réapparaît au même endroit, en face du soldat, à portée
+  w.hero.x = hero.x;
+  w.hero.y = hero.y;
+  const wait = CONFIG.npc.reacquireSteps;
+  assert.equal(shotsDuring(wait - 1), 0, 'pas de tir à l\'instant où il le retrouve');
+  assert.equal(shotsDuring(3), 1, 'il tire dès ce court temps écoulé');
+});

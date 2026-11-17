@@ -247,7 +247,7 @@ export const CONFIG = {
       precisionDeg: 3,
       muzzle: { x: 28, y: 0 },
       bullet: { sprite: 'spr_BadaBot_bullet', speed: 40, maxDistance: 1500, damage: 0, radius: 8, kind: 'plasma', scale: 0.25 },
-      magazine: 9, // 100 en 2019, 25 au debut du remake ; trois salves de 3 boules (GD-057)
+      magazine: 12, // 100 en 2019, 25 au debut du remake, puis 9 (GD-057) ; quatre salves de 3 boules (GD-073)
       reloadSteps: s(1.5), // remake
       fire2CooldownSteps: s(0.25),
       sprites: {
@@ -395,6 +395,13 @@ export const CONFIG = {
     patrolPauseExtraSteps: [0, s(0.5), s(1), s(1.5), s(2)],
     activationRange: 4000,
     reactionSteps: s(0.8),
+    /**
+     * GD-075 : un soldat déjà alerté qui retrouve sa cible après l'avoir perdue de vue pendant au moins
+     * `reacquireAfterSteps` (elle passe une porte, il entre dans la salle) met `reacquireSteps` à comprendre
+     * qu'elle est là avant de tirer. Dans le code de 2019 il tirait à l'instant même.
+     */
+    reacquireSteps: s(0.35),
+    reacquireAfterSteps: s(0.25),
     // GD-036 : un soldat qui entend le héros, ou le perd de vue, va voir à l'endroit du bruit
     investigateMemorySteps: s(12),
     investigateSpeedFactor: 1.6,
