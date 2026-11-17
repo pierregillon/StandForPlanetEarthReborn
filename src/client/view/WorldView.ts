@@ -279,6 +279,8 @@ interface Debris {
  * flaques dont on se souvient.
  */
 const FOOTPRINTS = { prints: 14, alpha: 0.85, blood: 0xd4162c, oil: 0x8ca5e4, maxPuddles: 240 };
+/** Nombre de dessins par forme d'empreinte, du plus plein (pieds trempés) au plus usé (pieds presque secs). */
+const FOOTPRINT_WEARS = 4;
 
 /**
  * Pieds d'un personnage, relevés sur ses sprites : forme de l'empreinte, sa longueur et sa largeur, `gap`
@@ -2986,9 +2988,15 @@ export class WorldView {
     t.carry = 0;
     // l'empreinte : dans le sens de la marche, un pied puis l'autre, de part et d'autre de l'axe
     const a = Math.atan2(dy, dx);
-    const print = this.footprintTexture(feet.shape);
-    const img = this.scene.add.image(x - Math.sin(a) * feet.gap * t.side, y + Math.cos(a) * feet.gap * t.side, print.key)
-      .setRotation(a).setScale(feet.length / print.w, feet.width / print.h).setTint(t.color).setAlpha(FOOTPRINTS.alpha * t.ink).setDepth(DEPTH.remains - 1.5);
+    // de moins en moins nette à mesure que les pieds sèchent ; et jamais deux fois tout à fait la même :
+    // un pied ne se pose pas au millimètre
+    const wear = Math.min(FOOTPRINT_WEARS - 1, Math.floor((1 - t.ink) * FOOTPRINT_WEARS + Math.random() * 1.3));
+    const print = this.footprintTexture(feet.shape, wear);
+    const size = 0.93 + Math.random() * 0.14;
+    const img = this.scene.add.image(
+      x - Math.sin(a) * feet.gap * t.side + (Math.random() - 0.5) * 4, y + Math.cos(a) * feet.gap * t.side + (Math.random() - 0.5) * 4, print.key)
+      .setRotation(a + (Math.random() - 0.5) * 0.22).setScale((feet.length / print.w) * size, (feet.width / print.h) * size)
+      .setTint(t.color).setAlpha(FOOTPRINTS.alpha * t.ink * (0.8 + Math.random() * 0.2)).setDepth(DEPTH.remains - 1.5);
     this.keepRemains(img);
     t.side = -t.side;
     t.ink -= 1 / FOOTPRINTS.prints;
@@ -2997,38 +3005,52 @@ export class WorldView {
   /**
    * Dessin d'une empreinte, pointe vers la droite, en blanc à teinter : le patin d'un héros (talon rond, semelle,
    * bout pointu), la chaussure d'un humain (semelle et talon séparés) ou la griffe d'un robot ennemi.
+   * Une empreinte réelle n'est jamais nette : le dessin est légèrement flou, ses bords sont grignotés, il a des
+   * manques là où le pied n'a pas porté, des traînées sèches dans le sens de la marche et quelques
+   * éclaboussures autour. `wear`, de 0 à FOOTPRINT_WEARS - 1 : plus il est grand, plus l'empreinte est
+   * incomplète. `w` et `h` : taille de la forme dans l'image, qui garde une marge autour d'elle.
    */
-  private footprintTexture(shape: Feet['shape']): { key: string; w: number; h: number } {
-    const key = `footprint_${shape}`;
+  private footprintTexture(shape: Feet['shape'], wear: number): { key: string; w: number; h: number } {
+    const key = `footprint_${shape}_${wear}`;
     const w = 64;
     const h = 24;
     if (this.scene.textures.exists(key)) return { key, w, h };
-    const canvas = this.scene.textures.createCanvas(key, w, h);
+    const margin = 6;
+    const canvas = this.scene.textures.createCanvas(key, w + margin * 2, h + margin * 2);
     if (!canvas) return { key, w, h };
     const ctx = canvas.context;
-    const mid = h / 2;
+    // un tirage fixe par dessin : les mêmes empreintes à chaque partie
+    let seed = 7919 * (wear + 1) + shape.length * 104729;
+    const random = (): number => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    const mid = margin + h / 2;
+    const at = (x: number): number => margin + x;
     ctx.fillStyle = '#ffffff';
+    // un léger flou, là où le navigateur le permet : le liquide bave un peu
+    if ('filter' in ctx) ctx.filter = 'blur(0.9px)';
     if (shape === 'pad') {
       // le talon, rond comme l'articulation du pied
       ctx.beginPath();
-      ctx.arc(12, mid, 11, 0, Math.PI * 2);
+      ctx.arc(at(12), mid, 11, 0, Math.PI * 2);
       ctx.fill();
       // la semelle, séparée du talon par une rainure, et le bout pointu
       ctx.beginPath();
-      ctx.moveTo(27, mid - 9);
-      ctx.lineTo(46, mid - 8);
-      ctx.lineTo(63, mid);
-      ctx.lineTo(46, mid + 8);
-      ctx.lineTo(27, mid + 9);
+      ctx.moveTo(at(27), mid - 9);
+      ctx.lineTo(at(46), mid - 8);
+      ctx.lineTo(at(63), mid);
+      ctx.lineTo(at(46), mid + 8);
+      ctx.lineTo(at(27), mid + 9);
       ctx.closePath();
       ctx.fill();
     } else if (shape === 'shoe') {
       // le talon, court, puis la semelle, plus large à l'avant
       ctx.beginPath();
-      ctx.ellipse(10, mid, 9, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(at(10), mid, 9, 8, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.ellipse(42, mid, 21, 11, 0, 0, Math.PI * 2);
+      ctx.ellipse(at(42), mid, 21, 11, 0, 0, Math.PI * 2);
       ctx.fill();
     } else {
       // la griffe du milieu, longue, et deux plus courtes qui s'écartent
@@ -3036,19 +3058,57 @@ export class WorldView {
         const c = Math.cos(angle);
         const s = Math.sin(angle);
         ctx.beginPath();
-        ctx.moveTo(10 + s * girth, mid - c * girth);
-        ctx.lineTo(10 + c * length, mid + s * length);
-        ctx.lineTo(10 - s * girth, mid + c * girth);
+        ctx.moveTo(at(10) + s * girth, mid - c * girth);
+        ctx.lineTo(at(10) + c * length, mid + s * length);
+        ctx.lineTo(at(10) - s * girth, mid + c * girth);
         ctx.closePath();
         ctx.fill();
       };
       ctx.beginPath();
-      ctx.arc(10, mid, 7, 0, Math.PI * 2);
+      ctx.arc(at(10), mid, 7, 0, Math.PI * 2);
       ctx.fill();
       claw(0, 53, 5.5);
       claw(-0.34, 30, 4);
       claw(0.34, 30, 4);
     }
+    if ('filter' in ctx) ctx.filter = 'none';
+    // quelques éclaboussures autour, avant l'usure : elles s'effacent avec le reste
+    for (let i = 0; i < 5; i++) {
+      ctx.globalAlpha = 0.5 + random() * 0.4;
+      ctx.beginPath();
+      ctx.arc(at(random() * w), mid + (random() < 0.5 ? -1 : 1) * (h / 2 - 2 + random() * 5), 0.7 + random() * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // l'usure : on retire de la matière
+    ctx.globalCompositeOperation = 'destination-out';
+    // des manques ronds, partout : au bord ils grignotent le contour, au milieu ils font des trous
+    const holes = 26 + wear * 20;
+    for (let i = 0; i < holes; i++) {
+      ctx.globalAlpha = 0.35 + random() * 0.65;
+      ctx.beginPath();
+      ctx.arc(at(random() * w), margin + random() * h, 0.8 + random() * (2 + wear * 0.5), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // des traînées sèches dans le sens de la marche
+    for (let i = 0; i < 2 + wear; i++) {
+      ctx.globalAlpha = 0.45 + random() * 0.4;
+      const from = random() * w * 0.7;
+      ctx.fillRect(at(from), margin + random() * h, 10 + random() * 26, 0.8 + random() * 1.6);
+    }
+    // un pied qui sèche ne marque plus partout : l'arrière ou l'avant s'efface en fondu
+    if (wear >= 1) {
+      const back = random() < 0.5;
+      const reach = w * (0.18 + 0.12 * wear);
+      const fade = ctx.createLinearGradient(back ? margin : margin + w, 0, back ? margin + reach : margin + w - reach, 0);
+      fade.addColorStop(0, `rgba(0,0,0,${Math.min(1, 0.35 + 0.22 * wear)})`);
+      fade.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = fade;
+      ctx.fillRect(0, 0, w + margin * 2, h + margin * 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
     canvas.refresh();
     return { key, w, h };
   }

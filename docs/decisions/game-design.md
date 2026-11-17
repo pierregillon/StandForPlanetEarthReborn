@@ -1488,6 +1488,7 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
   - humains, civils et soldats : une semelle et son talon, 18 px, un pas tous les 30 px ;
   - robots ennemis : une patte à trois griffes, de 22 px (LightBot) à 34 px (robot bouclier), plus grande encore pour le boss.
 - Un héros en dash ou en plein bond ne touche pas le sol : il ne se salit pas et ne laisse rien.
+- **Des empreintes imparfaites** (demande de l'utilisateur après essai : les contours étaient trop nets, une vraie empreinte est moins bien dessinée au sol). Le dessin est légèrement flou, ses bords sont grignotés, il a des manques là où le pied n'a pas porté, des traînées sèches dans le sens de la marche et quelques éclaboussures autour. Chaque forme a quatre dessins, du plus plein au plus usé : les premières empreintes après la flaque sont presque entières, les dernières n'ont plus que des morceaux, l'avant ou l'arrière effacé. Chaque empreinte est aussi posée avec un léger écart de place, d'angle, de taille et d'opacité.
 
 **Conséquences.** Affichage seulement (`FOOTPRINTS`, `HERO_FEET`, `HUMAN_FEET`, `ROBOT_FEET`, `stepFootprints` dans `WorldView.ts`) ; les empreintes sont dessinées par le jeu, sans sprite nouveau, et comptent parmi les restes gardés au sol. En réseau, chaque écran pose ses propres empreintes : elles peuvent différer d'un joueur à l'autre.
 
