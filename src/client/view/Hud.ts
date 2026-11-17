@@ -43,6 +43,8 @@ export class Hud {
   private noticeUntil = 0;
   /** L'introduction est en cours : l'interface est masquée. */
   private intro = false;
+  /** Masque l'interface (caméra libre). */
+  hidden = false;
 
   constructor(scene: Phaser.Scene, world: World) {
     this.scene = scene;
@@ -175,7 +177,7 @@ export class Hud {
     const now = this.scene.time.now;
     // pendant l'introduction, l'interface s'efface : la consigne n'apparaît qu'une fois les robots au sol,
     // comme le prévoyait obj_consigne_world2
-    const intro = h.arrivalSteps > 0;
+    const intro = h.arrivalSteps > 0 || this.hidden;
     this.intro = intro;
 
     if (this.bar) this.bar.setTexture(frameKey('spr_healthBar', Math.max(0, Math.min(12, h.energy)))).setVisible(!intro);

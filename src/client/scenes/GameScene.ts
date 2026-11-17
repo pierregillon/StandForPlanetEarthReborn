@@ -63,6 +63,13 @@ export class GameScene extends Phaser.Scene {
   private view!: WorldView;
   private hud!: Hud;
   private intro!: IntroOverlay;
+  /**
+   * Caméra libre (ADR-017) : elle quitte le robot pour parcourir la salle, sans brouillard. `zoom` : échelle
+   * de la vue ; `lights` : l'éclairage du jeu est montré (il ne l'est qu'à l'échelle 1).
+   */
+  private free: { zoom: number; lights: boolean } | null = null;
+  private freeLabel!: Phaser.GameObjects.Text;
+  private static viewShortcutUsed = false;
   private acc = 0;
   private camX = 0;
   private camY = 0;
@@ -207,6 +214,23 @@ export class GameScene extends Phaser.Scene {
     this.placeCamera();
     Keys.clearPressed();
     this.input.setDefaultCursor(crosshairCursor());
+    // caméra libre : bandeau d'aide, molette pour le zoom
+    this.free = null;
+    this.freeLabel = this.add.text(0, 0, '', {
+      fontFamily: 'Aldo', fontSize: '26px', color: '#ffe36b', stroke: '#000000', strokeThickness: 5, align: 'center',
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(PANEL_DEPTH - 1).setVisible(false);
+    const onWheel = (_pointer: unknown, _over: unknown, _dx: number, dy: number): void => {
+      if (this.free) this.free.zoom = clamp(this.free.zoom * (dy > 0 ? 0.88 : 1 / 0.88), 0.14, 1.5);
+    };
+    this.input.on('wheel', onWheel);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.off('wheel', onWheel));
+    // « Explore the level » au menu, ou ?view dans l'adresse : la partie s'ouvre en caméra libre
+    const byUrl = new URLSearchParams(window.location.search).has('view') && !GameScene.viewShortcutUsed;
+    if (this.registry.get('explore') === true || byUrl) {
+      this.registry.set('explore', false);
+      GameScene.viewShortcutUsed = true;
+      this.enterFreeCamera();
+    }
 
     // la musique continue d'une salle à l'autre ; elle s'arrête au retour au menu
     if (this.cache.audio.exists('snd_rm_world2')) {
@@ -279,10 +303,73 @@ export class GameScene extends Phaser.Scene {
     this.placeCamera();
   }
 
+  /**
+   * Caméra libre : en solo le jeu s'arrête, et l'introduction en cours est passée d'un coup ; en réseau la
+   * partie continue et le robot reste immobile.
+   */
+  private enterFreeCamera(): void {
+    if (this.free) return;
+    this.closePanel();
+    if (!this.mirror) {
+      this.world.skipArrival();
+      for (let i = 0; i < CONFIG.hero.maxDeploySteps + 4 && (this.world.hero.arrivalSteps > 0 || this.world.hero.deploySteps > 0); i++) this.world.step(this.idleInput());
+    }
+    this.free = { zoom: 1, lights: true };
+    this.view.reveal = true;
+    this.hud.hidden = true;
+    this.freeLabel.setVisible(true);
+    this.input.setDefaultCursor('default');
+  }
+
+  private leaveFreeCamera(): void {
+    if (!this.free) return;
+    this.free = null;
+    this.view.reveal = false;
+    this.view.lightsOff = false;
+    this.hud.hidden = false;
+    this.freeLabel.setVisible(false);
+    this.cameras.main.setZoom(1);
+    this.input.setDefaultCursor(crosshairCursor());
+    this.snapCamera();
+    Keys.clearPressed();
+    this.acc = 0;
+  }
+
+  /** Déplacement et réglages de la caméra libre, une fois par image. */
+  private updateFreeCamera(delta: number): void {
+    const free = this.free;
+    if (!free) return;
+    if (Keys.wasPressed(...Bind.lights)) free.lights = !free.lights;
+    if (Keys.wasPressed(...Bind.zoomReset)) free.zoom = 1;
+    // la vitesse suit le zoom : on traverse la carte aussi vite à l'écran, de près comme de loin
+    const speed = ((Keys.isDown(...Bind.fast) ? 3600 : 1400) / free.zoom) * (delta / 1000);
+    this.camX += ((Keys.isDown(...Bind.right) ? 1 : 0) - (Keys.isDown(...Bind.left) ? 1 : 0)) * speed;
+    this.camY += ((Keys.isDown(...Bind.down) ? 1 : 0) - (Keys.isDown(...Bind.up) ? 1 : 0)) * speed;
+    // l'éclairage du jeu est calculé pour l'échelle 1 : ailleurs, tout est montré en pleine lumière
+    const lit = free.lights && Math.abs(free.zoom - 1) < 0.001;
+    this.view.lightsOff = !lit;
+    // le bandeau garde sa taille et sa place à l'écran quel que soit le zoom
+    const { width, height } = this.scale;
+    const light = lit ? 'on' : free.lights ? 'off while zoomed' : 'off';
+    this.freeLabel.setText(`FREE CAMERA   ${Math.round(free.zoom * 100)}%   lights ${light}\nmove: WASD / ZQSD / arrows   fast: Shift   zoom: wheel   100%: 1   lights: L   back: V or Esc`)
+      .setScale(1 / free.zoom).setPosition(width / 2, height / 2 + (24 - height / 2) / free.zoom);
+  }
+
   private placeCamera(): void {
     const cam = this.cameras.main;
+    const zoom = this.free ? this.free.zoom : 1;
+    cam.setZoom(zoom);
     const hw = CONFIG.camera.viewWidth / 2;
     const hh = CONFIG.camera.viewHeight / 2;
+    if (this.free) {
+      // la vue ne sort pas de la salle ; si elle est plus grande que la salle, elle se centre dessus
+      const vw = hw / zoom;
+      const vh = hh / zoom;
+      this.camX = vw * 2 >= this.world.width ? this.world.width / 2 : clamp(this.camX, vw, this.world.width - vw);
+      this.camY = vh * 2 >= this.world.height ? this.world.height / 2 : clamp(this.camY, vh, this.world.height - vh);
+      cam.setScroll(this.camX - hw, this.camY - hh);
+      return;
+    }
     this.camX = clamp(this.camX, hw, Math.max(hw, this.world.width - hw));
     // pendant l'introduction, les bandes de cinéma cachent le haut et le bas : la caméra peut dépasser d'autant
     const cover = this.intro.cover;
@@ -364,7 +451,12 @@ export class GameScene extends Phaser.Scene {
       this.panel.buttons.update();
       if (this.panel.kind === 'pause' && Keys.wasPressed(...Bind.pause)) this.closePanel();
     } else if (Keys.wasPressed(...Bind.pause)) {
-      this.openPanel('pause');
+      // en caméra libre, Échap ramène au jeu
+      if (this.free) this.leaveFreeCamera();
+      else this.openPanel('pause');
+    } else if (Keys.wasPressed(...Bind.freeCamera)) {
+      if (this.free) this.leaveFreeCamera();
+      else this.enterFreeCamera();
     }
     // en solo, un panneau met le jeu en pause ; en réseau, la partie continue derrière lui
     if (this.panel && !mirror) {
@@ -377,11 +469,11 @@ export class GameScene extends Phaser.Scene {
     this.waitShade.setVisible(waiting);
     this.waitText.setVisible(waiting);
     if (waiting && conn) this.waitText.setText(`Waiting for all players...${this.waitingLines(conn)}`);
-    this.acc = waiting ? 0 : Math.min(this.acc + delta, STEP_MS * 5);
+    this.acc = waiting || (this.free && !mirror) ? 0 : Math.min(this.acc + delta, STEP_MS * 5);
     let first = true;
     while (this.acc >= STEP_MS) {
       this.acc -= STEP_MS;
-      const input = this.panel ? this.idleInput() : this.readInput(first);
+      const input = this.panel || this.free ? this.idleInput() : this.readInput(first);
       if (mirror && conn) {
         const sent = mirror.tick(input);
         if (!this.leaving) conn.send({ t: 'i', e: mirror.epoch, ...sent });
@@ -389,6 +481,7 @@ export class GameScene extends Phaser.Scene {
         this.world.step(input);
       }
       first = false;
+      if (this.free) continue;
       const target = this.cameraGoal();
       if (this.inNewsShot()) {
         // les plans du journal sont des coupes franches et un travelling réglé : pas de lissage
@@ -400,6 +493,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     mirror?.frame(delta);
+    this.updateFreeCamera(delta);
     this.placeCamera();
 
     const world = this.world;
@@ -524,7 +618,12 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setScrollFactor(0).setDepth(PANEL_DEPTH + 1);
     const objects: Phaser.GameObjects.GameObject[] = [bg, title];
     const exit = { label: 'Exit', sprite: 'spr_btn_exit', action: () => this.exitToMenu() };
-    let specs = [{ label: 'Resume', sprite: 'spr_btn_resume', action: () => this.closePanel() }, exit];
+    let specs = [
+      { label: 'Resume', sprite: 'spr_btn_resume', action: () => this.closePanel() },
+      // caméra libre : pas de sprite d'origine pour ce bouton, il est en texte
+      { label: 'Free camera', sprite: 'none', action: () => this.enterFreeCamera() },
+      exit,
+    ];
     let buttonsY = height / 2;
     if (kind === 'lose') specs = [{ label: 'Retry', sprite: 'spr_btn_retry', action: () => this.retry() }, exit];
     if (kind === 'lose' && this.conn && !this.conn.isHost) {

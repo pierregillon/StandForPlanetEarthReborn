@@ -49,12 +49,13 @@ En jeu à plusieurs : **A** (Q sur un clavier QWERTY) en visant un coéquipier p
 | Dash (en marchant) ; pendant l'introduction du niveau : réplique suivante, ou tenir pour passer la séquence (l'hôte seulement, à plusieurs) | Espace ou Maj |
 | Utiliser un bouton ; se recharger sur une borne (maintenir) | E |
 | Pause | Échap |
+| Caméra libre, pour parcourir la salle sans jouer (aussi au menu principal et au menu de pause) | V ; puis déplacement, Maj pour aller vite, molette pour le zoom, 1 pour l'échelle du jeu, L pour l'éclairage, V ou Échap pour revenir |
 
 ## Développer
 
 | Commande | Effet |
 |---|---|
-| `dev.cmd` ou `npm run dev` | Reconstruit le code à chaque modification et sert le jeu ; `http://localhost:3000/?play` saute le menu, `?play=EngiBot` choisit le héros |
+| `dev.cmd` ou `npm run dev` | Reconstruit le code à chaque modification et sert le jeu ; `http://localhost:3000/?play` saute le menu, `?play=EngiBot` choisit le héros, `?view` ouvre la partie en caméra libre |
 | `npm test` | Tests de la simulation, sans navigateur |
 | `npm run typecheck` | Vérification des types |
 | `npm run convert-rooms` | Reconvertit les salles GameMaker en `public/levels/*.json` |

@@ -20,6 +20,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | ADR-014 | Multijoueur : le serveur fait tourner le jeu, les navigateurs en tiennent un miroir | 2026-11-16 | Acceptée — première version |
 | ADR-015 | Sprites manquants fabriqués par un outil, à partir des sprites d'origine | 2026-11-16 | Acceptée |
 | ADR-016 | Les ajouts aux salles d'origine sont décrits à part et greffés au chargement | 2026-11-17 | Acceptée |
+| ADR-017 | Une caméra libre pour parcourir le niveau sans jouer | 2026-11-17 | Acceptée |
 
 ---
 
@@ -298,3 +299,23 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 **Étendu par GD-081** (même jour). Le mécanisme sait aussi ajouter des pièces de mur et leurs rectangles de collision, des sols et des décalques, et retirer ou modifier un élément d'origine : une fonction reçoit chaque instance et la rend telle quelle, déplacée, ou la supprime ; d'autres désignent les décalques, les pièces de mur et (depuis GD-083) les rectangles de collision à retirer. Le fichier s'appelle toujours `additions.ts`, bien qu'il fasse plus qu'ajouter.
 
 **Sprites du studio.** `tools/make-studio.ts` suit ADR-015 (de vrais sprites, produits par un outil rejouable), mais dessine ses formes au lieu de recomposer des images du jeu : il n'existait rien à recomposer pour un pupitre ou un projecteur. Seul le logo de la chaîne est repris d'un sprite d'origine. Comme pour `make-sprites`, il faut relancer l'outil après un `npm run extract-assets`, qui réécrit les manifestes.
+
+## ADR-017 — Une caméra libre pour parcourir le niveau sans jouer
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (« un mode caméra libre afin que je puisse explorer sans brouillard toutes les pièces pour voir le rendu sans avoir à jouer vraiment ; un bouton dans le jeu ») ; les commandes sont des choix par défaut
+
+**Contexte.** Pour juger l'aménagement d'une salle, il fallait jouer jusqu'à elle : trouver les cartes, ouvrir les portes, survivre aux gardes, et le brouillard de guerre cachait encore ce qu'on n'avait pas visité.
+
+**Décision.** Le jeu a une caméra libre, qui quitte le robot pour parcourir la salle en cours.
+
+- **On y entre** par « Explore the level » au menu principal, par « Free camera » au menu de pause, par la touche V en jeu, ou en ouvrant `http://localhost:3000/?view`. On en sort par V ou Échap.
+- **On s'y déplace** avec les touches de mouvement (Maj pour aller vite) et on change d'échelle à la molette, de 14 % (la salle entière) à 150 % ; la touche 1 revient à l'échelle du jeu.
+- **Le brouillard de guerre n'est pas dessiné.** L'éclairage du jeu est montré à l'échelle 1 et se coupe avec L ; aux autres échelles tout est en pleine lumière, parce que la pénombre est calculée pour la vue normale.
+- **En solo le jeu s'arrête** : personne ne bouge, le robot ne risque rien, et l'introduction en cours est passée d'un coup. En réseau la partie continue et le robot reste immobile.
+- L'interface de jeu est masquée ; un bandeau rappelle les commandes, l'échelle et l'état de l'éclairage.
+
+**Pourquoi.** C'est un outil de travail sur les niveaux, pour l'utilisateur comme pour les sessions de développement. Tout se passe dans l'affichage : la simulation ne sait rien de la caméra libre, donc aucun risque pour les règles du jeu ni pour le réseau.
+
+**Conséquences.** `enterFreeCamera`, `updateFreeCamera` et `placeCamera` dans `GameScene.ts` ; `reveal` et `lightsOff` dans `WorldView.ts` ; `hidden` dans `Hud.ts`. Elle montre la salle en cours seulement : pour voir l'étage, commencer la partie à l'étage (choix du niveau) puis appuyer sur V. Le bouton reste dans le jeu livré : à retirer ou à cacher si le jeu est un jour ouvert au public, puisqu'il dévoile tout le niveau.

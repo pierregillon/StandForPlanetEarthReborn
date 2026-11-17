@@ -46,5 +46,10 @@ export const Bind = {
   link: ['KeyQ'],
   ulti: ['KeyF'],
   pause: ['Escape'],
+  // caméra libre (ADR-017) : V pour « vue », L pour l'éclairage, 1 pour revenir à l'échelle du jeu
+  freeCamera: ['KeyV'],
+  lights: ['KeyL'],
+  zoomReset: ['Digit1', 'Numpad1'],
+  fast: ['ShiftLeft', 'ShiftRight'],
   confirm: ['KeyE', 'Enter', 'NumpadEnter', 'Space'],
 };

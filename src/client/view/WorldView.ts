@@ -597,6 +597,9 @@ export class WorldView {
   private readonly buttonImgs = new Map<number, Img>();
   private readonly alerts = new Map<number, { text: Phaser.GameObjects.Text; frames: number }>();
   private checkpointImg: Img | null = null;
+  /** Caméra libre (ADR-017) : le brouillard de guerre n'est pas dessiné, et l'éclairage peut être coupé. */
+  reveal = false;
+  lightsOff = false;
   /** Lueurs des écrans de la chaîne pendant le journal de l'introduction. */
   private screenGlows: Img[] = [];
   private vehicle: {
@@ -2294,7 +2297,7 @@ export class WorldView {
     let any = false;
     rt.clear();
     this.syncScreens();
-    if (this.newsShot()) {
+    if (this.reveal || this.newsShot()) {
       // le brouillard de guerre est levé le temps du journal : il revient quand la caméra retrouve les robots
       rt.setVisible(false);
       return;
@@ -2912,6 +2915,12 @@ export class WorldView {
   private syncLights(): void {
     const rt = this.darkness;
     if (!rt) return;
+    if (this.lightsOff) {
+      // caméra libre : tout est montré en pleine lumière, sans pénombre ni ombres portées
+      rt.setVisible(false);
+      this.shadowGfx?.clear();
+      return;
+    }
     const world = this.world;
     const cam = this.scene.cameras.main;
     const h = world.hero;
