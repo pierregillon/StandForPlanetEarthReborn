@@ -1521,4 +1521,6 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 
 Le bras droit, qui tient le canon, suit le mouvement en pivotant à l'épaule. Le reste du robot ne bouge pas (GD-048 : un robot ne respire pas). Le tambour dessiné par-dessus est retiré ; le chargeur vide éjecté au début du rechargement est conservé.
 
+**Plus d'éclair en fin de rechargement, pour aucun robot** (demande de l'utilisateur après essai : « les animations doivent se suffire à elles-mêmes »). Le petit disque lumineux qui apparaissait sur l'arme à la fin du rechargement (blanc, violet pour BadaBot, GD-032) est retiré pour les quatre héros. Le son de fin de rechargement est conservé.
+
 **Conséquences.** Sprite `spr_EngiBot_reload`, fabriqué par `npm run make-sprites` (ADR-015) à partir de la posture de tir d'origine, redessinée image par image : aucun dessin à la main, mêmes couleurs et mêmes traits que l'original. Les images « preShot » d'origine ne servent plus au rechargement. Affichage seulement : la durée du rechargement ne change pas.

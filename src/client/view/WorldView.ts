@@ -2704,11 +2704,6 @@ export class WorldView {
     } else if (e.type === 'reloadStart') {
       const h = this.world.heroes[e.hero];
       if (h && !h.gone) this.ejectClip(h);
-    } else if (e.type === 'reloadEnd') {
-      const h = this.world.heroes[e.hero] ?? this.world.hero;
-      const slot = this.weaponSlot(h);
-      const flash = scene.add.circle(slot.x, slot.y, 10, h.def.kind === 'BadaBot' ? 0xd9a0ff : 0xffffff).setDepth(DEPTH.fx).setBlendMode(Phaser.BlendModes.ADD);
-      scene.tweens.add({ targets: flash, scale: h.def.kind === 'BadaBot' ? 5 : 3, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
     } else if (e.type === 'ultiCast') {
       // début du lancement : des anneaux se referment sur le robot
       const h = this.world.heroes[e.hero];
