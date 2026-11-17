@@ -1131,3 +1131,15 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Une onde d'énergie se diffracte et se casse sur les obstacles au lieu de s'arrêter d'un bloc : c'est ce qui la distingue d'un projectile, et cela rend l'ulti utilisable dans les couloirs et près des angles.
 
 **Conséquences.** `waveStrips` dans `src/sim/ulti.ts` calcule la portée de chaque bande ; elle n'est pas transmise sur le réseau, chaque monde la calcule sur ses propres murs (comme le faisait le mur de GD-044). Réglages `strips` et `damage` dans `CONFIG.ulti.badaBot`. Dessin : `drawWave` dans `WorldView.ts` ; le sprite `spr_BadaBot_ulti_wave` est retiré. Son : `Synth.noise` (bruit filtré) ajouté dans `sfx.ts`. Vu à l'écran en solo contre un angle de mur : la partie de l'onde contre le mur s'arrête, l'autre continue et blesse l'ennemi placé plus loin. Pas essayé en réseau ; le son n'a pas pu être écouté.
+
+## GD-053 — L'onde de BadaBot fait 14 points de dégâts, comme le bond de BatBot
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; modifie la valeur par défaut de GD-052
+- **Décidée par** : l'utilisateur
+
+**Contexte.** GD-052 avait fixé par défaut 2 points de dégâts pour l'onde, de quoi laisser des survivants. L'atterrissage de BatBot en fait 14.
+
+**Décision.** L'onde fait **14 points de dégâts** au contact, une fois par ennemi, comme le bond de BatBot.
+
+**Conséquences.** Tous les ennemis ordinaires touchés meurent (ils ont 1 à 3 PV), robots à bouclier compris puisque leur bouclier ne les protège pas de l'onde. La projection et l'étourdissement ne concernent donc plus, en pratique, que le boss (60 PV : il perd 14 PV et reste sonné 1,5 s sans être déplacé) et ce qui n'a pas de points de vie (chaises, débris, balles). Les foreuses du boss (20 PV) encaissent 14 points. Réglage : `CONFIG.ulti.badaBot.damage`.

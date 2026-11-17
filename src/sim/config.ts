@@ -339,7 +339,7 @@ export const CONFIG = {
      * C'est une onde, pas un objet (GD-052) : elle est découpée en `strips` bandes côte à côte, et chacune
      * s'arrête à son propre obstacle pendant que les autres continuent. `damage` : dégâts au contact.
      */
-    badaBot: { start: 70, halfWidth: 100, strips: 16, speed: 40, range: 1920, damage: 2, throwDistance: 3840, dazeSteps: s(1.5), fadeSteps: 10 },
+    badaBot: { start: 70, halfWidth: 100, strips: 16, speed: 40, range: 1920, damage: 14, throwDistance: 3840, dazeSteps: s(1.5), fadeSteps: 10 },
     /** EngiBot : la grenade vole puis éclate ; les robots ennemis du rayon sont désactivés. */
     engiBot: { range: 760, flySteps: 34, pulseSteps: 45, radius: 750, stunSteps: s(6) },
   },

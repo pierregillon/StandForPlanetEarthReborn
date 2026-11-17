@@ -253,7 +253,7 @@ test('ulti de BadaBot : une vague projette au loin ennemis, chaises et balles su
   for (const npc of [front, beside, behind]) {
     npc.active = false;
     npc.fireTimer = 100000;
-    npc.hp = 10;
+    npc.hp = 100;
   }
   // un ennemi fragile sur le passage : la vague le tue
   const weak = model[3];
@@ -279,8 +279,8 @@ test('ulti de BadaBot : une vague projette au loin ennemis, chaises et balles su
   run(w, 14, [aim]);
   assert.ok(wave.x < bada.x - 500, 'le front avance vite');
   assert.ok(front.thrown > 0, 'l\'ennemi sur le passage est projete');
-  assert.equal(front.hp, 10 - cfg.damage, 'et blesse au contact');
-  assert.equal(beside.hp, 10);
+  assert.equal(front.hp, 100 - cfg.damage, 'et blesse au contact');
+  assert.equal(beside.hp, 100);
   assert.ok(front.x < start.front - 100, 'il part dans le sens de la vague');
   assert.equal(beside.thrown, 0, 'celui d\'a cote ne bouge pas');
   assert.equal(behind.thrown, 0);
@@ -288,7 +288,7 @@ test('ulti de BadaBot : une vague projette au loin ennemis, chaises et balles su
   run(w, 400, [aim]);
   assert.equal(w.effects.length, 0, 'la vague s\'eteint');
   assert.equal(w.npcs.includes(weak), false, 'l\'ennemi fragile est mort');
-  assert.equal(front.hp, 10 - cfg.damage, 'un seul coup par vague');
+  assert.equal(front.hp, 100 - cfg.damage, 'un seul coup par vague');
   assert.equal(front.thrown, 0);
   assert.ok(start.front - front.x > 600, `il a ete projete loin (${Math.round(start.front - front.x)} px)`);
   assert.equal(beside.x, start.beside);
@@ -313,7 +313,7 @@ test('vague de BadaBot : une onde, la partie qui heurte un obstacle s\'arrete, l
   for (const npc of [sheltered, exposed, before]) {
     npc.active = false;
     npc.fireTimer = 100000;
-    npc.hp = 10;
+    npc.hp = 100;
   }
   w.npcs = [sheltered, exposed, before];
   const aim = { ...NO_INPUT, aimX: bada.x - 600, aimY: bada.y };
@@ -326,11 +326,11 @@ test('vague de BadaBot : une onde, la partie qui heurte un obstacle s\'arrete, l
   assert.ok(strips[strips.length - 2] < 450, `la moitie contre le mur s'arrete (${Math.round(strips[strips.length - 2])} px)`);
   assert.equal(wave.length, Math.max(...strips));
   run(w, 30, [aim]);
-  assert.equal(sheltered.hp, 10, 'derriere le mur : rien');
+  assert.equal(sheltered.hp, 100, 'derriere le mur : rien');
   assert.equal(sheltered.thrown, 0);
-  assert.equal(exposed.hp, 10 - cfg.damage, 'dans la moitie libre : touche');
+  assert.equal(exposed.hp, 100 - cfg.damage, 'dans la moitie libre : touche');
   assert.ok(exposed.thrown > 0);
-  assert.equal(before.hp, 10 - cfg.damage, 'devant le mur : touche avant que la bande ne s\'arrete');
+  assert.equal(before.hp, 100 - cfg.damage, 'devant le mur : touche avant que la bande ne s\'arrete');
 });
 
 test('vague de BadaBot : un ennemi projete reste sonne, un mur arrete la bande qui le heurte', () => {
@@ -342,7 +342,7 @@ test('vague de BadaBot : un ennemi projete reste sonne, un mur arrete la bande q
   npc.x = bada.x - 300;
   npc.y = bada.y;
   npc.active = false;
-  npc.hp = 10;
+  npc.hp = 100;
   w.npcs = [npc];
   const aim = { ...NO_INPUT, aimX: bada.x - 600, aimY: bada.y };
   castUlti(w, aim);
