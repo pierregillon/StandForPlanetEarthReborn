@@ -204,6 +204,10 @@ const FONT: Record<string, string[]> = {
   I: ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
   R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
   ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'],
+  P: ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
+  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
+  C: ['01110', '10001', '10000', '10000', '10000', '10001', '01110'],
+  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
 };
 
 /** Enseigne lumineuse « ON AIR », posée au-dessus des portes du plateau. */
@@ -380,6 +384,60 @@ function bollard(): Made {
 }
 
 /**
+ * Fourgon de police vu du dessus, l'avant vers le haut (GD-086) : ceux qui amènent la troupe sur le parking sud.
+ * Il est dessiné à la taille du jeu : le fourgon d'origine (spri_car_van), prévu pour être agrandi sept fois,
+ * serait flou à cette échelle.
+ */
+function policeVan(): Made {
+  const w = 236, h = 470, cx = w / 2;
+  const img = canvas(w, h);
+  const navy: Rgb = [30, 46, 98];
+  const navyLight: Rgb = [48, 70, 136];
+  const white: Rgb = [232, 236, 244];
+  // ombre portée, décalée vers le bas à droite
+  polygon(img, roundRect(34, 30, 182, 428, 34), [0, 0, 0], 0.3);
+  // roues, qui dépassent à peine de la caisse
+  for (const y of [92, 356]) for (const x of [18, w - 40]) shape(img, roundRect(x, y, 22, 62, 7), [26, 24, 30], LINE, 2);
+  // caisse, capot plus clair à l'avant
+  shape(img, roundRect(26, 16, 184, 432, 34), navy, LINE, 3);
+  polygon(img, roundRect(34, 22, 168, 60, 26), navyLight);
+  // rétroviseurs
+  for (const x of [10, w - 30]) shape(img, roundRect(x, 96, 20, 12, 4), navy, LINE, 2);
+  // pare-brise et lunette arrière
+  shape(img, [[46, 92], [w - 46, 92], [w - 38, 136], [38, 136]], [126, 196, 232], LINE, 2.4);
+  polygon(img, [[52, 97], [cx - 8, 97], [cx - 20, 131], [46, 131]], [176, 226, 248], 0.75);
+  shape(img, roundRect(52, 418, w - 104, 18, 6), [70, 118, 156], LINE, 2);
+  // toit blanc, bandes de damier sur les flancs
+  shape(img, roundRect(44, 168, w - 88, 236, 12), white, LINE, 2.4);
+  for (let i = 0; i < 12; i++) {
+    const y = 172 + i * 19;
+    if (i % 2 === 0) {
+      polygon(img, rect(30, y, 12, 19), [250, 214, 60]);
+      polygon(img, rect(w - 42, y, 12, 19), [250, 214, 60]);
+    }
+  }
+  // rampe lumineuse : rouge à gauche, bleu à droite
+  shape(img, roundRect(46, 142, w - 92, 20, 6), [40, 40, 48], LINE, 2);
+  polygon(img, roundRect(50, 145, 56, 14, 4), [236, 56, 56]);
+  polygon(img, roundRect(w - 106, 145, 56, 14, 4), [66, 132, 255]);
+  polygon(img, roundRect(cx - 9, 145, 18, 14, 3), [244, 244, 248]);
+  // « POLICE » sur le toit, lisible depuis l'arrière du fourgon
+  const s = 3, text = 'POLICE';
+  let x = Math.round(cx - ((text.length * 6 - 1) * s) / 2);
+  for (const ch of text) {
+    FONT[ch].forEach((row, ry) => {
+      [...row].forEach((bit, rx) => {
+        if (bit === '1') polygon(img, rect(x + rx * s, 276 + ry * s, s, s), navy);
+      });
+    });
+    x += 6 * s;
+  }
+  // feux arrière
+  for (const fx of [36, w - 54]) polygon(img, roundRect(fx, 440, 18, 7, 2), [226, 52, 52]);
+  return { name: 'spr_pk_police_van', image: img, ox: cx, oy: h / 2, bbox: [26, 16, 209, 447] };
+}
+
+/**
  * Bitume : un gris sombre au grain serré, semé de gravillons clairs, avec quelques reprises plus foncées.
  * Il remplace les pavés et la route hors d'échelle des deux quais.
  */
@@ -474,7 +532,7 @@ export function makeStudio(): void {
   write([
     anchorPortrait(), desk(), riser(), spot(), ledWall(), onAir(), cables(),
     makeupTable(), clothesRack(),
-    parkingLine(), parkingArrow(), crosswalk(), hatchBox(), bollard(),
+    parkingLine(), parkingArrow(), crosswalk(), hatchBox(), bollard(), policeVan(),
   ]);
   writeFloor('til_sol_studio', studioFloor());
   writeFloor('til_sol_asphalte', asphalt());

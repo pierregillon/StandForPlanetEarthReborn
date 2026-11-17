@@ -19,6 +19,7 @@ import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
 import { CONTROL_ROOM_TAKEN, castLines, castPhases, castReader } from './broadcast.ts';
 import { TV_STUDIO } from './additions.ts';
+import { startWave, stepWave } from './wave.ts';
 import type { Session } from './session.ts';
 import { NO_INPUT } from './types.ts';
 import { clearEffects, stepEffects } from './ulti.ts';
@@ -795,6 +796,10 @@ export class World {
   /** Steps restants avant le début de l'ultimatum quand l'équipe est sur la marque, -1 sinon. */
   markCountdown = -1;
   private castSirens = false;
+  /** La riposte (GD-086) : steps depuis son début, -1 avant ; rang du prochain groupe à faire entrer. */
+  waveSteps = -1;
+  waveGroup = 0;
+  private vansParked = false;
 
   step(inputs: Input | Input[]): void {
     this.tick++;
@@ -1273,7 +1278,32 @@ export class World {
     if (s.objective === OBJ.upstairs && this.level.name === UPPER_FLOOR) s.objective = OBJ.pass;
     if (s.objective === OBJ.pass && s.carried.has('purple')) s.objective = OBJ.downstairs;
     if (s.objective === OBJ.downstairs && this.level.name === GROUND_FLOOR) s.objective = OBJ.controlRoom;
-    if (this.level.name === GROUND_FLOOR) this.stepMark();
+    if (this.level.name !== GROUND_FLOOR) return;
+    this.stepMark();
+    // après l'ultimatum, la police arrive ; au retour sur le plateau après un échec, elle revient aussi
+    if (s.objective >= OBJ.dropPoint && this.cast < 0) {
+      if (this.waveSteps < 0) startWave(this);
+      else stepWave(this);
+    }
+  }
+
+  /** Les fourgons de police se garent sur le parking sud (GD-086) : des obstacles comme les autres meubles. */
+  parkVans(): void {
+    if (this.vansParked) return;
+    this.vansParked = true;
+    for (const [i, van] of TV_STUDIO.wave.vans.entries()) {
+      this.addInstance({
+        id: `wave_van_${i}`, object: 'obj_pk_police_van', layer: 'layer_deco', depth: 200, x: van.x, y: van.y, angle: van.angle,
+        scaleX: 1, scaleY: 1, tint: '#ffffff', alpha: 1, props: { bulletCrossed: false },
+      });
+    }
+  }
+
+  /** Fait apparaître un PNJ en cours de partie. `angle` en degrés GameMaker. */
+  spawnNpc(object: string, x: number, y: number, angle: number): Npc | null {
+    const count = this.npcs.length;
+    this.addInstance({ id: `spawn_${this.nextId}`, object, layer: 'layer_npc', depth: 0, x, y, angle, scaleX: 1, scaleY: 1, tint: '#ffffff', alpha: 1, props: {} });
+    return this.npcs.length > count ? this.npcs[this.npcs.length - 1] : null;
   }
 
   // ---------- Requêtes utilisées par les PNJ ----------

@@ -3,6 +3,7 @@
 // que ces instantanés tiennent à jour. On n'envoie que les champs simples qui ont changé depuis l'envoi
 // précédent : la connexion (WebSocket) garantit l'ordre et la livraison, ce qui suffit à rendre ce différentiel sûr.
 import { CONFIG } from '../sim/config.ts';
+import { blankNpc } from '../sim/npc.ts';
 import type { World } from '../sim/world.ts';
 
 export type Value = number | string | boolean | null;
@@ -74,6 +75,7 @@ function stateOf(w: World): Entity {
   s.cast = w.cast;
   s.castReader = w.castReader;
   s.markCountdown = w.markCountdown;
+  s.wave = w.waveSteps >= 0;
   Object.assign(s, w.stats);
   return s;
 }
@@ -91,6 +93,8 @@ export function applyState(w: World): void {
   w.cast = Number(s.cast ?? -1);
   w.castReader = Number(s.castReader ?? 0);
   w.markCountdown = Number(s.markCountdown ?? -1);
+  // la riposte a commencé : les fourgons de police sont sur le parking
+  if (s.wave === true) w.parkVans();
   w.session.carried.clear();
   for (const color of String(s.carried ?? '').split(',')) if (color) w.session.carried.add(color);
   for (const key of Object.keys(w.stats) as (keyof World['stats'])[]) if (typeof s[key] === 'number') w.stats[key] = s[key] as number;
@@ -115,9 +119,14 @@ export const LISTS: ListDef[] = [
   {
     ...array('npcs', [
       'dir', 'spd', 'path', 'pathIdx', 'waypointTimer', 'waypointFailures', 'patrolType', 'patrolReverse', 'pauseTimer',
-      'attackRange', 'fireTimer', 'repathTimer', 'viewRange', 'alertX', 'alertY', 'alertTimer', 'fearTimer', 'walkDist', 'strafe', 'unseen',
+      'attackRange', 'fireTimer', 'repathTimer', 'viewRange', 'alertX', 'alertY', 'alertTimer', 'fearTimer', 'walkDist', 'strafe', 'unseen', 'hunt',
     ]),
     clock: ['stateSteps'],
+    // les soldats de la riposte apparaissent en cours de partie (GD-086)
+    blank: () => blankNpc() as unknown as Entity,
+    add: (w, e) => {
+      w.npcs.push(e as unknown as World['npcs'][number]);
+    },
   },
   spawned('bullets', () => ({}), ['x', 'y', 'speed', 'steps']),
   spawned('drones', () => ({})),

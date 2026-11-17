@@ -556,6 +556,32 @@ export const CONFIG = {
     radioSeconds: 3.5,
   },
 
+  /** La riposte de la police après l'ultimatum (GD-086). */
+  wave: {
+    /** Numéro des portails par où elle entre, au sud. */
+    gates: 4,
+    /**
+     * Les trois arrivées : la première est déjà à pied sur le parking quand l'ultimatum se termine, les
+     * suivantes entrent de dehors par les portails. 45 soldats en tout.
+     */
+    groups: [
+      { atSteps: 0, units: { obj_npc_human_pistol: 15 } },
+      { atSteps: s(6), units: { obj_npc_human_pistol: 10, obj_npc_robot_shield: 3, obj_npc_robot_shotBot: 2 } },
+      { atSteps: s(12), units: { obj_npc_human_pistol: 8, obj_npc_robot_lightBot: 4, obj_npc_robot_shield: 3 } },
+    ] as { atSteps: number; units: Record<string, number> }[],
+    /** Ensuite, des renforts à intervalle régulier, tant que la troupe compte moins de `maxAlive` soldats debout. */
+    reinforce: { everySteps: s(10), maxAlive: 45, units: { obj_npc_human_pistol: 4, obj_npc_robot_shield: 1, obj_npc_robot_lightBot: 1 } as Record<string, number> },
+    /** Sans contact, le plan change quand même après ce temps. */
+    planChangeSteps: s(15),
+    /** Rythme auquel ceux qui n'ont plus personne en vue reprennent la piste du robot le plus proche. */
+    huntEverySteps: s(1.5),
+    /** Temps pendant lequel un soldat de la vague garde sa destination : assez pour traverser l'aile. */
+    memorySteps: s(120),
+    /** Écart entre deux soldats quand un groupe apparaît, et place libre exigée autour de chacun. */
+    spacing: 110,
+    clearance: 58,
+  },
+
   arrival: {
     /**
      * Le journal télévisé qui ouvre l'introduction complète (GD-080) : l'image s'ouvre sur le plateau

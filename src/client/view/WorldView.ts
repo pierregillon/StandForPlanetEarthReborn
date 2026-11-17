@@ -14,13 +14,14 @@ import { castLive } from '../../sim/broadcast.ts';
 import { TV_STUDIO } from '../../sim/additions.ts';
 import { GROUND_FLOOR, OBJ } from '../../sim/session.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
-import type { Bat, Bullet, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
+import type { Bat, Bullet, Button, Chair, DecorItem, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
 const DEPTH = {
   background: -800, floor: -700, decal: -600, zone: -400, window: -300, outlet: -150,
   remains: -50, chair: -20, legs: -1, character: 0, laser: 4, bullet: 5, fog: 100, wallThin: 200, wallThick: 300, door: 500, fx: 600, worldText: 700, darkness: 5000,
 };
+const POLICE_VAN = 'spr_pk_police_van';
 /** Brouillard de guerre : gris foncé de l'original ($313131). */
 const FOG_COLOR = 0x313131;
 /** Éclairage simplifié. L'original assombrit à 60 % ; 50 % ici pour garder les combats lisibles (GD-028). */
@@ -607,6 +608,9 @@ export class WorldView {
   private screenGlows: Img[] = [];
   /** Enseignes « ON AIR » du plateau, et marque de l'ultimatum derrière le pupitre (GD-085). */
   private onAirImgs: Img[] = [];
+  /** Décor déjà dessiné, et gyrophares des fourgons de police (GD-086). */
+  private decorDrawn = 0;
+  private vanLights: Img[] = [];
   private markGfx: Phaser.GameObjects.Graphics | null = null;
   private markText: Phaser.GameObjects.Text | null = null;
   private vehicle: {
@@ -686,18 +690,43 @@ export class WorldView {
         .setAngle(-d.angle).setScale(d.scaleX, d.scaleY).setTint(tintOf(d.tint)).setAlpha(d.alpha);
     }
 
-    for (const d of world.decor) {
-      if (!scene.textures.exists(frameKey(d.sprite, 0))) continue;
-      const img = this.image(d.sprite, d.frame, d.x, d.y, -d.depth)
-        .setRotation(d.angle).setScale(d.scaleX, d.scaleY).setTint(tintOf(d.tint)).setAlpha(d.alpha);
-      if (d.sprite === 'spr_tv_onair') this.onAirImgs.push(img);
-    }
+    for (const d of world.decor) this.drawDecor(d);
+    this.decorDrawn = world.decor.length;
 
     for (const w of level.walls) {
       const sprite = level.objects[w.object]?.sprite;
       if (!sprite || !scene.textures.exists(frameKey(sprite, 0))) continue;
       this.image(sprite, 0, w.x, w.y, w.thick ? DEPTH.wallThick : DEPTH.wallThin).setAngle(-w.angle).setScale(w.scaleX, 1);
     }
+  }
+
+  private drawDecor(d: DecorItem): void {
+    const scene = this.scene;
+    if (!scene.textures.exists(frameKey(d.sprite, 0))) return;
+    const img = this.image(d.sprite, d.frame, d.x, d.y, -d.depth)
+      .setRotation(d.angle).setScale(d.scaleX, d.scaleY).setTint(tintOf(d.tint)).setAlpha(d.alpha);
+    if (d.sprite === 'spr_tv_onair') this.onAirImgs.push(img);
+    if (d.sprite === POLICE_VAN) {
+      // la rampe lumineuse : une lueur rouge et une bleue, de part et d'autre du toit, qui alternent
+      this.ensureHalo();
+      const sp = this.info(d.sprite);
+      for (const [side, color] of [[-1, 0xff3030], [1, 0x3c7bff]] as const) {
+        const at = localToWorld(d.x, d.y, d.angle, side * 40 * d.scaleX, (152 - sp.oy) * d.scaleY);
+        this.vanLights.push(scene.add.image(at.x, at.y, 'lightHalo').setTint(color).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.fx + 30));
+      }
+    }
+  }
+
+  /** Décor apparu en cours de partie (les fourgons de la riposte, GD-086), et leurs gyrophares. */
+  private syncDecor(): void {
+    const decor = this.world.decor;
+    for (; this.decorDrawn < decor.length; this.decorDrawn++) this.drawDecor(decor[this.decorDrawn]);
+    if (this.vanLights.length === 0) return;
+    const phase = Math.floor(this.scene.time.now / 260) % 2;
+    this.vanLights.forEach((light, i) => {
+      const on = i % 2 === phase;
+      light.setAlpha(on ? 0.75 : 0.12).setScale(on ? 0.9 : 0.5);
+    });
   }
 
   // ---------- Entités ----------
@@ -783,6 +812,7 @@ export class WorldView {
       if (empty && img.texture.key !== 'outlet_empty') img.setTexture('outlet_empty');
     }
     this.syncNpcFx();
+    this.syncDecor();
     this.syncVehicle();
     this.syncFurniture();
     this.syncCheckpoint();

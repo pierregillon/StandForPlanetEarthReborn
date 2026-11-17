@@ -236,6 +236,7 @@
   "spr_pk_bollard": { "w": 46, "h": 46, "ox": 23, "oy": 23, "frames": 1, "bbox": [8, 8, 37, 37], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_pk_hatch": { "w": 430, "h": 260, "ox": 215, "oy": 130, "frames": 1, "bbox": [0, 0, 429, 259], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_pk_line": { "w": 400, "h": 14, "ox": 0, "oy": 7, "frames": 1, "bbox": [0, 0, 399, 13], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
+  "spr_pk_police_van": { "w": 236, "h": 470, "ox": 118, "oy": 235, "frames": 1, "bbox": [26, 16, 209, 447], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_pk_zebra": { "w": 420, "h": 250, "ox": 210, "oy": 125, "frames": 1, "bbox": [0, 0, 419, 249], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_plante": { "w": 192, "h": 192, "ox": 96, "oy": 96, "frames": 1, "bbox": [46, 41, 144, 146], "bboxmode": 2, "colkind": 3, "sepmasks": false, "speed": 15, "speedType": 0 },
   "spr_plante2": { "w": 410, "h": 205, "ox": 205, "oy": 102, "frames": 1, "bbox": [154, 66, 226, 151], "bboxmode": 2, "colkind": 3, "sepmasks": false, "speed": 15, "speedType": 0 },

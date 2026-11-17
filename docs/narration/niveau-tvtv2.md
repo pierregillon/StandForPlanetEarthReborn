@@ -189,7 +189,7 @@ Les points 3, 4 et 5 sont appliqués tels quels dans la première livraison (GD-
 
 ## 10. Script de la fin de mission
 
-> **Statut** (2026-11-17) : le scénario est celui de l'utilisateur (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé. **Les temps A à C sont livrés (livraison C1, GD-085)**, tels qu'écrits ici, à confirmer après essai ; les temps D à G restent à faire.
+> **Statut** (2026-11-17) : le scénario est celui de l'utilisateur (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé. **Les temps A à E sont livrés (livraisons C1 et C2, GD-085 et GD-086)**, tels qu'écrits ici, à confirmer après essai ; les temps F et G restent à faire.
 
 Ce que la fin doit faire comprendre, d'après l'arc narratif (acte II) : les robots ont parlé à toute la population ; ils ont laissé une dernière chance ; la réponse des humains est la force ; les robots s'échappent, et ils sont désormais une menace majeure. Elle ne dit toujours rien du virus ni de SFHB.
 
@@ -257,13 +257,13 @@ Notes sur le texte :
 | + 12 secondes | 15 de plus : 8 policiers, 4 robots légers, 3 robots boucliers | Par les portails 4 |
 | Ensuite, tant que l'équipe n'est pas sortie | 6 renforts toutes les 10 secondes, sans dépasser 45 ennemis vivants à la fois | Par les portails 4 |
 
-- **Leur trajet** : le parking sud, les deux portes du local technique, le salon de sortie, la porte sud du plateau. Leur point de ralliement est le pupitre ; dès qu'ils voient un robot, ils se battent comme les autres soldats.
+- **Leur trajet** : le parking sud, les deux portes du local technique, le salon de sortie, la porte sud du plateau. Leur point de ralliement est le pupitre ; dès qu'ils voient un robot, ils se battent comme les autres soldats. Arrivés sans trouver personne, ils vont là où se trouve le robot le plus proche (ajouté à la réalisation : sans cela la troupe restait sur le plateau pendant que l'équipe partait).
 - **Pourquoi des renforts sans fin** : la consigne dit « ils sont trop nombreux ». Si le joueur pouvait tuer les 45 et sortir par le sud, la consigne mentirait. Le sud ne se vide donc jamais, et il n'y a pas de sortie de ce côté.
 - **Les gardes encore vivants ailleurs dans le bâtiment** ne changent pas de comportement.
 
 **Consigne 7, « Get back to the drop point ».** Elle envoie vers la porte sud du plateau. Elle ne dure que quelques secondes : c'est une fausse piste voulue.
 
-**Le changement de plan** se déclenche au premier de ces événements : un robot entre dans le salon de sortie ; un ennemi de la vague entre sur le plateau ; 15 secondes ont passé depuis la fin de l'ultimatum. Radio en jeu, deux répliques à la suite :
+**Le changement de plan** se déclenche au premier de ces événements : un robot passe au sud du plateau (salon de sortie, local technique ou parking) ; un ennemi de la vague entre sur le plateau ; 15 secondes ont passé depuis la fin de l'ultimatum. Radio en jeu, deux répliques à la suite :
 
 - La voix du véhicule : « The south side is crawling with them. Forty, maybe fifty. Forget the drop point. »
 - Un robot au sol (le premier de la liste BadaBot, BatBot, PetBot, EngiBot ; un autre que la voix du véhicule si possible) : « Then we leave through the north gate. »
@@ -304,7 +304,7 @@ Trois livraisons jouables, à essayer l'une après l'autre.
 | Livraison | Contenu | Ce que l'on peut jouer à la fin |
 |---|---|---|
 | **C1. Jusqu'au message** — **livrée le 2026-11-17 (GD-085)** | Consignes 2, 4, 5 et 6 ; effets du bouton de la régie ; marque derrière le pupitre et compte à rebours ; cinématique de l'ultimatum (répliques 1 à 8) ; radio en jeu ; point de sauvegarde sur le plateau | Du largage jusqu'à la fin de l'ultimatum |
-| **C2. La vague** | Arrivée de la police par les portails 4, trajet vers le plateau, renforts, consignes 7 et 8, les deux répliques du changement de plan ; fourgons de police garés sur le parking sud | Le repli jusqu'au dépose-minute |
+| **C2. La vague** — **livrée le 2026-11-17 (GD-086)** | Arrivée de la police par les portails 4, trajet vers le plateau, renforts, consignes 7 et 8, les deux répliques du changement de plan ; fourgons de police garés sur le parking sud | Le repli jusqu'au dépose-minute |
 | **C3. La sortie** | Ouverture lente du portail 3, consigne « Hold on », zone de sortie, cinématique de récupération, écran de fin. La zone de forage et SallyBot quittent ce niveau : leur salle reste dans le dépôt pour l'acte I, mais on n'y accède plus d'ici | Le niveau entier |
 
 À dessiner ou à fabriquer : le bandeau « EMERGENCY BROADCAST », la marque au sol derrière le pupitre, un fourgon de police à la bonne taille (ceux d'origine étaient géants et ont été retirés des quais), les sirènes, le jingle déformé.

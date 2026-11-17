@@ -129,6 +129,17 @@ export const TV_STUDIO = {
   mark: { x: 9470, y: MID },
   /** Point de sauvegarde posé à la fin de l'ultimatum : l'équipe y reprend, devant l'estrade. */
   regroup: { x: 8960, y: MID - 60 },
+  /**
+   * La riposte (GD-086) : son point de ralliement devant le pupitre, la partie du parking sud où le premier
+   * groupe attend, l'extérieur des portails 4 d'où viennent les suivants, et les trois fourgons (angle en
+   * degrés GameMaker, 0 = l'avant vers le nord).
+   */
+  wave: {
+    rally: { x: 9000, y: MID },
+    parking: { x0: 9860, x1: 10500, y0: 5000, y1: 6180 },
+    outside: { x0: 10150, x1: 10460, y0: 6460, y1: 7000 },
+    vans: [{ x: 10420, y: 5880, angle: 8 }, { x: 10130, y: 5470, angle: -16 }, { x: 10440, y: 5130, angle: 5 }],
+  },
   /** Salon d'attente et maquillage au nord, salon de sortie et vestiaire au sud. */
   lounges: { north: { x0: 8256, x1: 9568, y0: 1408, y1: 3040 }, south: { x0: 8256, x1: 9568, y0: 4896, y1: 6272 } },
   /** Toilettes au nord, au-dessus du maquillage ; local technique au sud, du plateau au mur extérieur. */
@@ -177,6 +188,7 @@ const CHANGES: Record<string, Change> = {
       obj_tv_spot: decor('spr_tv_spot'),
       obj_tv_ledwall: decor('spr_tv_ledwall'),
       obj_tv_onair: decor('spr_tv_onair'),
+      obj_pk_police_van: decor('spr_pk_police_van'),
       obj_tv_crate: decor('spr_crate'),
       obj_tv_makeup: decor('spr_tv_makeup'),
       obj_tv_rack: decor('spr_tv_rack'),

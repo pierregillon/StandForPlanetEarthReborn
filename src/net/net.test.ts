@@ -9,6 +9,7 @@ import { NO_INPUT } from '../sim/types.ts';
 import { CONFIG } from '../sim/config.ts';
 import { TV_STUDIO } from '../sim/additions.ts';
 import { OBJ } from '../sim/session.ts';
+import { BLOCK_MOVE } from '../sim/geom.ts';
 import type { Input, LevelData, SpriteManifest } from '../sim/types.ts';
 import type { ClientMessage, LobbyState, RoomStart, ServerMessage } from './messages.ts';
 import { Mirror } from './mirror.ts';
@@ -325,6 +326,21 @@ test('l\'ultimatum en réseau : les miroirs le suivent, l\'hôte le mène, Retry
   assert.equal(world.cast, -1);
   assert.equal(b.mirror.world.cast, -1);
   assert.equal(b.mirror.world.session.objective, OBJ.dropPoint);
+
+  // la riposte (GD-086) : les soldats apparus en cours de partie et les fourgons existent aussi chez les clients
+  for (let i = 0; i < 20; i++) step();
+  assert.equal(world.npcs.length, 15, 'le premier groupe de la police');
+  assert.equal(b.mirror.world.npcs.length, 15, 'le miroir les a créés');
+  b.mirror.frame(1000);
+  const cop = world.npcs[3];
+  const seenCop = b.mirror.world.npcs.find((n) => n.id === cop.id);
+  assert.ok(seenCop && seenCop.def === cop.def && Math.abs(seenCop.x - cop.x) < 40 && seenCop.hp === cop.hp, 'avec leurs réglages, à leur place');
+  const van = TV_STUDIO.wave.vans[0];
+  assert.equal(b.mirror.world.decor.filter((d) => d.sprite === 'spr_pk_police_van').length, 3, 'les fourgons sont sur le parking du miroir');
+  assert.equal(b.mirror.world.collision.circleFree(van.x, van.y, 40, BLOCK_MOVE), false, 'et ce sont des obstacles pour la prédiction');
+  world.npcs.length = 0;
+  for (let i = 0; i < 8; i++) step();
+  assert.equal(b.mirror.world.npcs.length, world.npcs.length, 'ceux qui tombent disparaissent du miroir');
 
   // toute l'équipe tombe : Retry reprend sur le plateau, après le message
   for (const h of world.heroes) world.damageHero(h, 99, true);

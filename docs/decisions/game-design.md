@@ -91,6 +91,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-083 | L'aile est se réorganise autour du trajet des invités ; la police arrivera par le sud | 2026-11-17 | Acceptée — aménagement réalisé, scénario de fin à réaliser |
 | GD-084 | Aile est, retouches : toilettes, local technique à deux portes, places de parking | 2026-11-17 | Acceptée ; modifie GD-083 |
 | GD-085 | Fin de TvTv², première partie : la régie, le plateau, l'ultimatum | 2026-11-17 | Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) |
+| GD-086 | Fin de TvTv², deuxième partie : la riposte de la police | 2026-11-17 | Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord) |
 
 ---
 
@@ -1904,3 +1905,29 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** Après « Get back to the drop point », rien ne se passe encore : la vague de police (C2) et la sortie par le portail nord (C3) ne sont pas faites, et le niveau n'a donc plus de fin pour l'instant. Les sirènes s'entendent une quinzaine de secondes puis s'éteignent.
 
 **Conséquences.** `src/sim/broadcast.ts` (texte, plans, qui parle), `src/sim/session.ts` (`OBJECTIVES`, `OBJ`, `DRILL_OBJECTIVES`, consigne retenue par le point de sauvegarde), `src/sim/world.ts` (`takeControlRoom`, `stepMark`, `stepCast`, `endCast` ; état `cast`, `castReader`, `markCountdown`, transmis par `src/net/snapshot.ts`), réglages dans `CONFIG.broadcast`, `TV_STUDIO.mark` et `TV_STUDIO.regroup` dans `src/sim/additions.ts`. Affichage : `IntroOverlay.ts` (séquence et radio en jeu), `WorldView.ts` (`syncStudio` : enseigne et marque ; écrans), `GameScene.ts` (plans de caméra), `sfx.ts` (indicatif déformé, sirènes). Tests : `src/sim/broadcast.test.ts` et un test réseau dans `src/net/net.test.ts`.
+
+---
+
+## GD-086 — Fin de TvTv², deuxième partie : la riposte de la police
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord)
+- **Décidée par** : l'utilisateur pour le scénario (GD-083) et pour le feu vert (« Oui, code C2 ») ; la composition de la troupe, les délais, les répliques et les renforts sans fin sont des propositions du script, appliquées telles quelles et à confirmer après essai
+
+**Contexte.** Après l'ultimatum (GD-085), la consigne « Get back to the drop point » s'affichait et rien ne se passait. Le scénario de l'utilisateur : 40 à 50 policiers arrivent par les portails 4, au sud, avec le plateau pour point de ralliement ; les robots, qui comptaient repartir par le sud, tombent sur eux et changent de plan.
+
+**Décision.**
+
+- **Quand** : la riposte commence à la fin de l'ultimatum, lu ou passé. Rien n'est montré : on entend les sirènes, et le joueur découvre la troupe en jeu.
+- **Les fourgons** : trois fourgons de police se garent sur le parking sud, gyrophares allumés. Ce sont des obstacles. Le sprite est dessiné pour le remake (`spr_pk_police_van`), le fourgon d'origine étant prévu pour une échelle sept fois plus grande.
+- **La troupe** : 45 soldats en trois arrivées. Quinze policiers sont déjà à pied sur le parking ; six secondes plus tard, quinze autres entrent par les portails 4 (dix policiers, trois robots boucliers, deux robots fusils à pompe) ; six secondes encore, les quinze derniers (huit policiers, quatre robots légers, trois robots boucliers). Les portails 4 s'ouvrent seuls : c'est la police qui les ouvre.
+- **Son trajet** : chaque soldat sait où aller, sans temps de surprise. Il rallie le plateau, devant le pupitre, en passant par les deux portes du local technique et le salon de sortie. S'il n'y trouve personne, ou s'il perd les robots de vue, il va là où se trouve le robot le plus proche : la troupe traque l'équipe dans tout le bâtiment. Dès qu'il voit un robot, il se bat comme les autres soldats.
+- **Des renforts sans fin** : toutes les dix secondes, six soldats de plus entrent par les portails (quatre policiers, un robot bouclier, un robot léger), tant que la troupe compte moins de 45 soldats debout. Le sud ne se vide donc jamais.
+- **Le changement de plan** : au premier contact — un robot passe au sud du plateau, ou un soldat de la troupe entre sur le plateau — ou au plus tard après quinze secondes. Deux répliques radio en jeu : la voix du véhicule, « The south side is crawling with them. Forty, maybe fifty. Forget the drop point. », puis un robot au sol, « Then we leave through the north gate. » La consigne devient « Too many of them. Take the north gate ».
+- **Après un échec** : « Retry » ramène sur le plateau (GD-085) et la riposte reprend du début, premier groupe sur le parking.
+
+**Pourquoi.** La consigne dit « trop nombreux » : si l'on pouvait tuer les 45 et sortir par le sud, elle mentirait, d'où les renforts. Ne pas montrer l'arrivée garde la surprise voulue par le scénario (« ils tombent nez à nez avec cette armée »). Le délai de quinze secondes garantit que le plan change même si personne ne bouge.
+
+**Limites connues.** Le niveau n'a toujours pas de fin : le portail nord s'ouvre comme une porte ordinaire, et rien ne se passe dehors (livraison C3). Les gardes d'origine encore en vie ne rejoignent pas la troupe. La difficulté n'a pas été éprouvée en jouant.
+
+**Conséquences.** `src/sim/wave.ts` (`startWave`, `stepWave`, répliques), réglages dans `CONFIG.wave`, lieux dans `TV_STUDIO.wave` (`src/sim/additions.ts`), `World.parkVans` et `World.spawnNpc`, champ `hunt` des PNJ. Réseau : les PNJ apparus en cours de partie sont créés chez les clients (`blankNpc`, liste `npcs` de `src/net/snapshot.ts`), et les fourgons s'y garent quand l'état commun l'annonce. Affichage : décor ajouté en cours de partie et gyrophares dans `WorldView.ts` (`syncDecor`). Sprite : `policeVan` dans `tools/make-studio.ts`. Tests : `src/sim/wave.test.ts` (huit tests, dont le coût de calcul : 0,14 ms par step en moyenne avec 45 soldats) et le test réseau de l'ultimatum, étendu.

@@ -38,9 +38,25 @@ export function createNpc(world: World, id: number, inst: LevelInstance, def: Np
     attackRange: soldier ? world.rng.int(soldier.attackRangeMin, soldier.attackRangeMax) : 0,
     ammo: soldier ? soldier.magazine : 0,
     fireTimer: 0, reloadTimer: 0, repathTimer: 0, surpriseTimer: 0, spotted: false, viewRange: N.viewRange,
-    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0, thrown: 0, thrownAngle: 0, daze: 0, strafe: 0, unseen: 0,
+    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0, thrown: 0, thrownAngle: 0, daze: 0, strafe: 0, unseen: 0, hunt: 0,
     shieldHp: soldier && soldier.frontShield ? N.shieldHits + N.shieldHitsPerExtraPlayer * extra : 0, shieldBroken: false,
     fear: false, fearTimer: 0, stateSteps: 0, walkDist: 0,
+  };
+}
+
+/**
+ * PNJ vide, côté client, pour ceux qui apparaissent en cours de partie (la riposte, GD-086) : l'instantané du
+ * serveur remplit ce qui s'affiche, le reste ne sert qu'à la simulation.
+ */
+export function blankNpc(): Npc {
+  return {
+    id: 0, object: '', def: null as unknown as NpcDef, x: 0, y: 0, angle: 0, dir: 0,
+    hp: 1, active: true, behaviour: 'none', state: 'standing', spd: 0,
+    path: null, pathIdx: 0, waypointTimer: 0, waypointFailures: 0,
+    patrolType: 'none', patrolPoints: [], patrolReverse: false, pauseTimer: -1,
+    attackRange: 0, ammo: 0, fireTimer: 0, reloadTimer: 0, repathTimer: 0, surpriseTimer: 0, spotted: false, viewRange: N.viewRange,
+    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0, thrown: 0, thrownAngle: 0, daze: 0, strafe: 0, unseen: 0, hunt: 0,
+    shieldHp: 0, shieldBroken: false, fear: false, fearTimer: 0, stateSteps: 0, walkDist: 0,
   };
 }
 

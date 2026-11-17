@@ -15,10 +15,11 @@ export const OBJECTIVES = [
   'Reach the studio',
   'Broadcast the message',
   'Get back to the drop point',
+  'Too many of them. Take the north gate',
 ];
 
 /** Rang de chaque consigne dans OBJECTIVES. */
-export const OBJ = { upstairs: 0, pass: 1, downstairs: 2, controlRoom: 3, studio: 4, broadcast: 5, dropPoint: 6 };
+export const OBJ = { upstairs: 0, pass: 1, downstairs: 2, controlRoom: 3, studio: 4, broadcast: 5, dropPoint: 6, northGate: 7 };
 
 /** Consignes de la zone de forage : elle ne fait plus partie de ce niveau, mais reste jouable depuis le menu. */
 export const DRILL_OBJECTIVES = ['Destroy the drills', 'Kill SallyBot'];
