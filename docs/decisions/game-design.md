@@ -1450,6 +1450,7 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 
 **Décision.**
 
+- **Une seule explosion pour tous les humains** (demande de l'utilisateur après essai : celle du soldat au pistolet, qu'il juge parfaite) : les civils jouent l'animation de mort du soldat (`spr_npc1_mort`) au lieu de la leur. Les six animations de mort des civils ne servent plus.
 - **Explosion** : l'animation d'origine est agrandie de 45 % et doublée d'un souffle rouge qui s'ouvre et se dissipe en un quart de seconde. Huit à quatorze membres sont projetés (quatre à onze avant), aussi fort que les débris d'un robot.
 - **Flaque** : quatre à six nappes de sang, bien plus grandes (1,7 à 3,1 fois la tache d'origine), s'étalent en une demi-seconde sous le corps.
 - **Gouttes** : quarante à cinquante-six gouttes giclent dans toutes les directions. La plupart retombent près, quelques-unes partent jusqu'à 360 px. Chacune laisse une tache étirée dans le sens de son vol. Un mur ou un meuble les arrête : la tache se pose alors sur son bord.
@@ -1469,3 +1470,35 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 **Décision.** Plus aucun viseur laser. Écart voulu avec le jeu d'origine.
 
 **Conséquences.** Le tracé est retiré de `WorldView.ts` et la couleur de laser (`laserColor`) de la définition des héros. La visée elle-même ne change pas.
+
+## GD-069 — Traces de pas après une flaque de sang ou d'huile
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (des traces de pas quand on marche dans une flaque de sang ou d'huile, cohérentes avec les pieds des robots et des PNJ) ; formes, tailles et nombre d'empreintes sont des choix par défaut, relevés sur les sprites
+
+**Contexte.** Les flaques de sang (GD-067) et d'huile (GD-031) restaient inertes : on les traversait sans rien emporter.
+
+**Décision.**
+
+- Un personnage qui marche dans une flaque en garde sous les pieds et laisse ensuite quatorze empreintes, de plus en plus pâles, de la couleur de la flaque : rouge pour le sang, bleu clair pour l'huile. Repasser dans une flaque recharge ses pieds.
+- Les empreintes alternent pied gauche et pied droit, de part et d'autre de l'axe de la marche, tournées dans le sens du déplacement.
+- **Chaque personnage a ses pieds**, relevés sur ses sprites :
+  - héros : un patin de robot, talon rond, semelle et bout pointu, long de 46 px (PetBot, BatBot) ou 54 px (EngiBot, BadaBot), un pas tous les 64 à 70 px ;
+  - humains, civils et soldats : une semelle et son talon, 18 px, un pas tous les 30 px ;
+  - robots ennemis : une patte à trois griffes, de 22 px (LightBot) à 34 px (robot bouclier), plus grande encore pour le boss.
+- Un héros en dash ou en plein bond ne touche pas le sol : il ne se salit pas et ne laisse rien.
+
+**Conséquences.** Affichage seulement (`FOOTPRINTS`, `HERO_FEET`, `HUMAN_FEET`, `ROBOT_FEET`, `stepFootprints` dans `WorldView.ts`) ; les empreintes sont dessinées par le jeu, sans sprite nouveau, et comptent parmi les restes gardés au sol. En réseau, chaque écran pose ses propres empreintes : elles peuvent différer d'un joueur à l'autre.
+
+## GD-070 — Plus d'invulnérabilité après un dégât
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (« pas d'invulnérabilité, on prend les vrais dégâts, c'est punitif »)
+
+**Contexte.** Après chaque dégât, un héros était invulnérable de 0,5 à 1 s (10 à 40 steps dans le code de 2019, allongé par GD-018). Cela plafonnait ce qu'il encaissait : une salve de dix plombs de ShotBot ou une rafale de LightBot ne lui coûtait qu'un point de vie.
+
+**Décision.** Chaque coup compte. Un héros touché par plusieurs balles au même instant perd autant de points de vie. Restent intouchables, comme avant : le dash (GD-031), le déploiement, le bond de BatBot, et la seconde et demie qui suit une résurrection.
+
+**Conséquences.** Écart voulu avec le jeu d'origine, et net durcissement : une salve de ShotBot bien placée ou une rafale de LightBot peut coûter quatre à cinq points de vie d'un coup, sur 10 à 16. Le clignotement d'invulnérabilité ne se voit plus qu'au réveil ; un coup reçu fait rougir le robot un bref instant. `damageHero` dans `src/sim/world.ts`.

@@ -60,9 +60,9 @@ test('LightBot : rafales de 13 balles en tournant autour de sa cible, puis 0,8 s
   let movedPaused = 0;
   let wasPaused = false;
   const perBurst: number[] = [];
+  const seen = new Set<number>();
   for (let i = 0; i < 600; i++) {
     const before = { x: npc.x, y: npc.y, bullets: w.bullets.length };
-    const fired = w.bullets.filter((b) => b.owner === 'enemy').length;
     w.step(NO_INPUT);
     const paused = npc.reloadTimer > 0;
     const step = Math.hypot(npc.x - before.x, npc.y - before.y);
@@ -70,7 +70,13 @@ test('LightBot : rafales de 13 balles en tournant autour de sa cible, puis 0,8 s
       if (paused && wasPaused) movedPaused += step;
       else if (!paused) movedFiring += step;
     }
-    if (w.bullets.filter((b) => b.owner === 'enemy').length > fired) shots++;
+    // une balle est comptée à sa naissance : le héros n'est plus invulnérable, d'autres disparaissent sur lui au même step
+    for (const b of w.bullets) {
+      if (b.owner === 'enemy' && !seen.has(b.id)) {
+        seen.add(b.id);
+        shots++;
+      }
+    }
     if (paused && !wasPaused) {
       pauses++;
       perBurst.push(shots);
@@ -179,4 +185,16 @@ test('civil : il fuit en courant, presque aussi vite que le heros le plus lent (
   const expected = npc.spd * CONFIG.npc.fearSpeedFactor;
   assert.ok(Math.abs(fastest - expected) < 0.5, `il court a ${fastest.toFixed(1)} px par step (attendu ${expected.toFixed(1)})`);
   assert.ok(fastest > 9 && fastest < CONFIG.heroes.BadaBot.walkSpeed, 'plus vite qu\'avant, mais on peut encore le rattraper');
+});
+
+test('degats : chaque coup compte, sans invulnerabilite apres un degat (GD-070)', () => {
+  const w = new World(level, sprites, 'PetBot', 7);
+  w.npcs = [];
+  const h = w.hero;
+  const full = h.hp;
+  assert.equal(w.damageHero(h, 1), true);
+  assert.equal(w.damageHero(h, 1), true, 'un second coup au meme instant porte aussi');
+  assert.equal(w.damageHero(h, 2), true);
+  assert.equal(h.hp, full - 4);
+  assert.equal(h.invuln, 0);
 });

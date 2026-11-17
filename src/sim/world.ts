@@ -607,7 +607,10 @@ export class World {
 
   // ---------- Dégâts ----------
 
-  /** Dégât infligé au héros. `ignoreInvuln` : le coup de bouclier passe outre l'invulnérabilité. */
+  /**
+   * Dégât infligé au héros. Chaque coup compte : il n'y a plus d'invulnérabilité après un dégât (GD-070).
+   * Il ne reste que celle du réveil après une résurrection ; `ignoreInvuln` : le coup de bouclier passe outre.
+   */
   damageHero(h: Hero, amount: number, ignoreInvuln = false): boolean {
     if (h.gone || h.hp <= 0 || h.state === 'dead') return false;
     // intouchable pendant un dash (GD-031), pendant le déploiement et en plein bond (ulti de BatBot)
@@ -615,7 +618,6 @@ export class World {
     if (h.invuln > 0 && !ignoreInvuln) return false;
     h.hp -= amount;
     this.stats.damageTaken += amount;
-    h.invuln = this.rng.int(CONFIG.hero.invulnMinSteps, CONFIG.hero.invulnMaxSteps);
     this.emit({ type: 'heroHit', x: h.x, y: h.y });
     if (h.hp <= 0) {
       h.hp = 0;

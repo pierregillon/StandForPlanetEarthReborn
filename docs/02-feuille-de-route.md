@@ -199,3 +199,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Tirs : fumée redessinée d'après le brouillard du jeu (spr_fog), nappes en aplats sans contour ; le dessin cartoon cerné est abandonné (GD-065). |
 | 2026-11-17 | Tirs : panache de fumée un peu plus court et plus ramassé (GD-065). |
 | 2026-11-17 | Civils en fuite plus rapides (GD-066) ; mort des humains : explosion plus forte, flaque, gouttes projetées, personnages éclaboussés (GD-067) ; viseurs laser retirés (GD-068). |
+| 2026-11-17 | Même explosion pour tous les humains (GD-067) ; traces de pas après une flaque de sang ou d'huile (GD-069) ; plus d'invulnérabilité après un dégât (GD-070). |

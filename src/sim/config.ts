@@ -140,10 +140,7 @@ export const CONFIG = {
     dashDistance: 500,
     dashSpeedFactor: 3,
     dashRechargeSteps: s(2),
-    /** Invulnérabilité après un dégât (durée de l'effet « glitch » d'origine). */
-    // Original : 10 à 40 steps, avec la mort désactivée. Allongé pour un joueur seul qui peut mourir (GD-018).
-    invulnMinSteps: 30,
-    invulnMaxSteps: 60,
+    // Pas d'invulnérabilité après un dégât (GD-070) : 10 à 40 steps dans le code de 2019, 30 à 60 au début du remake.
     bumpDistance: 350,
     bumpSpeed: 15,
     useRange: 120,

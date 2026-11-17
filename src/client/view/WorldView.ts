@@ -71,6 +71,8 @@ const MAX_REMAINS = 2400;
  * personnages à moins de `splash.range` pixels sont éclaboussés (`marks` taches chacun, qui tiennent `life`
  * secondes et s'effacent sur les `fade` dernières).
  */
+/** Animation de mort jouée pour tous les humains : celle du soldat au pistolet. */
+const HUMAN_BURST = 'spr_npc1_mort';
 const GORE = {
   burst: 1.45,
   pieces: [8, 14],
@@ -271,6 +273,62 @@ interface Debris {
   glide?: number;
 }
 
+/**
+ * Traces de pas (GD-069). Un personnage qui marche dans une flaque de sang ou d'huile en garde sous les pieds :
+ * il laisse `prints` empreintes, de plus en plus pâles, de la couleur de la flaque. `maxPuddles` : nombre de
+ * flaques dont on se souvient.
+ */
+const FOOTPRINTS = { prints: 14, alpha: 0.85, blood: 0xd4162c, oil: 0x8ca5e4, maxPuddles: 240 };
+
+/**
+ * Pieds d'un personnage, relevés sur ses sprites : forme de l'empreinte, sa longueur et sa largeur, `gap`
+ * (distance de chaque pied à l'axe de la marche) et `stride` (chemin parcouru entre deux empreintes, une
+ * d'un pied puis une de l'autre).
+ */
+interface Feet {
+  shape: 'pad' | 'shoe' | 'claw';
+  length: number;
+  width: number;
+  gap: number;
+  stride: number;
+}
+/** Les héros : un patin de robot, talon rond et bout pointu (sprites `spr_*_jambes`). */
+const HERO_FEET: Record<string, Feet> = {
+  PetBot: { shape: 'pad', length: 46, width: 17, gap: 14, stride: 64 },
+  BatBot: { shape: 'pad', length: 46, width: 17, gap: 14, stride: 64 },
+  EngiBot: { shape: 'pad', length: 54, width: 20, gap: 16, stride: 70 },
+  BadaBot: { shape: 'pad', length: 54, width: 20, gap: 16, stride: 70 },
+};
+/** Les humains, civils et soldats : une semelle et son talon. */
+const HUMAN_FEET: Feet = { shape: 'shoe', length: 18, width: 8, gap: 9, stride: 30 };
+/** Les robots ennemis marchent sur des pattes à griffes, de plus en plus grosses. */
+const ROBOT_FEET: Record<string, Feet> = {
+  obj_npc_robot_lightBot: { shape: 'claw', length: 22, width: 9, gap: 17, stride: 44 },
+  obj_npc_robot_shotBot: { shape: 'claw', length: 28, width: 12, gap: 24, stride: 52 },
+  obj_npc_robot_shield: { shape: 'claw', length: 34, width: 14, gap: 30, stride: 50 },
+};
+const BIG_ROBOT_FEET: Feet = { shape: 'claw', length: 44, width: 18, gap: 38, stride: 70 };
+
+/** Flaque de sang ou d'huile dans laquelle on peut marcher. */
+interface Puddle {
+  img: Img;
+  x: number;
+  y: number;
+  r: number;
+  color: number;
+}
+
+/** Marche d'un personnage : où il était, ce qu'il lui reste sous les pieds (`ink`, de 1 à 0) et le pied à poser. */
+interface Walk {
+  x: number;
+  y: number;
+  ink: number;
+  color: number;
+  side: number;
+  carry: number;
+  seen: number;
+}
+
 /** Goutte de sang en vol, du corps jusqu'à l'endroit où elle s'écrase (sur un mur si `onWall`). */
 interface BloodDrop {
   img: Img;
@@ -318,6 +376,8 @@ interface HeroParts {
   glow: Img | null;
   shadow: Phaser.GameObjects.Ellipse | null;
   airborne: boolean;
+  /** Secondes pendant lesquelles le robot reste rouge après un coup reçu. */
+  hurt: number;
   /** Énergie qui se concentre pendant le lancement : un calque sous le robot, un par-dessus. */
   chargeUnder: Img | null;
   chargeTop: Img | null;
@@ -460,6 +520,9 @@ export class WorldView {
   private readonly debris: Debris[] = [];
   private readonly drops: BloodDrop[] = [];
   private readonly stains: BloodStain[] = [];
+  private readonly puddles: Puddle[] = [];
+  private readonly walks = new Map<string, Walk>();
+  private walkStamp = 0;
   /** Restes qui ont volé (membres, éclats de verre) : la vague de BadaBot peut les emporter. Et par quelle vague ils l'ont déjà été. */
   private readonly loose = new WeakSet<Img>();
   private readonly sweptBy = new WeakMap<Img, number>();
@@ -661,6 +724,7 @@ export class WorldView {
     this.stepAnims(dt);
     this.stepDebris(dt);
     this.stepBlood(dt);
+    this.stepFootprints();
   }
 
   /** Tous les robots de l'équipe, avec toutes leurs animations, chez tous les joueurs (GD-041). */
@@ -683,7 +747,7 @@ export class WorldView {
       p = {
         legs: this.image(h.def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
         body: this.image(h.def.sprites.stand, 0, h.x, h.y, DEPTH.character),
-        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, chargeUnder: null, chargeTop: null, pets: null, petsHome: 0, petTrails: null, spinTime: 0, swarmX: h.x, swarmY: h.y,
+        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, hurt: 0, chargeUnder: null, chargeTop: null, pets: null, petsHome: 0, petTrails: null, spinTime: 0, swarmX: h.x, swarmY: h.y,
       };
       this.parts.set(h.id, p);
     }
@@ -732,8 +796,11 @@ export class WorldView {
     this.syncPlasmaBall(h, p, pose.sprite, pose.frame);
     this.syncUlti(h, p);
 
-    // invulnérabilité après un dégât : le héros clignote (effet « glitch » de l'original, simplifié)
+    // invulnérable au réveil après une résurrection : le héros clignote. Un coup reçu : il rougit un instant,
+    // sans plus aucune invulnérabilité (GD-070)
+    p.hurt = Math.max(0, p.hurt - dt);
     if (h.invuln > 0) body.setAlpha(Math.floor(h.invuln / 2) % 2 === 0 ? 0.35 : 1).setTint(0xff8080);
+    else if (p.hurt > 0) body.setAlpha(1).setTint(0xff6a6a);
     else body.setAlpha(1).clearTint();
 
     // pas de viseur laser : retiré à la demande de l'utilisateur (GD-068)
@@ -2702,6 +2769,7 @@ export class WorldView {
       // l'écran ne tremble que pour ce qui arrive près de soi
       if (this.nearView(e.x, e.y)) scene.cameras.main.shake(300, 0.01);
     } else if (e.type === 'heroHit') {
+      for (const h of this.world.heroes) if (Math.hypot(e.x - h.x, e.y - h.y) < 4) this.partsOf(h).hurt = 0.14;
       const mine = this.world.hero;
       if (Math.hypot(e.x - mine.x, e.y - mine.y) < 4) scene.cameras.main.shake(90, 0.004);
     } else if (e.type === 'drillDestroyed') {
@@ -2762,10 +2830,12 @@ export class WorldView {
   private spawnDeath(x: number, y: number, angle: number, sprite: string, genre: 'humain' | 'robot'): void {
     const scene = this.scene;
     const robot = genre === 'robot';
-    if (scene.textures.exists(frameKey(sprite, 0))) {
-      const sp = this.info(sprite);
-      const img = this.image(sprite, 0, x, y, DEPTH.character).setRotation(angle).setScale(robot ? 1 : GORE.burst);
-      this.anims.push({ img, sprite, frames: sp.frames, fps: spriteFps(sp), elapsed: 0, keepLast: false });
+    // tous les humains explosent comme le soldat au pistolet, civils compris (GD-067)
+    const burst = !robot && scene.textures.exists(frameKey(HUMAN_BURST, 0)) ? HUMAN_BURST : sprite;
+    if (scene.textures.exists(frameKey(burst, 0))) {
+      const sp = this.info(burst);
+      const img = this.image(burst, 0, x, y, DEPTH.character).setRotation(angle).setScale(robot ? 1 : GORE.burst);
+      this.anims.push({ img, sprite: burst, frames: sp.frames, fps: spriteFps(sp), elapsed: 0, keepLast: false });
     }
     if (!robot) this.spillBlood(x, y);
     if (robot) {
@@ -2781,9 +2851,11 @@ export class WorldView {
     if (robot && scene.textures.exists(frameKey(puddle, 0))) {
       const count = 4 + Math.floor(Math.random() * 3);
       for (let i = 0; i < count; i++) {
+        const scale = 1.3 + Math.random() * 0.7;
         const img = this.image(puddle, Math.floor(Math.random() * this.info(puddle).frames), x + (Math.random() - 0.5) * 90, y + (Math.random() - 0.5) * 90, DEPTH.remains - 1)
-          .setRotation(Math.random() * Math.PI * 2).setScale(1.3 + Math.random() * 0.7);
+          .setRotation(Math.random() * Math.PI * 2).setScale(scale);
         this.keepRemains(img);
+        this.addPuddle(img, scale, FOOTPRINTS.oil);
       }
     }
     const prefix = robot ? 'spr_membreMortRobot_' : 'spr_membreMortHumain_';
@@ -2824,6 +2896,7 @@ export class WorldView {
       const img = this.image(sang, frame(), x + Math.cos(a) * d, y + Math.sin(a) * d, DEPTH.remains - 1).setRotation(Math.random() * Math.PI * 2).setScale(scale * 0.25);
       scene.tweens.add({ targets: img, scale, duration: GORE.pool.growMs * (0.7 + Math.random() * 0.6), ease: 'Cubic.easeOut' });
       this.keepRemains(img);
+      this.addPuddle(img, scale, FOOTPRINTS.blood);
     }
     // les gouttes : beaucoup retombent près, quelques-unes partent loin ; un mur les arrête
     const count = Math.round(within(GORE.drops.count));
@@ -2855,6 +2928,129 @@ export class WorldView {
     };
     for (const h of this.world.heroes) if (!h.gone && h.state !== 'dead') splash('hero', h.id, h.x, h.y, h.angle, h.def.radius);
     for (const npc of this.world.npcs) splash('npc', npc.id, npc.x, npc.y, npc.angle, npc.def.radius);
+  }
+
+  /** Retient une flaque dans laquelle on peut marcher : une nappe de sang ou d'huile, à l'échelle `scale`. */
+  private addPuddle(img: Img, scale: number, color: number): void {
+    // les sprites de flaque font une cinquantaine de pixels ; leur tache en couvre les quatre cinquièmes
+    this.puddles.push({ img, x: img.x, y: img.y, r: 20 * scale, color });
+    if (this.puddles.length > FOOTPRINTS.maxPuddles) this.puddles.shift();
+  }
+
+  /** Traces de pas (GD-069) : chaque personnage qui a marché dans une flaque laisse ses empreintes derrière lui. */
+  private stepFootprints(): void {
+    this.walkStamp++;
+    for (const h of this.world.heroes) {
+      // ni en dash, ni en l'air, ni pendant l'arrivée : ses pieds ne touchent pas le sol
+      const grounded = !h.gone && h.state !== 'dead' && h.deploySteps === 0 && h.arrivalSteps === 0 && !h.dashing && h.ultiPhase !== ULTI_ACTION;
+      this.walk(`h${h.id}`, h.x, h.y, HERO_FEET[h.def.kind] ?? HERO_FEET.PetBot, grounded);
+    }
+    for (const npc of this.world.npcs) {
+      this.walk(`n${npc.id}`, npc.x, npc.y, npc.def.genre === 'humain' ? HUMAN_FEET : ROBOT_FEET[npc.object] ?? BIG_ROBOT_FEET, true);
+    }
+    // on oublie de temps en temps ceux qui ont disparu
+    if (this.walkStamp % 300 === 0) {
+      for (const [key, t] of this.walks) if (t.seen !== this.walkStamp) this.walks.delete(key);
+    }
+  }
+
+  /** Un personnage a bougé : il se salit les pieds dans une flaque, puis pose une empreinte à chaque foulée. */
+  private walk(key: string, x: number, y: number, feet: Feet, grounded: boolean): void {
+    let t = this.walks.get(key);
+    if (!t) {
+      t = { x, y, ink: 0, color: 0, side: 1, carry: 0, seen: 0 };
+      this.walks.set(key, t);
+    }
+    t.seen = this.walkStamp;
+    const dx = x - t.x;
+    const dy = y - t.y;
+    const d = Math.hypot(dx, dy);
+    t.x = x;
+    t.y = y;
+    if (d < 0.05) return;
+    // un saut (bond, projection, changement de salle) n'est pas un pas
+    if (!grounded || d > 120) {
+      t.carry = 0;
+      return;
+    }
+    for (const p of this.puddles) {
+      if (Math.abs(x - p.x) < p.r && Math.abs(y - p.y) < p.r && p.img.active && Math.hypot(x - p.x, y - p.y) < p.r) {
+        t.ink = 1;
+        t.color = p.color;
+        break;
+      }
+    }
+    if (t.ink <= 0) return;
+    t.carry += d;
+    if (t.carry < feet.stride) return;
+    t.carry = 0;
+    // l'empreinte : dans le sens de la marche, un pied puis l'autre, de part et d'autre de l'axe
+    const a = Math.atan2(dy, dx);
+    const print = this.footprintTexture(feet.shape);
+    const img = this.scene.add.image(x - Math.sin(a) * feet.gap * t.side, y + Math.cos(a) * feet.gap * t.side, print.key)
+      .setRotation(a).setScale(feet.length / print.w, feet.width / print.h).setTint(t.color).setAlpha(FOOTPRINTS.alpha * t.ink).setDepth(DEPTH.remains - 1.5);
+    this.keepRemains(img);
+    t.side = -t.side;
+    t.ink -= 1 / FOOTPRINTS.prints;
+  }
+
+  /**
+   * Dessin d'une empreinte, pointe vers la droite, en blanc à teinter : le patin d'un héros (talon rond, semelle,
+   * bout pointu), la chaussure d'un humain (semelle et talon séparés) ou la griffe d'un robot ennemi.
+   */
+  private footprintTexture(shape: Feet['shape']): { key: string; w: number; h: number } {
+    const key = `footprint_${shape}`;
+    const w = 64;
+    const h = 24;
+    if (this.scene.textures.exists(key)) return { key, w, h };
+    const canvas = this.scene.textures.createCanvas(key, w, h);
+    if (!canvas) return { key, w, h };
+    const ctx = canvas.context;
+    const mid = h / 2;
+    ctx.fillStyle = '#ffffff';
+    if (shape === 'pad') {
+      // le talon, rond comme l'articulation du pied
+      ctx.beginPath();
+      ctx.arc(12, mid, 11, 0, Math.PI * 2);
+      ctx.fill();
+      // la semelle, séparée du talon par une rainure, et le bout pointu
+      ctx.beginPath();
+      ctx.moveTo(27, mid - 9);
+      ctx.lineTo(46, mid - 8);
+      ctx.lineTo(63, mid);
+      ctx.lineTo(46, mid + 8);
+      ctx.lineTo(27, mid + 9);
+      ctx.closePath();
+      ctx.fill();
+    } else if (shape === 'shoe') {
+      // le talon, court, puis la semelle, plus large à l'avant
+      ctx.beginPath();
+      ctx.ellipse(10, mid, 9, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(42, mid, 21, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // la griffe du milieu, longue, et deux plus courtes qui s'écartent
+      const claw = (angle: number, length: number, girth: number): void => {
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        ctx.beginPath();
+        ctx.moveTo(10 + s * girth, mid - c * girth);
+        ctx.lineTo(10 + c * length, mid + s * length);
+        ctx.lineTo(10 - s * girth, mid + c * girth);
+        ctx.closePath();
+        ctx.fill();
+      };
+      ctx.beginPath();
+      ctx.arc(10, mid, 7, 0, Math.PI * 2);
+      ctx.fill();
+      claw(0, 53, 5.5);
+      claw(-0.34, 30, 4);
+      claw(0.34, 30, 4);
+    }
+    canvas.refresh();
+    return { key, w, h };
   }
 
   /** Fait voler les gouttes de sang jusqu'à leur tache, et suivre aux éclaboussures le personnage qui les porte. */
