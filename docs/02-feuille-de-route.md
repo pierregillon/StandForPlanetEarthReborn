@@ -183,3 +183,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Prototype des traits de lumière, suite : déflagration qui éclaire la pièce et s'éteint progressivement, traînées plus longues qui refroidissent vers le gris (GD-065). |
 | 2026-11-17 | Lueur des tirs : un cône étroit et intense vers l'avant au lieu d'un halo rond (GD-065). |
 | 2026-11-17 | Déflagration des tirs redessinée en flamme : langue de feu, pointes fines et étincelles (GD-065). |
+| 2026-11-17 | Tirs : la flamme part de la bouche du canon et s'éteint en s'en éloignant ; traînée des balles plus nette (GD-065). |

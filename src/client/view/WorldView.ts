@@ -1190,9 +1190,9 @@ export class WorldView {
   }
 
   /**
-   * La traînée d'une balle, de sa queue à sa tête : elle s'élargit et s'éclaircit vers l'avant. Chaude
-   * (`heat` à 1) elle a la lumière de la déflagration, blanche en tête et jaune derrière, avec un halo ; en
-   * refroidissant elle s'amincit, pâlit et vire au gris.
+   * La traînée d'une balle, de sa queue à sa tête : un trait net, aux bords francs, qui s'estompe vers
+   * l'arrière. Chaude (`heat` à 1) elle a la lumière de la déflagration, blanche en tête et jaune derrière ;
+   * en refroidissant elle s'amincit, pâlit et vire au gris. Seule la balle elle-même porte un halo.
    */
   private drawStreak(x0: number, y0: number, x1: number, y1: number, enemy: boolean, alpha: number, head: boolean, heat: number): void {
     const g = this.tracers;
@@ -1203,25 +1203,28 @@ export class WorldView {
     const width = TRACER_STYLE.width * (0.4 + 0.6 * heat);
     const strength = alpha * (0.5 + 0.5 * heat);
     const at = (t: number): { x: number; y: number } => ({ x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t });
-    const pieces = 8;
+    const pieces = 12;
     for (let k = 0; k < pieces; k++) {
       const a = at(k / pieces);
       const b = at((k + 1) / pieces);
       const q = (k + 1) / pieces;
-      g.lineStyle(1.2 + (width - 1.2) * q, k >= pieces - 2 ? tip : k >= pieces - 5 ? core : body, (0.08 + 0.92 * q * q) * strength);
+      // le corps du trait : sa largeur varie peu, c'est sa force qui baisse vers la queue
+      g.lineStyle(width * (0.5 + 0.5 * q), q > 0.5 ? core : body, Math.pow(q, 1.4) * strength);
       g.lineBetween(a.x, a.y, b.x, b.y);
-    }
-    if (heat > 0.02) {
-      // la lumière que la balle chaude jette autour d'elle, plus forte vers la tête
-      const light = this.shotLights;
-      const mid = at(0.5);
-      light.lineStyle(width * 3.4, hot.glow, 0.16 * alpha * heat).lineBetween(mid.x, mid.y, x1, y1);
-      if (head) {
-        light.fillStyle(hot.glow, 0.2 * alpha * heat).fillCircle(x1, y1, 30);
-        light.fillStyle(hot.core, 0.35 * alpha * heat).fillCircle(x1, y1, 14);
+      // un fil clair en son milieu, sur la moitié avant : c'est lui qui donne la netteté
+      if (q > 0.5) {
+        g.lineStyle(Math.max(1.5, width * 0.32), tip, ((q - 0.5) / 0.5) * strength);
+        g.lineBetween(a.x, a.y, b.x, b.y);
       }
     }
-    if (head) g.fillStyle(tip, alpha).fillCircle(x1, y1, width * 0.7);
+    if (head) {
+      g.fillStyle(tip, alpha).fillCircle(x1, y1, width * 0.7);
+      // le halo de la balle chaude, serré autour d'elle
+      if (heat > 0.02) {
+        this.shotLights.fillStyle(hot.glow, 0.18 * alpha * heat).fillCircle(x1, y1, 18);
+        this.shotLights.fillStyle(hot.core, 0.3 * alpha * heat).fillCircle(x1, y1, 9);
+      }
+    }
   }
 
   /** Déflagration à la bouche du canon. Une salve de plusieurs plombs (ShotBot) n'en fait qu'une. */
@@ -1278,55 +1281,67 @@ export class WorldView {
         canvas.refresh();
       }
     }
-    return { key, focusX: focus / width, reach: centre + radius - focus };
+    // l'image est accrochée par son bord arrière : rien ne dépasse derrière la bouche du canon
+    return { key, focusX: (centre - radius) / width, reach: radius * 2 };
   }
 
   /**
    * La déflagration à la force `k` (1 à l'instant du tir, puis vers 0) : une flamme. Son corps est une langue
-   * de feu effilée qui sort du canon ; des pointes plus fines en jaillissent, une grande dans l'axe et de plus
-   * courtes autour ; un cœur chauffé à blanc à la bouche du canon, quelques étincelles projetées vers l'avant,
-   * et la lueur jetée sur le décor. Le blanc s'éteint le premier : en mourant, la flamme jaunit puis rougeoie,
-   * et elle raccourcit.
+   * de feu effilée ; des pointes plus fines en jaillissent, une grande dans l'axe et de plus courtes autour ; un
+   * cœur chauffé à blanc, quelques étincelles projetées vers l'avant, et la lueur jetée sur le décor.
+   * Elle naît exactement à la bouche du canon, sans jamais le recouvrir, et s'éteint en partant de lui : sa base
+   * s'éloigne du canon pendant que sa pointe reste en place. Le blanc s'éteint le premier : en mourant, la
+   * flamme jaunit puis rougeoie.
    */
   private drawMuzzleFlash(f: MuzzleFlash, k: number): void {
     const g = this.shotLights;
     const blast = TRACER_STYLE.blast;
     const hot = f.enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
-    f.light.setAlpha(blast.lightAlpha * k);
-    /** Rayon pointu : un triangle très allongé, de la bouche du canon à sa pointe. */
-    const ray = (angle: number, length: number, width: number): Phaser.Geom.Point[] => {
-      const c = Math.cos(angle);
-      const s = Math.sin(angle);
-      return [
-        new Phaser.Geom.Point(f.x - c * 6 + s * width, f.y - s * 6 - c * width),
-        new Phaser.Geom.Point(f.x + c * length, f.y + s * length),
-        new Phaser.Geom.Point(f.x - c * 6 - s * width, f.y - s * 6 + c * width),
-      ];
-    };
     // elle frémit d'une image à l'autre
-    const reach = blast.length * (0.55 + 0.45 * k) * (0.94 + Math.random() * 0.12);
-    /** Langue de feu : ventrue près du canon, effilée vers l'avant. */
-    const tongue = (length: number, width: number): Phaser.Geom.Point[] => {
-      const c = Math.cos(f.angle);
-      const s = Math.sin(f.angle);
+    const reach = blast.length * (0.94 + Math.random() * 0.12);
+    // distance entre le canon et le début de la flamme : nulle au tir, elle grandit à mesure que la flamme meurt
+    const lift = reach * 0.8 * (1 - k);
+    const left = (reach - lift) / reach;
+    const ax = Math.cos(f.angle);
+    const ay = Math.sin(f.angle);
+    f.light.setAlpha(blast.lightAlpha * k).setPosition(f.x + ax * lift, f.y + ay * lift);
+    /** Langue de feu de `from` à `to` pixels du canon : pointue à sa base, ventrue ensuite, effilée vers l'avant. */
+    const tongue = (from: number, to: number, width: number): Phaser.Geom.Point[] => {
       const side: { along: number; across: number }[] = [];
       const steps = 9;
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
-        side.push({ along: -8 + length * t, across: width * Math.sin(Math.PI * Math.pow(t, 0.42)) * (1 - 0.35 * t) });
+        side.push({ along: from + (to - from) * t, across: width * Math.sin(Math.PI * Math.pow(t, 0.42)) * (1 - 0.35 * t) });
       }
       const points = [...side, ...side.slice().reverse().map((p) => ({ along: p.along, across: -p.across }))];
-      return points.map((p) => new Phaser.Geom.Point(f.x + c * p.along - s * p.across, f.y + s * p.along + c * p.across));
+      return points.map((p) => new Phaser.Geom.Point(f.x + ax * p.along - ay * p.across, f.y + ay * p.along + ax * p.across));
     };
-    g.fillStyle(hot.glow, 0.45 * k).fillPoints(tongue(reach * 0.95, blast.width * 0.62), true);
-    g.fillStyle(hot.core, 0.75 * k).fillPoints(tongue(reach * 0.75, blast.width * 0.4), true);
-    g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillPoints(tongue(reach * 0.5, blast.width * 0.2), true);
+    const span = reach - lift;
+    const girth = blast.width * (0.45 + 0.55 * left);
+    g.fillStyle(hot.glow, 0.45 * k).fillPoints(tongue(lift, lift + span * 0.95, girth * 0.62), true);
+    g.fillStyle(hot.core, 0.75 * k).fillPoints(tongue(lift, lift + span * 0.75, girth * 0.4), true);
+    g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillPoints(tongue(lift, lift + span * 0.5, girth * 0.2), true);
+    /** Pointe : un losange très allongé, pointu à sa base (à `from` pixels du canon) comme à son sommet. */
+    const spike = (angle: number, from: number, to: number, width: number): Phaser.Geom.Point[] => {
+      const c = Math.cos(angle);
+      const s = Math.sin(angle);
+      const belly = from + (to - from) * 0.22;
+      return [
+        new Phaser.Geom.Point(f.x + c * from, f.y + s * from),
+        new Phaser.Geom.Point(f.x + c * belly + s * width, f.y + s * belly - c * width),
+        new Phaser.Geom.Point(f.x + c * to, f.y + s * to),
+        new Phaser.Geom.Point(f.x + c * belly - s * width, f.y + s * belly + c * width),
+      ];
+    };
     for (const r of f.rays) {
       const angle = f.angle + r.offset;
+      const tip = reach * r.length;
+      const run = tip - lift;
+      if (run < 12) continue; // la base de la flamme l'a déjà dépassée
       // trois épaisseurs : halo orangé, corps jaune, fil blanc
-      g.fillStyle(hot.glow, 0.5 * k).fillPoints(ray(angle, reach * r.length, r.width * 2.2), true);
-      g.fillStyle(hot.core, 0.8 * k).fillPoints(ray(angle, reach * r.length * 0.86, r.width * 1.2), true);
-      g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillPoints(ray(angle, reach * r.length * 0.6, r.width * 0.55), true);
+      g.fillStyle(hot.glow, 0.5 * k).fillPoints(spike(angle, lift, tip, r.width * 2.2), true);
+      g.fillStyle(hot.core, 0.8 * k).fillPoints(spike(angle, lift, lift + run * 0.86, r.width * 1.2), true);
+      g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillPoints(spike(angle, lift, lift + run * 0.6, r.width * 0.55), true);
     }
     // étincelles : de courts traits qui s'éloignent du canon
     for (const p of f.sparks) {
@@ -1336,12 +1351,11 @@ export class WorldView {
       const d = p.from + p.speed * f.age;
       g.lineStyle(2, hot.core, 0.9 * k).lineBetween(f.x + c * d, f.y + s * d, f.x + c * (d + p.size), f.y + s * (d + p.size));
     }
-    // le cœur, chauffé à blanc, à la bouche du canon
-    const cx = f.x + Math.cos(f.angle) * 10;
-    const cy = f.y + Math.sin(f.angle) * 10;
-    g.fillStyle(hot.glow, 0.45 * k).fillCircle(cx, cy, 26);
-    g.fillStyle(hot.core, 0.7 * k).fillCircle(cx, cy, 16);
-    g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillCircle(cx, cy, 9);
+    // le cœur, chauffé à blanc, juste devant la base de la flamme : il ne recouvre jamais le canon
+    const cx = f.x + ax * (lift + 13);
+    const cy = f.y + ay * (lift + 13);
+    g.fillStyle(hot.core, 0.7 * k).fillCircle(cx, cy, 13);
+    g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillCircle(cx, cy, 7);
   }
 
   /** Sprite et image du corps du héros selon son état. */
