@@ -113,9 +113,10 @@ const TRACER_STYLE = {
   /**
    * Déflagration à la bouche du canon : une flamme de lumière vers l'avant, longue comme deux fois l'arme,
    * tenue `hold` secondes à pleine force puis éteinte selon une exponentielle de constante `decay`. Elle
-   * éclaire la pièce autour d'elle dans un rayon `light`.
+   * éclaire ce qui est devant le canon, sur `light` pixels : une zone étroite mais intense, et presque rien
+   * vers l'arrière (un canon n'éclaire pas derrière lui).
    */
-  blast: { length: 190, width: 46, hold: 0.03, decay: 0.075, light: 340, lightAlpha: 0.6 },
+  blast: { length: 190, width: 46, hold: 0.03, decay: 0.075, light: 250, lightAlpha: 0.95 },
 };
 
 /** Trait de lumière d'une balle en vol : début de sa ligne droite en cours (départ ou dernier ricochet) et dernier tracé. */
@@ -1222,12 +1223,47 @@ export class WorldView {
   private addMuzzleFlash(x: number, y: number, angle: number, enemy: boolean): void {
     if (this.flashes.some((f) => f.age < 0.03 && Math.abs(f.x - x) < 6 && Math.abs(f.y - y) < 6)) return;
     const blast = TRACER_STYLE.blast;
-    this.ensureHalo();
-    // la lueur est posée au-dessus de l'ombre de la salle : elle éclaire aussi un lieu sombre
-    const light = this.scene.add.image(x + Math.cos(angle) * blast.length * 0.35, y + Math.sin(angle) * blast.length * 0.35, 'lightHalo')
+    const cone = this.muzzleLightTexture();
+    // la lueur est posée au-dessus de l'ombre de la salle : elle éclaire aussi un lieu sombre. Elle part de la
+    // bouche du canon et porte vers l'avant.
+    const light = this.scene.add.image(x, y, cone.key).setOrigin(cone.focusX, 0.5).setRotation(angle)
       .setBlendMode(Phaser.BlendModes.ADD).setTint((enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero).glow)
-      .setScale((blast.light * 2) / 256).setDepth(DEPTH.darkness + 1);
+      .setScale(blast.light / cone.reach).setDepth(DEPTH.darkness + 1);
     this.flashes.push({ x, y, angle, enemy, age: 0, light });
+  }
+
+  /**
+   * Lueur d'un tir : un cône de lumière dessiné vers la droite, très vif à la bouche du canon, qui s'éteint
+   * vers l'avant et sur les côtés, et ne déborde presque pas vers l'arrière. `focusX` : place de la bouche du
+   * canon dans l'image ; `reach` : pixels de l'image entre la bouche et le bout de la lueur.
+   */
+  private muzzleLightTexture(): { key: string; focusX: number; reach: number } {
+    const key = 'muzzleLight';
+    const width = 256;
+    const height = 128;
+    const focus = 22;
+    const centre = 132;
+    const radius = 122;
+    if (!this.scene.textures.exists(key)) {
+      const canvas = this.scene.textures.createCanvas(key, width, height);
+      if (canvas) {
+        const ctx = canvas.context;
+        ctx.save();
+        // un dégradé rond dont le foyer est décalé vers l'arrière : il rayonne surtout vers l'avant ; on l'aplatit
+        ctx.translate(0, height / 2);
+        ctx.scale(1, 0.5);
+        const gradient = ctx.createRadialGradient(focus, 0, 0, centre, 0, radius);
+        gradient.addColorStop(0, 'rgba(255,255,255,1)');
+        gradient.addColorStop(0.18, 'rgba(255,255,255,0.85)');
+        gradient.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, -height, width, height * 2);
+        ctx.restore();
+        canvas.refresh();
+      }
+    }
+    return { key, focusX: focus / width, reach: centre + radius - focus };
   }
 
   /**

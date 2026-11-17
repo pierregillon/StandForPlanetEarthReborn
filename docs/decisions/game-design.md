@@ -1405,10 +1405,10 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 **Décision.**
 
 - **Déflagration** : au tir, une flamme de lumière en forme de goutte s'étend vers l'avant sur 190 px, environ deux fois la longueur de l'arme. Elle est blanche en son centre et jaune autour.
-- **Elle éclaire la pièce** : une lueur jaune de 340 px de rayon teinte le décor autour du canon, y compris dans une salle sombre.
+- **Elle éclaire ce qui est devant le canon** : une lueur jaune en cône, étroite mais intense, porte sur 250 px vers l'avant et teinte le décor, y compris dans une salle sombre. Elle n'éclaire presque rien vers l'arrière : un canon qui tire n'éclaire pas derrière lui. (Premier essai : une lueur ronde de 340 px de rayon autour de l'arme, jugée trop ronde et trop étendue par l'utilisateur.)
 - **Extinction** : pleine force pendant 30 ms, puis extinction exponentielle (constante de 75 ms), vive au début et de plus en plus lente. Le blanc s'éteint le premier, la flamme jaunit puis rougeoie. Le tout dure moins de 0,3 s.
 - **Balles et traînées** : à la sortie du canon elles ont la même lumière que la déflagration, avec un halo autour de la balle. Elles restent chaudes sur 450 px de vol, puis refroidissent : la traînée s'amincit, pâlit et vire au gris, et à 1 150 px on ne voit plus que la balle elle-même (son sprite d'origine).
 - **Traînée plus longue et plus large** : 900 px au plus (420 avant), 7,5 px de large (5 avant).
 - *Par défaut* : la lumière des ennemis reste un peu plus orangée que celle des héros, déflagration comprise, pour qu'on sache qui tire.
 
-**Conséquences.** `TRACER_STYLE` dans `WorldView.ts` regroupe tous ces réglages ; la lueur est une image en lumière ajoutée posée au-dessus de l'ombre de la salle. Affichage seulement : la simulation de GD-064 ne change pas. La lueur n'est pas arrêtée par les murs : elle déborde un peu de l'autre côté d'une cloison proche. Vu dans la page en solo, sur des images figées : la flamme, la lueur sur le sol, son extinction, une balle refroidie au loin.
+**Conséquences.** `TRACER_STYLE` dans `WorldView.ts` regroupe tous ces réglages ; la lueur est une image en lumière ajoutée posée au-dessus de l'ombre de la salle. Affichage seulement : la simulation de GD-064 ne change pas. La lueur n'est pas arrêtée par les murs : elle déborde un peu de l'autre côté d'une cloison proche. Vu dans la page en solo, sur des images figées : la flamme, la lueur en cône sur le sol, son extinction, une balle refroidie au loin.
