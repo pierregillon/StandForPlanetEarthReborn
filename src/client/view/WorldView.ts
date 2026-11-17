@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import type { FloorManifest } from '../assets.ts';
 import { CONFIG, STEPS_PER_SECOND, TRACERS } from '../../sim/config.ts';
-import { BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, angleDiff } from '../../sim/geom.ts';
+import { BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, angleDiff, localToWorld } from '../../sim/geom.ts';
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
@@ -135,6 +135,28 @@ const TRACER_STYLE = {
   },
 };
 
+/**
+ * Bout du canon de chaque tireur, mesuré sur la première image de son sprite de tir : pixels depuis l'origine
+ * du sprite, x vers l'avant, y vers sa droite. La flamme d'un tir naît là. Le point de tir de la simulation
+ * (`muzzle`, repris du code de 2019) en est parfois loin : 19 px en arrière pour EngiBot, 7 pour PetBot, 6 pour
+ * ShotBot. Un tireur sans mesure garde le point de tir de la simulation.
+ */
+const GUN_TIPS: Record<string, { x: number; y: number }> = {
+  spr_PetBot_shot: { x: 97, y: 24.5 },
+  spr_EngiBot_shot: { x: 62, y: 57 },
+  spr_npc1_shot: { x: 84, y: 7.5 },
+  spr_npc_lightBot_tir: { x: 76, y: 24.5 },
+  spr_npc_shotBot_shot: { x: 85, y: -32 },
+};
+/**
+ * Bout du canon de la tourelle d'EngiBot, qui s'allonge avec son niveau (une image de `spr_turet` par niveau).
+ * La simulation tire de 60 px en avant quel que soit le niveau, soit 16 px devant le canon au niveau 1.
+ */
+const TURRET_TIPS = { x: [44, 47, 53, 59], y: 1 };
+
+/** Où se trouve le bout d'un canon à cet instant, et vers où il pointe. */
+type Gun = () => { x: number; y: number; angle: number } | null;
+
 /** Trait de lumière d'une balle en vol : début de sa ligne droite en cours (départ ou dernier ricochet) et dernier tracé. */
 interface Streak {
   fromX: number;
@@ -162,11 +184,17 @@ interface Afterglow {
   life: number;
 }
 
-/** Déflagration à la bouche d'un canon : son âge en secondes, et la lueur qu'elle jette sur la pièce. */
+/**
+ * Déflagration à la bouche d'un canon : son âge en secondes, et la lueur qu'elle jette sur la pièce. Elle reste
+ * accrochée au canon (`gun`) : si le tireur avance ou tourne pendant qu'elle brûle, elle le suit. `turn` :
+ * écart entre la direction de la balle et celle du canon, c'est-à-dire la dispersion de ce tir.
+ */
 interface MuzzleFlash {
   x: number;
   y: number;
   angle: number;
+  gun: Gun | null;
+  turn: number;
   enemy: boolean;
   age: number;
   light: Img;
@@ -1155,7 +1183,7 @@ export class WorldView {
       streak = { fromX: b.startX, fromY: b.startY, angle: b.angle, tailX: b.startX, tailY: b.startY, headX: b.x, headY: b.y, speed: b.speed, heat: 1, enemy, done: false };
       this.streaks.set(b.id, streak);
       // une balle qui vient de partir : déflagration à la bouche du canon (pas pour celles qu'on découvre déjà en vol)
-      if (b.steps <= 8) this.addMuzzleFlash(b.startX, b.startY, b.angle, enemy);
+      if (b.steps <= 8) this.addMuzzleFlash(b, enemy);
     }
     let img = this.bulletImgs.get(b.id);
     if (!img) {
@@ -1243,8 +1271,66 @@ export class WorldView {
     }
   }
 
-  /** Déflagration à la bouche du canon. Une salve de plusieurs plombs (ShotBot) n'en fait qu'une. */
-  private addMuzzleFlash(x: number, y: number, angle: number, enemy: boolean): void {
+  /**
+   * Le canon d'où sort une balle qui vient d'être tirée : une fonction qui redonne, à chaque image, la place
+   * du bout de ce canon et sa direction (`null` une fois le tireur disparu). `null` si l'on ne retrouve pas le
+   * tireur : la flamme reste alors au point de départ de la balle.
+   */
+  private gunOf(b: Bullet): Gun | null {
+    const near = (x: number, y: number): number => Math.hypot(x - b.startX, y - b.startY);
+    if (b.owner === 'hero') {
+      const id = b.ownerId;
+      const hero = this.world.heroes.find((h) => h.id === id);
+      if (hero && near(hero.x, hero.y) < 250) {
+        const tip = GUN_TIPS[hero.def.sprites.shot] ?? hero.def.muzzle;
+        return () => {
+          const h = this.world.heroes.find((o) => o.id === id);
+          return h && h.state !== 'dead' ? { ...localToWorld(h.x, h.y, h.angle, tip.x, tip.y), angle: h.angle } : null;
+        };
+      }
+      // une balle de héros sans tireur : la tourelle d'EngiBot
+      const turret = this.world.turret;
+      if (!turret || near(turret.x, turret.y) > 150) return null;
+      return () => {
+        const t = this.world.turret;
+        if (!t) return null;
+        const reach = TURRET_TIPS.x[t.level - 1] ?? CONFIG.abilities.engiBot.turretMuzzle;
+        return { ...localToWorld(t.x, t.y, t.angle, reach, TURRET_TIPS.y), angle: t.angle };
+      };
+    }
+    // une balle ennemie ne dit pas qui l'a tirée : c'est le soldat dont le canon est le plus près de son départ
+    let shooter: Npc | null = null;
+    let closest = 120;
+    for (const npc of this.world.npcs) {
+      const def = npc.def;
+      if (def.kind !== 'soldier' || !def.bullet) continue;
+      const m = localToWorld(npc.x, npc.y, npc.angle, def.muzzle.x, def.muzzle.y);
+      const d = near(m.x, m.y);
+      if (d < closest) {
+        shooter = npc;
+        closest = d;
+      }
+    }
+    if (!shooter || shooter.def.kind !== 'soldier') return null;
+    const id = shooter.id;
+    const tip = GUN_TIPS[shooter.def.sprites.shot] ?? shooter.def.muzzle;
+    return () => {
+      const npc = this.world.npcs.find((o) => o.id === id);
+      return npc ? { ...localToWorld(npc.x, npc.y, npc.angle, tip.x, tip.y), angle: npc.angle } : null;
+    };
+  }
+
+  /**
+   * Déflagration à la bouche du canon qui vient de tirer la balle `b`. Elle naît au bout du canon tel qu'il
+   * est dessiné, pas au point de départ de la balle. Une salve de plusieurs plombs (ShotBot) n'en fait qu'une.
+   */
+  private addMuzzleFlash(b: Bullet, enemy: boolean): void {
+    const gun = this.gunOf(b);
+    const now = gun?.() ?? null;
+    const x = now ? now.x : b.startX;
+    const y = now ? now.y : b.startY;
+    const angle = b.angle;
+    const turn = now ? angleDiff(now.angle, b.angle) : 0;
     if (this.flashes.some((f) => f.age < 0.03 && Math.abs(f.x - x) < 6 && Math.abs(f.y - y) < 6)) return;
     const blast = TRACER_STYLE.blast;
     const cone = this.muzzleLightTexture();
@@ -1264,7 +1350,7 @@ export class WorldView {
       offset: (Math.random() * 2 - 1) * blast.spread * 1.5,
       from: (30 + Math.random() * 110) * blast.size, speed: (500 + Math.random() * 900) * blast.size, size: (6 + Math.random() * 10) * blast.size,
     }));
-    this.flashes.push({ x, y, angle, enemy, age: 0, light, rays, sparks });
+    this.flashes.push({ x, y, angle, gun, turn, enemy, age: 0, light, rays, sparks });
   }
 
   /**
@@ -1320,9 +1406,16 @@ export class WorldView {
     const girth = blast.width * blast.size;
     // distance entre le canon et la base de la flamme : nulle au tir, elle grandit à mesure qu'elle s'estompe
     const lift = blast.drift * blast.size * (1 - k);
+    // elle suit le canon : un tireur qui court ou qui tourne l'emmène avec lui
+    const gun = f.gun?.();
+    if (gun) {
+      f.x = gun.x;
+      f.y = gun.y;
+      f.angle = gun.angle + f.turn;
+    }
     const ax = Math.cos(f.angle);
     const ay = Math.sin(f.angle);
-    f.light.setAlpha(blast.lightAlpha * k).setPosition(f.x + ax * lift, f.y + ay * lift);
+    f.light.setAlpha(blast.lightAlpha * k).setPosition(f.x + ax * lift, f.y + ay * lift).setRotation(f.angle);
     /** Langue de feu de `from` à `to` pixels du canon : pointue à sa base, ventrue ensuite, effilée vers l'avant. */
     const tongue = (from: number, to: number, width: number): Phaser.Geom.Point[] => {
       const side: { along: number; across: number }[] = [];
