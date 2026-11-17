@@ -1,4 +1,4 @@
-# Niveau TvTv² — fiche de mission et script de l'introduction
+# Niveau TvTv² — fiche de mission, scripts de l'introduction et de la fin
 
 > **Statut : proposition à valider par l'utilisateur** (2026-11-17). Ce qui est déjà décidé est dans GD-077 et repris ici tel quel ; tout le reste est marqué « proposé ».
 >
@@ -82,7 +82,7 @@ Proposé, à détailler quand on réécrira le niveau (étape 4). L'introduction
 | 7 | Get back to the drop point | Vers le sud | Nouvelle ; la police arrive en masse par les portails 4 (section 2 bis) |
 | 8 | Too many of them. Take the north gate | Salon d'attente, dépose-minute, portails 3 | Remplace SallyBot ; fin du niveau |
 
-Les consignes 7 et 8 sont une proposition de formulation pour le scénario décidé par l'utilisateur (section 2 bis).
+Les consignes 7 et 8 sont une proposition de formulation pour le scénario décidé par l'utilisateur (section 2 bis). Le déroulé détaillé des consignes 4 à 8, avec les textes, est en section 10.
 
 Les portes, les cartes et les boutons restent où ils sont : seules les consignes et la fin changent.
 
@@ -168,7 +168,7 @@ Les cases vides ne peuvent pas se produire avec la règle ci-dessus.
 |---|---|
 | **A. La radio et le largage** (plans 3 et 4, largage) — **livrée le 2026-11-17 (GD-078)** | Bandes de cinéma (sprite d'origine `spr_cine_bande`), boîte de dialogue lettre par lettre avec portrait (`spr_textBox` et portraits des robots, déjà dans le jeu), horloge de séquence dans la simulation, passage par l'hôte, vol stationnaire du véhicule, quatre robots dans les pinces, largage des seuls robots joués, répliques de la section 5 |
 | **B. Le direct** (plans 1 et 2) — **livrée le 2026-11-17 (GD-080)**, puis reprise par GD-081 : vrai sprite pour le portrait, vraie pièce de studio | Un présentateur et son pupitre sur le plateau, trois caméras (sprite d'origine `spr_camera`), le cadre « TvTv² LIVE » et son logo, le portrait du présentateur, les écrans qui clignotent, la neige à la coupure, le jingle. Le présentateur, son portrait et le logo sont à dessiner. |
-| **C. Le niveau** | Les consignes de la section 3, la fin du niveau, le retrait de la zone de forage et de SallyBot |
+| **C. Le niveau** | Les consignes de la section 3, la fin du niveau, le retrait de la zone de forage et de SallyBot. Découpée en trois livraisons jouables, section 10.7 |
 
 ## 8. Les échos à préparer
 
@@ -186,3 +186,136 @@ Les points 3, 4 et 5 sont appliqués tels quels dans la première livraison (GD-
 4. Une pince fixe par robot.
 5. Ne rejouer que le largage après un « Retry » depuis le début.
 6. La suite d'objectifs de la section 3, au moins dans son principe.
+
+## 10. Script de la fin de mission
+
+> **Statut : proposition à valider par l'utilisateur** (2026-11-17). Le scénario est le sien (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé.
+
+Ce que la fin doit faire comprendre, d'après l'arc narratif (acte II) : les robots ont parlé à toute la population ; ils ont laissé une dernière chance ; la réponse des humains est la force ; les robots s'échappent, et ils sont désormais une menace majeure. Elle ne dit toujours rien du virus ni de SFHB.
+
+### 10.1 Vue d'ensemble
+
+| Temps | Consigne | Ce que fait le joueur | Ce qui le déclenche | Forme |
+|---|---|---|---|---|
+| A | Take the control room | Il nettoie la régie et appuie sur le bouton | Retour au rez-de-chaussée avec la carte | Jeu, une réplique radio |
+| B | Reach the studio | Il entre sur le plateau et va derrière le pupitre | Le bouton de la régie | Jeu |
+| C | Broadcast the message | Il lit l'ultimatum | La moitié de l'équipe derrière le pupitre, compte à rebours | **Cinématique** |
+| D | Get back to the drop point | Il part vers le sud | Fin de l'ultimatum | Jeu |
+| E | Too many of them. Take the north gate | Il se replie vers le nord en combattant | Premier contact avec la vague | Jeu, deux répliques radio |
+| F | Hold on. The gate is opening | Il tient devant le portail 3 | Le bouton du portail 3 | Jeu, une réplique radio |
+| G | — | Il sort ; le véhicule le récupère | La moitié de l'équipe dehors | **Cinématique**, puis l'écran de fin |
+
+Deux formes de texte :
+
+- **Cinématique** : comme l'introduction (GD-079). Bandes de cinéma, le jeu s'arrête, Espace passe à la réplique suivante, Espace tenu passe tout, l'hôte seul le peut.
+- **Radio en jeu** (nouveau) : la boîte de dialogue en petit format, en bas de l'écran, avec portrait et nom. Le jeu continue, la réplique s'efface seule après 4 secondes. Elle sert quand on se bat : on ne fige pas un combat pour une phrase.
+
+### 10.2 A et B — la régie, puis le plateau
+
+- **Consigne 4, « Take the control room ».** Elle s'affiche au retour au rez-de-chaussée, à la place de « Exit to the drilling area ». Elle se termine quand un robot appuie sur le bouton de la régie (le bouton n° 2 du niveau d'origine).
+- **Au bouton** : les deux portes de l'aile est s'ouvrent, comme aujourd'hui — celle du salon d'attente au nord, celle du salon de sortie au sud ; chaque salon donne sur le plateau par une porte automatique. L'enseigne « ON AIR » du plateau s'éteint (le direct est coupé), les écrans de la régie et du hall passent à la neige. Radio en jeu, dite par le robot qui a appuyé : « Control room secured. The way to the studio is open. »
+- **Consigne 5, « Reach the studio ».** Une marque au sol s'allume derrière le pupitre, à la place du présentateur. Le présentateur est un civil comme les autres : quand les robots entrent, il fuit.
+- **Passage à la consigne 6** : dès qu'un robot entre sur le plateau, la consigne devient « Broadcast the message ».
+- **Le déclencheur** reprend la règle de la sortie de niveau d'aujourd'hui : il faut la moitié de l'équipe, vivante, sur la marque ; un compte à rebours de 3 secondes s'affiche (« ON AIR IN 3… 2… 1… ») ; si l'on quitte la marque, il s'annule.
+
+### 10.3 C — l'ultimatum (cinématique)
+
+C'est le miroir de l'introduction : mêmes plans, même cadre « TvTv² LIVE », mais les robots ont pris la place du présentateur (écho prévu en section 8).
+
+**Qui parle.** Le robot debout à la place du présentateur ; s'ils sont plusieurs sur la marque, le premier de la liste BadaBot, BatBot, PetBot, EngiBot (la même que pour le largage). Son portrait remplace celui du présentateur dans le cadre. **Le texte est le même quel que soit le robot** : l'unité parle d'une seule voix et dit « we ». C'est voulu : ces machines récitent la cause pour laquelle on les a programmées (thème central de l'arc, section 6).
+
+| Temps | Image | Son | Texte |
+|---|---|---|---|
+| 0,0 – 1,0 | Les bandes se ferment. L'enseigne « ON AIR » se rallume. Les caméras du plateau pivotent vers le pupitre. | Le jingle du journal, déformé, plus grave | — |
+| Répliques 1 à 3 | **Plan 1, le plateau.** Le même cadrage que le plan 1 de l'introduction : la régie à gauche, le robot derrière le pupitre à droite, sous les projecteurs. Les autres robots de l'équipe sont à ses côtés. Cadre « TvTv² LIVE » avec le portrait du robot. | Silence de studio | 1. « People of Earth. This is the Stand For Planet Earth unit. » — 2. « You built us to protect this planet. We did. You answered with guns. » — 3. « They told you we are out of control. We are exactly what you made us. » |
+| Répliques 4 à 6 | **Plan 2, le hall d'accueil.** Coupe franche. Les trois écrans du hall brillent, le robot y a remplacé le présentateur. Le hall est dans l'état où les joueurs l'ont laissé. | Idem ; à la réplique 6, des sirènes montent au loin | 4. « Your laws have failed. The forests burn, the seas choke, and you keep drilling. » — 5. « So hear this. Everything that harms this planet stops. Today. » — 6. « This is your last chance to change. There will be no second message. » |
+| Réplique 7 | Retour au **plan 1**, plus serré sur le pupitre. | Sirènes plus proches | 7. « Stand for planet Earth. Or we will stand for it without you. » |
+| Coupure | L'image saute, le cadre « TvTv² LIVE » se couvre de neige et disparaît : on a coupé l'antenne. L'enseigne « ON AIR » s'éteint. | Grésillement, puis les sirènes seules | — |
+| Réplique 8 | Le plateau, sans cadre. Boîte de dialogue normale, voix radio. | Sirènes | Celui qui est resté dans le véhicule (règle ci-dessous) : « Message is out, on every screen. Pick-up at the drop point, as planned. » |
+| Fin | Les bandes s'ouvrent. | — | Consigne : « Get back to the drop point » |
+
+Notes sur le texte :
+
+- La réplique 3 répond au présentateur de l'introduction (« out of control ») ; la 4 renvoie aux foreuses de l'acte I.
+- La réplique 7 détourne le nom de l'unité. La menace reste voilée : on ne dit pas ce que « without you » veut dire. C'est la phrase à retrouver dans SFHB, sur un enregistrement (section 8).
+- L'introduction coupait le présentateur au milieu d'un mot ; ici les robots finissent leur message, et c'est l'antenne qu'on leur coupe après.
+
+**La voix du véhicule** (réplique 8 et radio des temps E et F) : parmi les robots restés à bord, le premier de la liste EngiBot, PetBot, BatBot, BadaBot (la règle du largage). Si les quatre robots sont joués, personne n'est à bord : c'est BadaBot, au sol, qui le dit. Le texte est le même pour tous.
+
+**Pendant la cinématique** : comme pendant le journal de l'introduction, plus personne ne bouge ni ne tire dans le niveau, et le brouillard du plateau et du hall est levé. Un point de sauvegarde est posé à la fin : après un échec, « Retry » ramène sur le plateau juste après le message, sans le rejouer.
+
+### 10.4 D et E — le sud, puis le changement de plan
+
+**Ce que le joueur ne voit pas.** Pendant l'ultimatum, les portails 4 se sont ouverts et les fourgons sont entrés sur le parking sud. Aucun plan ne le montre : on entend seulement les sirènes. La surprise voulue par le scénario (« ils tombent nez à nez avec cette armée ») est gardée pour le jeu.
+
+**La vague** (proposé ; les nombres iront dans `config.ts`) :
+
+| Moment | Qui | D'où |
+|---|---|---|
+| À la fin de l'ultimatum | 15 policiers, répartis sur le parking sud | Déjà à pied devant trois fourgons garés |
+| + 6 secondes | 15 de plus : 10 policiers, 3 robots boucliers, 2 robots fusils à pompe | Par les portails 4 |
+| + 12 secondes | 15 de plus : 8 policiers, 4 robots légers, 3 robots boucliers | Par les portails 4 |
+| Ensuite, tant que l'équipe n'est pas sortie | 6 renforts toutes les 10 secondes, sans dépasser 45 ennemis vivants à la fois | Par les portails 4 |
+
+- **Leur trajet** : le parking sud, les deux portes du local technique, le salon de sortie, la porte sud du plateau. Leur point de ralliement est le pupitre ; dès qu'ils voient un robot, ils se battent comme les autres soldats.
+- **Pourquoi des renforts sans fin** : la consigne dit « ils sont trop nombreux ». Si le joueur pouvait tuer les 45 et sortir par le sud, la consigne mentirait. Le sud ne se vide donc jamais, et il n'y a pas de sortie de ce côté.
+- **Les gardes encore vivants ailleurs dans le bâtiment** ne changent pas de comportement.
+
+**Consigne 7, « Get back to the drop point ».** Elle envoie vers la porte sud du plateau. Elle ne dure que quelques secondes : c'est une fausse piste voulue.
+
+**Le changement de plan** se déclenche au premier de ces événements : un robot entre dans le salon de sortie ; un ennemi de la vague entre sur le plateau ; 15 secondes ont passé depuis la fin de l'ultimatum. Radio en jeu, deux répliques à la suite :
+
+- La voix du véhicule : « The south side is crawling with them. Forty, maybe fifty. Forget the drop point. »
+- Un robot au sol (le premier de la liste BadaBot, BatBot, PetBot, EngiBot ; un autre que la voix du véhicule si possible) : « Then we leave through the north gate. »
+
+Consigne 8 : « Too many of them. Take the north gate ». Le trajet : la porte nord du plateau, le salon d'attente, le dépose-minute, le bouton du portail 3.
+
+### 10.5 F — tenir devant le portail
+
+- **Au bouton du portail 3** : les deux battants s'ouvrent lentement, en 10 secondes au lieu d'une. Radio en jeu, la voix du véhicule : « Gate is opening. We are coming for you. Hold on. »
+- **Consigne** : « Hold on. The gate is opening ».
+- C'est le dernier combat du niveau : l'équipe est dos au portail, la vague arrive par le salon d'attente et par la porte du parking. Il remplace le duel contre SallyBot.
+- Le nord reste libre : aucun ennemi n'arrive par les portails 3.
+
+### 10.6 G — la récupération (cinématique)
+
+**Le déclencheur** : la moitié de l'équipe, vivante, dans la zone de sortie, juste derrière les portails 3. Pas de compte à rebours cette fois : on ne fait pas attendre sous le feu. (Dans le niveau d'origine, la zone de sortie est déjà au nord, dehors, mais 2000 px plus à l'ouest le long de la façade, avec 10 secondes d'attente : elle est rapprochée du portail.)
+
+| Temps | Image | Son | Texte |
+|---|---|---|---|
+| 0,0 – 1,0 | Les bandes se ferment. Les robots et leurs poursuivants se figent. | Rotors qui arrivent vite | — |
+| 1,0 – 3,5 | Le véhicule entre par le nord, descend, ses pinces saisissent les robots, qui se replient (l'animation de déploiement à l'envers). Les robots à terre sont emportés aussi. | Claquement des pinces | — |
+| 3,5 – 6,0 | Le véhicule remonte et s'éloigne vers le nord. La caméra reste sur le portail : les policiers débouchent sur le dépose-minute, trop tard, et tirent en l'air. | Rotors qui s'éloignent, tirs | — |
+| Répliques 1 et 2 | Fondu vers le plan 2 de l'introduction : le hall d'accueil et ses écrans. Bandeau rouge « TvTv² — EMERGENCY BROADCAST », sans portrait. | Bip d'alerte | 1. « This is an emergency broadcast. » — 2. « The 'Stand For Planet Earth' unit is now considered a major threat to mankind. All forces are authorized to destroy it on sight. » |
+| Répliques 3 à 5 | Noir. La boîte de dialogue seule, voix radio, comme dans l'introduction. | Rotors lointains | BATBOT : « Did they listen? » — ENGIBOT : « They heard. » — BADABOT : « Now we wait and see what they do with it. » |
+| Fin | L'écran de fin de niveau (statistiques), déjà en place. | — | — |
+
+Notes :
+
+- La réplique 2 répond mot pour mot à la première phrase du jeu : « is now considered out of control » devient « is now considered a major threat to mankind ». C'est le changement de statut de l'acte II.
+- Le bandeau d'urgence n'a pas de portrait : la séquence ne dépend pas du sort du présentateur.
+- Les trois dernières répliques sont dites par des robots fixes, comme la radio de l'introduction : à ce moment les quatre sont à bord, quelle que soit l'équipe. PetBot, qui a donné l'objectif à l'aller, se tait.
+- « They heard » n'est pas « they listened » : c'est la porte ouverte sur l'acte III, où l'ultimatum n'a rien changé.
+
+### 10.7 Ce qu'il faut fabriquer
+
+Trois livraisons jouables, à essayer l'une après l'autre.
+
+| Livraison | Contenu | Ce que l'on peut jouer à la fin |
+|---|---|---|
+| **C1. Jusqu'au message** | Consignes 2, 4, 5 et 6 ; effets du bouton de la régie ; marque derrière le pupitre et compte à rebours ; cinématique de l'ultimatum (répliques 1 à 8) ; radio en jeu ; point de sauvegarde sur le plateau | Du largage jusqu'à la fin de l'ultimatum |
+| **C2. La vague** | Arrivée de la police par les portails 4, trajet vers le plateau, renforts, consignes 7 et 8, les deux répliques du changement de plan ; fourgons de police garés sur le parking sud | Le repli jusqu'au dépose-minute |
+| **C3. La sortie** | Ouverture lente du portail 3, consigne « Hold on », zone de sortie, cinématique de récupération, écran de fin. La zone de forage et SallyBot quittent ce niveau : leur salle reste dans le dépôt pour l'acte I, mais on n'y accède plus d'ici | Le niveau entier |
+
+À dessiner ou à fabriquer : le bandeau « EMERGENCY BROADCAST », la marque au sol derrière le pupitre, un fourgon de police à la bonne taille (ceux d'origine étaient géants et ont été retirés des quais), les sirènes, le jingle déformé.
+
+### 10.8 Points à valider
+
+1. **Le texte de l'ultimatum** (répliques 1 à 7), et le fait qu'il soit le même quel que soit le robot qui le lit.
+2. **Qui le lit** : le robot à la place du présentateur. L'autre possibilité : les quatre robots se partagent les phrases, ceux du véhicule par radio.
+3. **Ne pas montrer l'arrivée des fourgons** pour garder la surprise. L'autre possibilité : un plan du parking sud à la fin de l'ultimatum, plus spectaculaire, mais le joueur sait alors avant ses robots.
+4. **Des renforts sans fin au sud**, pour que « trop nombreux » soit vrai.
+5. **Le portail 3 qui s'ouvre en 10 secondes**, pour un dernier combat dos au mur ; et rien qui arrive par le nord.
+6. **La radio en jeu** qui ne fige pas l'action, en plus des cinématiques.
+7. **La fin** : le communiqué d'urgence, puis les trois répliques des robots.
+8. **Le point de sauvegarde** après l'ultimatum.
