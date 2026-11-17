@@ -174,7 +174,7 @@ interface Made {
 }
 
 /** Sprites fabriqués autrefois et abandonnés depuis : leurs images et leur entrée sont retirées. */
-const RETIRED = ['spr_BadaBot_ulti_wall', 'spr_BadaBot_ulti_cast'];
+const RETIRED = ['spr_BadaBot_ulti_wall', 'spr_BadaBot_ulti_cast', 'spr_BadaBot_ulti_wave'];
 
 function write(made: Made[]): void {
   const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as Record<string, unknown>;
@@ -467,59 +467,6 @@ function petBotNanos(): Made {
   return { name: 'spr_PetBot_ulti_nanos', width: size, height: size, ox: mid, oy: mid, fps: 24, frames };
 }
 
-// ---------- BadaBot : la vague d'énergie ----------
-
-/**
- * Vague (GD-051) : un front d'énergie bombé vers l'avant, large comme les deux boucliers de BadaBot, aux
- * couleurs de ses boucliers (bleu, cœur clair, liseré vert), suivi de filets de vitesse. 8 images qui bouclent.
- * Dessinée vers la droite, l'origine sur la pointe du front : le jeu la tourne dans le sens de la vague.
- */
-function badaBotWave(): Made {
-  const width = 300;
-  const height = 300;
-  const ox = 240;
-  const oy = height / 2;
-  const BLUE: Rgb = [91, 120, 255];
-  const DEEP: Rgb = [44, 52, 150];
-  const PALE: Rgb = [201, 212, 255];
-  const RIM: Rgb = [157, 255, 157];
-  // le front est un arc d'un grand cercle centré derrière lui : 105 px de demi-largeur
-  const radius = 190;
-  const cx = ox - radius;
-  const half = Math.asin(105 / radius);
-  const count = 8;
-  const rand = random(23);
-  const lines = Array.from({ length: 18 }, (_, k) => ({ y: -96 + (192 * (k + 0.5)) / 18 + (rand() - 0.5) * 6, phase: rand(), length: 60 + rand() * 110, width: 1.6 + rand() * 2.4 }));
-  const sparks = Array.from({ length: 10 }, () => ({ y: (rand() - 0.5) * 180, phase: rand(), size: 2 + rand() * 2.5 }));
-  const frames: Image[] = [];
-  for (let i = 0; i < count; i++) {
-    const p = i / count;
-    const img = canvas(width, height);
-    const pulse = 0.5 + 0.5 * Math.sin(p * TAU);
-    // filets de vitesse derrière le front : ils s'allongent et se raccourcissent à contretemps
-    for (const line of lines) {
-      const front = cx + Math.sqrt(radius * radius - line.y * line.y) - 8;
-      const reach = line.length * (0.55 + 0.45 * Math.sin((p + line.phase) * TAU));
-      streak(img, front, oy + line.y, front - reach, oy + line.y, line.width, 0.4, BLUE, 0.3);
-      streak(img, front, oy + line.y, front - reach * 0.5, oy + line.y, line.width * 0.5, 0.3, PALE, 0.55);
-    }
-    // le front : halo sombre, corps bleu, cœur clair, fil blanc, puis le liseré vert sur son bord d'attaque
-    crescent(img, cx, oy, radius - 6, 30, -half, half * 2, DEEP, 0.4);
-    crescent(img, cx, oy, radius, 19 + 2 * pulse, -half, half * 2, BLUE, 0.85);
-    crescent(img, cx, oy, radius + 3, 9, -half * 0.96, half * 1.92, PALE, 0.9);
-    crescent(img, cx, oy, radius + 5, 3.2, -half * 0.9, half * 1.8, WHITE, 0.95);
-    crescent(img, cx, oy, radius + 21, 1.8, -half * 0.8, half * 1.6, RIM, 0.5 + 0.4 * pulse);
-    // éclats arrachés au front
-    for (const spark of sparks) {
-      const life = (p + spark.phase) % 1;
-      const front = cx + Math.sqrt(radius * radius - spark.y * spark.y);
-      disc(img, front + 10 + 22 * life, oy + spark.y * (1 + 0.08 * life), spark.size * (1 - life), life < 0.5 ? WHITE : RIM, 0.9 * (1 - life));
-    }
-    frames.push(img);
-  }
-  return { name: 'spr_BadaBot_ulti_wave', width, height, ox, oy, fps: 16, frames };
-}
-
 // ---------- EngiBot : la grenade électromagnétique ----------
 
 /** Grenade : une cartouche aux couleurs d'EngiBot, qui tourne ; son voyant bleu clignote. */
@@ -608,7 +555,7 @@ export function makeSprites(): void {
     batBotCast(), petBotCast(), engiBotCast(),
     ...ultiCharge(), dustCloud(),
     batBotLeap(), batBotBlast(), batBotCrater(),
-    petBotNanos(), badaBotWave(), engiBotGrenade(), engiBotPulse(),
+    petBotNanos(), engiBotGrenade(), engiBotPulse(),
   ]);
 }
 

@@ -33,6 +33,31 @@ export class Synth {
     osc.stop(t0 + duration + 0.02);
   }
 
+  /**
+   * Souffle : du bruit blanc passé dans un filtre passe-bas qui se referme de `from` à `to` hertz. C'est ce
+   * qui donne son claquement à une détonation, qu'un oscillateur seul ne sait pas faire.
+   */
+  private noise(from: number, to: number, duration: number, volume: number, delay = 0): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t0 = ctx.currentTime + delay;
+    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * duration), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(from, t0);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(40, to), t0 + duration);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(Math.min(0.9, volume * this.boost), t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    source.connect(filter).connect(gain).connect(ctx.destination);
+    source.start(t0);
+    source.stop(t0 + duration + 0.02);
+  }
+
   /** Bouton de porte qui s'enfonce : un clac sourd puis un déclic. */
   buttonPress(): void {
     this.tone('square', 150, 55, 0.09, 0.16);
@@ -118,13 +143,14 @@ export class Synth {
       this.tone('triangle', 500, 1500, 0.5, 0.1);
       this.tone('sine', 750, 2200, 0.5, 0.06, 0.05);
     } else if (kind === 'BadaBot') {
-      // ses deux boucliers se heurtent (GD-051) : un fracas de métal (des partiels sans rapport simple entre
-      // eux, comme une plaque qu'on frappe), le coup sourd du choc, puis le souffle de la vague qui s'éloigne
-      const partials: [number, number, number][] = [[587, 0.55, 0.15], [1321, 0.42, 0.13], [1873, 0.32, 0.11], [2741, 0.24, 0.09], [3517, 0.17, 0.07], [4489, 0.11, 0.05]];
-      for (const [pitch, seconds, volume] of partials) this.tone('square', pitch, pitch * 0.96, seconds, volume);
-      this.tone('sawtooth', 2400, 280, 0.07, 0.2);
-      this.tone('sine', 140, 36, 0.5, 0.26);
-      this.tone('sawtooth', 900, 110, 0.9, 0.08, 0.05);
+      // la détonation d'un canon magnétique (GD-052) : un claquement sec, le coup sourd qui pousse l'air, la
+      // décharge électrique qui s'effondre de l'aigu au grave, puis le grondement de l'onde qui s'éloigne
+      this.noise(9000, 500, 0.09, 0.55);
+      this.tone('sine', 150, 30, 0.6, 0.3);
+      this.tone('square', 90, 28, 0.35, 0.16);
+      this.tone('sawtooth', 3600, 110, 0.32, 0.13);
+      this.tone('sine', 5200, 900, 0.18, 0.06);
+      this.noise(1400, 90, 1.1, 0.22, 0.04);
     } else if (kind === 'EngiBot') {
       this.tone('square', 300, 140, 0.12, 0.12);
     } else {

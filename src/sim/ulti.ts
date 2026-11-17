@@ -2,7 +2,7 @@
 // de lancement, immobile et vulnérable, puis le coup propre à chaque robot :
 //   BatBot  : il bondit dans la mêlée et son atterrissage explose autour de lui ;
 //   PetBot  : ses mini-bots tournent autour de lui et répandent un essaim de nanomachines qui soigne les alliés ;
-//   BadaBot : il frappe ses boucliers, une vague d'énergie file devant lui et projette tout au loin ;
+//   BadaBot : il frappe ses boucliers, une onde d'énergie file devant lui, blesse et projette tout au loin ;
 //   EngiBot : une grenade électromagnétique désactive les robots ennemis, sans effet sur les humains.
 import { CONFIG } from './config.ts';
 import { BLOCK_MOVE, BLOCK_SIGHT, DEG, IS_WINDOW, rotateToward } from './geom.ts';
@@ -89,15 +89,13 @@ function release(world: World, h: Hero, input: Input): void {
     world.effects.push({ ...base, kind: 'nanos', x: h.x, y: h.y, total: U.petBot.steps, radius: U.petBot.radius });
   } else if (h.def.kind === 'BadaBot') {
     const cfg = U.badaBot;
-    // la vague naît devant lui, là où ses boucliers se heurtent, et s'arrête au premier mur
-    const reach = cfg.start + cfg.range;
-    const hit = world.collision.raycast(h.x, h.y, h.x + c * reach, h.y + s * reach, BLOCK_SIGHT);
-    const length = Math.max(0, (hit ? reach * hit.t : reach) - cfg.start);
+    // la vague naît devant lui, là où ses boucliers se heurtent ; chacune de ses bandes va jusqu'à son obstacle
     const x = h.x + c * cfg.start;
     const y = h.y + s * cfg.start;
-    world.effects.push({
-      ...base, kind: 'wave', x, y, fromX: x, fromY: y, total: Math.ceil(length / cfg.speed) + cfg.fadeSteps, radius: cfg.halfWidth, length,
-    });
+    const wave: UltiEffect = { ...base, kind: 'wave', x, y, fromX: x, fromY: y, total: 0, radius: cfg.halfWidth, length: cfg.range };
+    wave.length = Math.max(...waveStrips(world, wave));
+    wave.total = Math.ceil(wave.length / cfg.speed) + cfg.fadeSteps;
+    world.effects.push(wave);
   } else {
     const cfg = U.engiBot;
     // la grenade vole vers le point visé et s'arrête au premier mur
@@ -158,6 +156,47 @@ function land(world: World, h: Hero): void {
 /** Ce que chaque vague a déjà projeté : elle ne reprend pas deux fois le même (côté serveur seulement). */
 const swept = new WeakMap<UltiEffect, Set<number>>();
 
+/** Portée de chaque bande de chaque vague. Elle n'est pas transmise sur le réseau : chaque monde la calcule. */
+const stripsOf = new WeakMap<UltiEffect, number[]>();
+
+/**
+ * La vague est une onde (GD-052) : son front est découpé en bandes côte à côte, et chacune avance jusqu'au
+ * premier mur (ou porte fermée) sur sa propre trajectoire. Si la moitié du front heurte un angle de mur,
+ * l'autre moitié continue tout droit. Retourne la distance que parcourt chaque bande, de gauche à droite.
+ * Appelé aussi par le client d'une partie en réseau, qui calcule les mêmes bandes sur son monde miroir.
+ */
+export function waveStrips(world: World, e: UltiEffect): number[] {
+  let strips = stripsOf.get(e);
+  if (strips) return strips;
+  const cfg = U.badaBot;
+  const c = Math.cos(e.angle);
+  const s = Math.sin(e.angle);
+  // BadaBot se tient en arrière du point où naît la vague
+  const hx = e.fromX - c * cfg.start;
+  const hy = e.fromY - s * cfg.start;
+  strips = [];
+  for (let i = 0; i < cfg.strips; i++) {
+    const across = waveStripOffset(e, i);
+    const sx = e.fromX - s * across;
+    const sy = e.fromY + c * across;
+    // une bande qui naîtrait derrière un mur (BadaBot collé à une cloison) n'existe pas
+    if (world.collision.raycast(hx, hy, sx, sy, BLOCK_SIGHT)) {
+      strips.push(0);
+      continue;
+    }
+    const hit = world.collision.raycast(sx, sy, sx + c * cfg.range, sy + s * cfg.range, BLOCK_SIGHT);
+    strips.push(hit ? cfg.range * hit.t : cfg.range);
+  }
+  stripsOf.set(e, strips);
+  return strips;
+}
+
+/** Écart latéral du milieu de la bande `i` par rapport à l'axe de la vague. */
+export function waveStripOffset(e: UltiEffect, i: number): number {
+  const n = U.badaBot.strips;
+  return ((i + 0.5) / n - 0.5) * 2 * e.radius;
+}
+
 /** Position du front de la vague de BadaBot d'après le temps écoulé. Sert aussi au client d'une partie en réseau. */
 export function placeWave(e: UltiEffect): void {
   const d = Math.min(e.length, U.badaBot.speed * e.steps);
@@ -166,38 +205,50 @@ export function placeWave(e: UltiEffect): void {
 }
 
 /**
- * La vague avance d'un pas : tout ce que son front rencontre est projeté droit devant (GD-051). Les ennemis et
- * les chaises partent à sa vitesse ; les balles ennemies sont emportées et changent de camp ; les vitres
- * éclatent. Les héros et leurs objets ne sentent rien. Le boss est trop lourd : il est seulement sonné.
+ * La vague avance d'un pas (GD-051, GD-052). Ce que son front rencontre est blessé et projeté droit devant :
+ * les ennemis (les survivants seront sonnés à l'arrivée), les chaises ; les balles ennemies sont emportées et
+ * changent de camp ; les vitres éclatent ; les foreuses encaissent. Les héros et leurs objets ne sentent
+ * rien. Le boss est trop lourd pour être déplacé : il est blessé et sonné.
  */
 function sweepWave(world: World, e: UltiEffect): void {
   const cfg = U.badaBot;
-  const d0 = Math.min(e.length, cfg.speed * (e.steps - 1));
-  const d1 = Math.min(e.length, cfg.speed * e.steps);
-  if (d1 <= d0) return;
+  const d0 = cfg.speed * (e.steps - 1);
+  const d1 = cfg.speed * e.steps;
+  if (d0 >= e.length) return;
   const c = Math.cos(e.angle);
   const s = Math.sin(e.angle);
+  const strips = waveStrips(world, e);
+  const width = (2 * e.radius) / strips.length;
   let done = swept.get(e);
   if (!done) swept.set(e, (done = new Set()));
-  // les vitres sur le passage du front, sur toute sa largeur
-  for (const side of [-1, 0, 1]) {
-    const ox = e.fromX - s * side * e.radius;
-    const oy = e.fromY + c * side * e.radius;
-    const glass = world.collision.raycast(ox + c * d0, oy + s * d0, ox + c * d1, oy + s * d1, IS_WINDOW);
+  // les vitres sur le passage de chaque bande encore en course
+  strips.forEach((reach, i) => {
+    if (d0 >= reach) return;
+    const across = waveStripOffset(e, i);
+    const ox = e.fromX - s * across;
+    const oy = e.fromY + c * across;
+    const to = Math.min(reach, d1);
+    const glass = world.collision.raycast(ox + c * d0, oy + s * d0, ox + c * to, oy + s * to, IS_WINDOW);
     if (glass) world.breakWindow(glass.obstacle.owner as WindowPane, e.angle);
-  }
-  /** Le front atteint-il ce corps à ce pas ? Un mur entre l'axe de la vague et lui le protège. */
+  });
+  /** Une bande encore en course atteint-elle ce corps à ce pas ? */
   const caught = (x: number, y: number, radius: number): boolean => {
     const along = (x - e.fromX) * c + (y - e.fromY) * s;
+    if (along < d0 - radius || along > d1 + radius) return false;
     const across = -(x - e.fromX) * s + (y - e.fromY) * c;
-    if (Math.abs(across) > e.radius + radius || along < d0 - radius || along > d1 + radius) return false;
-    const reach = Math.max(0, Math.min(e.length, along));
-    return !world.shotBlocked(e.fromX + c * reach, e.fromY + s * reach, x, y);
+    const first = Math.max(0, Math.floor((across - radius + e.radius) / width));
+    const last = Math.min(strips.length - 1, Math.floor((across + radius + e.radius) / width));
+    for (let i = first; i <= last; i++) {
+      // la bande doit arriver jusqu'à lui : arrêtée avant par un mur, elle ne le touche pas
+      if (strips[i] > d0 && strips[i] >= along - radius) return true;
+    }
+    return false;
   };
   for (const npc of world.npcs) {
     if (done.has(npc.id) || !caught(npc.x, npc.y, npc.def.radius)) continue;
     done.add(npc.id);
     npc.active = true;
+    npc.hp -= cfg.damage;
     if (npc.def.kind === 'boss') {
       npc.stun = Math.max(npc.stun, cfg.dazeSteps);
       continue;
@@ -206,6 +257,11 @@ function sweepWave(world: World, e: UltiEffect): void {
     npc.thrownAngle = e.angle;
     npc.path = null;
     npc.state = 'standing';
+  }
+  for (const drill of world.drills) {
+    if (drill.destroyed || done.has(drill.id) || !caught(drill.x, drill.y, drill.radius)) continue;
+    done.add(drill.id);
+    world.damageDrill(drill, cfg.damage);
   }
   for (const chair of world.chairs) {
     if (done.has(chair.id) || !caught(chair.obstacle.cx, chair.obstacle.cy, CONFIG.chair.radius)) continue;

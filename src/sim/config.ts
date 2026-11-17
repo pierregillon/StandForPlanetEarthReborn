@@ -336,8 +336,10 @@ export const CONFIG = {
      * BadaBot (GD-051) : il frappe ses deux boucliers, une vague d'énergie en jaillit et file droit devant lui.
      * Elle fait la largeur des deux boucliers, parcourt un écran et projette tout ce qu'elle rencontre à deux
      * écrans de là. `start` : distance entre BadaBot et le point où la vague naît.
+     * C'est une onde, pas un objet (GD-052) : elle est découpée en `strips` bandes côte à côte, et chacune
+     * s'arrête à son propre obstacle pendant que les autres continuent. `damage` : dégâts au contact.
      */
-    badaBot: { start: 70, halfWidth: 100, speed: 40, range: 1920, throwDistance: 3840, dazeSteps: s(1.5), fadeSteps: 10 },
+    badaBot: { start: 70, halfWidth: 100, strips: 16, speed: 40, range: 1920, damage: 2, throwDistance: 3840, dazeSteps: s(1.5), fadeSteps: 10 },
     /** EngiBot : la grenade vole puis éclate ; les robots ennemis du rayon sont désactivés. */
     engiBot: { range: 760, flySteps: 34, pulseSteps: 45, radius: 750, stunSteps: s(6) },
   },

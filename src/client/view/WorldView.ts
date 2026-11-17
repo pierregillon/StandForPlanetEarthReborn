@@ -8,7 +8,7 @@ import { BLOCK_MOVE, BLOCK_SIGHT, angleDiff } from '../../sim/geom.ts';
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
-import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm } from '../../sim/ulti.ts';
+import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
 import type { Bat, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
@@ -280,6 +280,8 @@ export class WorldView {
   private laser!: Phaser.GameObjects.Graphics;
   /** Arcs d'énergie autour d'un robot qui lance son ulti (GD-048). */
   private ultiArcs!: Phaser.GameObjects.Graphics;
+  /** Onde de l'ulti de BadaBot (GD-052), redessinée à chaque image. */
+  private waveFx!: Phaser.GameObjects.Graphics;
   private heroFx!: Phaser.GameObjects.Graphics;
   private npcFx!: Phaser.GameObjects.Graphics;
   private readonly cardGlows = new Map<number, Img>();
@@ -393,6 +395,7 @@ export class WorldView {
     for (const h of world.heroes) this.partsOf(h);
     this.laser = scene.add.graphics().setDepth(DEPTH.laser);
     this.ultiArcs = scene.add.graphics().setDepth(DEPTH.character + 2.2).setBlendMode(Phaser.BlendModes.ADD);
+    this.waveFx = scene.add.graphics().setDepth(DEPTH.fx + 3).setBlendMode(Phaser.BlendModes.ADD);
     this.heroFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
     this.npcFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
     this.cable = scene.add.graphics().setDepth(DEPTH.laser);
@@ -1167,18 +1170,82 @@ export class WorldView {
   }
 
   /**
-   * La vague de BadaBot emporte les débris qu'elle rencontre (membres, éclats de verre) : ils filent avec elle
+   * L'onde de l'ulti de BadaBot (GD-052). Ce n'est pas un objet qui traverse la salle mais une onde d'énergie :
+   * un front lumineux légèrement bombé, suivi de plusieurs échos de plus en plus pâles, au-dessus d'un sillage.
+   * Elle est dessinée bande par bande : la partie qui heurte un mur s'y écrase dans un éclat et s'arrête,
+   * le reste continue tout droit. En bout de course, sans obstacle, elle s'estompe.
+   */
+  private drawWave(e: UltiEffect): void {
+    const cfg = CONFIG.ulti.badaBot;
+    const g = this.waveFx;
+    const colors = ULTI_COLORS.BadaBot;
+    const strips = waveStrips(this.world, e);
+    const half = e.radius / strips.length;
+    const c = Math.cos(e.angle);
+    const s = Math.sin(e.angle);
+    const reach = cfg.speed * e.steps;
+    const at = (across: number, along: number): Phaser.Geom.Point => new Phaser.Geom.Point(e.fromX + c * along - s * across, e.fromY + s * along + c * across);
+    /** Retard du front sur ses bords : il est bombé vers l'avant. */
+    const bow = (across: number): number => 26 * (across / e.radius) ** 2;
+    // le front (trois traits superposés : halo, corps clair, fil blanc), puis ses échos derrière lui
+    const layers = [
+      { back: 0, width: 18, color: colors.main, alpha: 0.32 },
+      { back: 0, width: 9, color: colors.light, alpha: 0.7 },
+      { back: 0, width: 3, color: 0xffffff, alpha: 0.95 },
+      { back: 36, width: 7, color: colors.light, alpha: 0.4 },
+      { back: 36, width: 2, color: 0xffffff, alpha: 0.5 },
+      { back: 68, width: 5, color: colors.main, alpha: 0.4 },
+      { back: 98, width: 4, color: colors.main, alpha: 0.26 },
+      { back: 126, width: 3, color: colors.main, alpha: 0.15 },
+    ];
+    strips.forEach((limit, i) => {
+      const mid = waveStripOffset(e, i);
+      const blocked = limit < cfg.range - 1;
+      // sillage au sol de cette bande, jusqu'à son front ou jusqu'à son obstacle
+      const wake = Math.min(limit, reach);
+      const dying = Math.max(0, Math.min(1, (e.total - e.steps) / (cfg.fadeSteps * 2)));
+      if (wake > 0) g.fillStyle(colors.main, 0.07 * dying).fillPoints([at(mid - half, 0), at(mid + half, 0), at(mid + half, wake), at(mid - half, wake)], true);
+      for (const layer of layers) {
+        const a0 = reach - layer.back - bow(mid - half);
+        const a1 = reach - layer.back - bow(mid + half);
+        const along = (a0 + a1) / 2;
+        // pas encore sortie des boucliers, ou déjà écrasée contre son obstacle
+        if (along <= 0 || along > limit) continue;
+        // sans obstacle, elle s'estompe sur la fin de sa course ; elle naît en s'allumant
+        const fade = (blocked ? 1 : Math.min(1, (limit - along) / 300)) * Math.min(1, along / 50);
+        g.lineStyle(layer.width, layer.color, layer.alpha * fade);
+        const from = at(mid - half, Math.min(limit, a0));
+        const to = at(mid + half, Math.min(limit, a1));
+        g.lineBetween(from.x, from.y, to.x, to.y);
+      }
+      // la bande s'écrase contre un mur : un éclat qui s'étale le long du mur et s'éteint
+      const since = (reach - limit) / cfg.speed;
+      if (blocked && limit > 0 && since >= 0 && since < 9) {
+        const k = since / 9;
+        const hit = at(mid, limit - 4);
+        g.fillStyle(colors.light, 0.55 * (1 - k)).fillCircle(hit.x, hit.y, half * (1.6 + 2.2 * k));
+        g.fillStyle(0xffffff, 0.85 * (1 - k)).fillCircle(hit.x, hit.y, half * (0.8 + 0.6 * k));
+      }
+    });
+    this.sweepRemains(e, strips, reach);
+  }
+
+  /**
+   * L'onde de BadaBot emporte les débris qu'elle rencontre (membres, éclats de verre) : ils filent avec elle
    * en tournoyant, jusqu'au premier mur. Affichage seulement : chaque joueur voit voler ses propres débris.
    */
-  private sweepRemains(e: UltiEffect, reach: number): void {
+  private sweepRemains(e: UltiEffect, strips: number[], reach: number): void {
     const cfg = CONFIG.ulti.badaBot;
     const c = Math.cos(e.angle);
     const s = Math.sin(e.angle);
+    const width = (2 * e.radius) / strips.length;
     for (const img of this.remains) {
       if (!this.loose.has(img) || this.sweptBy.get(img) === e.id) continue;
       const along = (img.x - e.fromX) * c + (img.y - e.fromY) * s;
       if (along > reach || along < reach - cfg.speed * 3) continue;
-      if (Math.abs(-(img.x - e.fromX) * s + (img.y - e.fromY) * c) > e.radius) continue;
+      // la bande qui passe sur lui doit être arrivée jusque-là
+      const strip = Math.floor((-(img.x - e.fromX) * s + (img.y - e.fromY) * c + e.radius) / width);
+      if (strip < 0 || strip >= strips.length || strips[strip] < along) continue;
       this.sweptBy.set(img, e.id);
       let entry = this.debris.find((d) => d.img === img);
       if (!entry) this.debris.push((entry = { img, vx: 0, vy: 0, spin: 0 }));
@@ -1195,7 +1262,12 @@ export class WorldView {
     const scene = this.scene;
     const now = scene.time.now / 1000;
     const alive = new Set<number>();
+    this.waveFx.clear();
     for (const e of this.world.effects) {
+      if (e.kind === 'wave') {
+        this.drawWave(e);
+        continue;
+      }
       alive.add(e.id);
       let parts = this.effectImgs.get(e.id);
       // les dernières images : l'effet s'efface au lieu de disparaître d'un coup
@@ -1216,24 +1288,6 @@ export class WorldView {
         const cy = swarm ? swarm.swarmY : e.y;
         parts.main.setPosition(cx, cy).setScale(e.radius / 246).setAlpha(0.6 * fade);
         parts.extra?.setPosition(cx, cy).setAlpha(0.07 * fade + 0.02 * Math.sin(now * 5));
-      } else if (e.kind === 'wave') {
-        const cfg = CONFIG.ulti.badaBot;
-        parts ??= {
-          main: this.image('spr_BadaBot_ulti_wave', 0, e.x, e.y, DEPTH.fx + 3).setRotation(e.angle),
-          // son sillage au sol : une bande claire de la largeur de la vague, du point de départ jusqu'au front
-          extra: scene.add.rectangle(e.fromX, e.fromY, 1, e.radius * 2, ULTI_COLORS.BadaBot.main).setOrigin(0, 0.5).setRotation(e.angle)
-            .setDepth(DEPTH.remains + 1).setBlendMode(Phaser.BlendModes.ADD),
-        };
-        const info = this.info('spr_BadaBot_ulti_wave');
-        this.setFrame(parts.main, 'spr_BadaBot_ulti_wave', (now * info.speed) % info.frames);
-        const reach = Math.min(e.length, cfg.speed * e.steps);
-        // elle jaillit des boucliers, file, puis s'étale et s'éteint en bout de course
-        const burst = Math.min(1, 0.4 + 0.15 * e.steps);
-        const dying = Math.max(0, Math.min(1, (e.total - e.steps) / cfg.fadeSteps));
-        // le front dessiné fait 105 px de demi-largeur
-        parts.main.setPosition(e.x, e.y).setScale(1 + 0.3 * (1 - dying), (e.radius / 105) * burst * (1 + 0.25 * (1 - dying))).setAlpha(dying);
-        parts.extra?.setScale(Math.max(1, reach), 1).setAlpha(0.1 * dying);
-        this.sweepRemains(e, reach);
       } else {
         const fly = CONFIG.ulti.engiBot.flySteps;
         parts ??= {

@@ -1110,3 +1110,24 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Une vague qui balaie un couloir donne à BadaBot, le tank, un outil de contrôle : il dégage le passage, renvoie les balles et met un groupe hors de combat le temps de se replacer.
 
 **Conséquences.** Simulation : effet `wave` dans `src/sim/ulti.ts` (`sweepWave`, `stepThrown`), champs `thrown`, `thrownAngle` et `daze` des PNJ, `thrown` des chaises ; réglages dans `CONFIG.ulti.badaBot`. Le mur (obstacle, sprite `spr_BadaBot_ulti_wall`, posture `spr_BadaBot_ulti_cast`) est retiré. Sprite fabriqué `spr_BadaBot_ulti_wave`. Les débris emportés ne sont que de l'affichage : chaque joueur voit voler les siens. Vu à l'écran en solo : la canalisation sur les boucliers, la frappe, la vague qui emporte trois ennemis à deux écrans, puis leur étourdissement. Pas essayé en réseau ; les chaises, les balles et les murs ne sont couverts que par les tests ; le son n'a pas pu être écouté.
+
+## GD-052 — Vague de BadaBot : des dégâts, une onde qui épouse les obstacles, une détonation
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; modifie GD-051
+- **Décidée par** : l'utilisateur ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** Premier essai de la vague (GD-051) : elle ne blessait pas, se comportait comme un objet rigide (un seul obstacle sur son axe l'arrêtait tout entière) et son « fracas de métal » ne convenait pas.
+
+**Décision.**
+
+- **Dégâts au contact** : la vague blesse les ennemis qu'elle touche. Ceux qui n'en meurent pas sont projetés puis sonnés, comme avant.
+  - *Par défaut* : **2 points de dégâts**, une seule fois par vague. Cela tue les humains (1 PV) et les robots légers (2 PV) ; le robot à bouclier (3 PV) survit, sonné. Le bouclier frontal des robots ne les protège pas. Le boss perd 2 PV sur 60 et reste sonné 1,5 s ; ses foreuses encaissent aussi 2 points. Pour comparaison, l'atterrissage de BatBot fait 14.
+- **Une onde, pas un objet** : si une partie de la vague heurte un obstacle, cette partie s'arrête là et le reste continue tout droit. Exemple : la moitié du front heurte un angle de mur, l'autre moitié poursuit sa course.
+  - *Par défaut* : le front est découpé en 16 bandes de 12,5 px, chacune avec sa propre portée ; les obstacles sont les murs et les portes fermées (la vague passe toujours au-dessus des meubles et brise les vitres). Un ennemi à l'abri derrière le pan de mur n'est pas touché ; celui qui est devant l'est.
+- **Aspect** : la vague n'est plus un sprite en forme de lame mais une onde dessinée par le code : un front lumineux légèrement bombé, suivi de quatre échos de plus en plus pâles, au-dessus d'un sillage. La partie qui s'écrase contre un mur y laisse un éclat ; sans obstacle, l'onde s'estompe en bout de course.
+- **Son** : une détonation de canon magnétique à la place du fracas de métal : un claquement sec (du bruit filtré), le coup sourd, une décharge électrique qui s'effondre de l'aigu au grave, puis le grondement de l'onde qui s'éloigne. Toujours un son de synthèse.
+
+**Pourquoi.** Une onde d'énergie se diffracte et se casse sur les obstacles au lieu de s'arrêter d'un bloc : c'est ce qui la distingue d'un projectile, et cela rend l'ulti utilisable dans les couloirs et près des angles.
+
+**Conséquences.** `waveStrips` dans `src/sim/ulti.ts` calcule la portée de chaque bande ; elle n'est pas transmise sur le réseau, chaque monde la calcule sur ses propres murs (comme le faisait le mur de GD-044). Réglages `strips` et `damage` dans `CONFIG.ulti.badaBot`. Dessin : `drawWave` dans `WorldView.ts` ; le sprite `spr_BadaBot_ulti_wave` est retiré. Son : `Synth.noise` (bruit filtré) ajouté dans `sfx.ts`. Vu à l'écran en solo contre un angle de mur : la partie de l'onde contre le mur s'arrête, l'autre continue et blesse l'ennemi placé plus loin. Pas essayé en réseau ; le son n'a pas pu être écouté.
