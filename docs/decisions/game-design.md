@@ -93,7 +93,8 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-085 | Fin de TvTv², première partie : la régie, le plateau, l'ultimatum | 2026-11-17 | Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) ; modifiée par GD-087 (texte de la consigne 7, état de la salle retrouvé après un Retry) |
 | GD-086 | Fin de TvTv², deuxième partie : la riposte de la police | 2026-11-17 | Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord) ; modifiée par GD-087 (déclenchement, tailles des groupes, trajet, consigne, Retry) |
 | GD-087 | La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde | 2026-11-17 | Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) ; modifiée par GD-088 (le changement de plan passe par une cinématique, consigne 8) |
-| GD-088 | Le face-à-face avec le barrage de police | 2026-11-18 | Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 |
+| GD-088 | Le face-à-face avec le barrage de police | 2026-11-18 | Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 ; complétée par GD-089 (la sortie) |
+| GD-089 | Fin de TvTv², troisième partie : le portail nord, l'extraction, la fin du niveau | 2026-11-18 | Acceptée ; applique GD-083 (exfiltration par le nord) et le script de la fin (section 10.5 à 10.7 de la fiche du niveau) ; remplace la fin d'origine (zone de sortie vers la zone de forage, GD-077) |
 
 ---
 
@@ -1967,7 +1968,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 ## GD-088 — Le face-à-face avec le barrage de police
 
 - **Date** : 2026-11-18
-- **Statut** : Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086
+- **Statut** : Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 ; complétée par GD-089 (la sortie)
 - **Décidée par** : l'utilisateur pour la scène et ses répliques, données en français : une cinématique à l'arrivée sur le parking, bandes noires comprises, qui montre le barrage face aux robots ; un policier qui dit « rendez-vous, vous êtes cernés, lâchez vos armes » ; un robot qui répond par une blague à l'équipe, « je crois qu'on sera en retard pour le dîner », puis « impossible de sortir ici, il faut passer par le garage nord, le plan B » ; à la fin les ennemis tirent et forcent le demi-tour. Choix par défaut, à confirmer : la mise en anglais, le robot qui répond, la disposition du barrage, l'éclairage de la scène, le portrait du policier, le texte de la consigne 8
 
 **Contexte.** Avec GD-087, l'équipe découvrait la police en arrivant sur le parking, et trois secondes plus tard deux répliques radio annonçaient le changement de plan pendant le combat. L'utilisateur veut que ce moment soit une scène : on tombe nez à nez avec les voitures de police et la première vague, et cela se dit.
@@ -1989,3 +1990,30 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** En partie à plusieurs, les robots restés loin du parking sont figés où ils sont pendant la scène et n'apparaissent pas à l'image. Les policiers ne bougent pas pendant la sommation. La scène n'a ni voix ni bruitage propre, seulement une reprise des sirènes.
 
 **Conséquences.** `src/sim/scenes.ts` (nouveau : répliques, cadre, répartition entre les séquences qui partagent `World.cast`), `World.castScene`, `World.startStandoff`, `endCast` ; `src/sim/wave.ts` (`engage`, `found`, barrage, `wavePlanB`) ; `TV_STUDIO.wave.line` et `vans` ; `CONFIG.standoff` ; `OBJECTIVES` ; événements `standoff` et `standoffEnd` ; `castScene` dans l'état transmis aux clients. Affichage : `IntroOverlay.ts` (portrait du policier, répliques par séquence), `GameScene.ts` (cadre), `WorldView.ts` (`sceneLight`). Sprite : `policePortrait` dans `tools/make-studio.ts`. Tests : `src/sim/wave.test.ts` (douze tests), test réseau étendu.
+
+---
+
+## GD-089 — Fin de TvTv², troisième partie : le portail nord, l'extraction, la fin du niveau
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; applique GD-083 (exfiltration par le nord) et le script de la fin (section 10.5 à 10.7 de la fiche du niveau) ; remplace la fin d'origine (zone de sortie vers la zone de forage, GD-077)
+- **Décidée par** : l'utilisateur pour le déroulé (« repasser dans le studio, se diriger vers le garage nord, sortir de la base pour extraction », puis « on peut enchaîner avec l'extraction C3 et fin du niveau »). Le détail vient du script proposé plus tôt et jamais contredit : les dix secondes d'ouverture, les textes, la séquence d'extraction. Sont des choix par défaut pris à la réalisation : le bouclage des portails à la fin de l'ultimatum, la consigne « Get out! », le bouton qui lance la police, le titre de l'écran de fin
+
+**Contexte.** Depuis GD-085 le niveau n'avait plus de fin : le portail nord s'ouvrait comme une porte ordinaire et rien ne se passait dehors.
+
+**Décision.**
+
+- **Tenir devant le portail.** Pendant le repli, le bouton du portail nord (portails 3) ouvre ses battants en dix secondes au lieu d'une. La consigne devient « Hold on. The gate is opening » et la voix du véhicule dit, en radio : « Gate is opening. We are coming for you. Hold on. » C'est le dernier combat du niveau, dos au portail, à la place du duel contre SallyBot. Rien n'arrive par le nord.
+- **Le bâtiment est bouclé à la fin de l'ultimatum** : des portails nord ouverts en explorant se referment et leur bouton est de nouveau à presser. Avant l'ultimatum, ils s'ouvrent normalement, en une seconde.
+- **Au nord sans passer par le sud** : appuyer sur le bouton pendant « Leave by the south parking lot » lance la police comme le filet de sécurité de GD-087, sans face-à-face, et passe directement à « Hold on ».
+- **Sortir.** Les battants ouverts à fond, la consigne devient « Get out! The pick-up is outside ». L'extraction commence dès que la moitié de l'équipe, vivante, est dans la zone de sortie, dehors, juste derrière le portail. Pas de compte à rebours.
+- **L'extraction** est une cinématique aux règles de l'introduction (GD-079), monde figé. Le véhicule de largage revient par le nord avec les robots restés à bord, se pose devant le portail, ses pinces tirent à elles tous les robots de l'équipe, robots à terre compris, qui se replient (l'animation de déploiement à l'envers) ; il remonte et repart. L'image reste un instant sur le portail vide.
+- **Le communiqué.** L'image saute et passe au hall d'accueil et à ses écrans, bandeau rouge « TvTv² EMERGENCY BROADCAST », sans portrait : « This is an emergency broadcast. » puis « The 'Stand For Planet Earth' unit is now considered a major threat to mankind. All forces are authorized to destroy it on sight. »
+- **La radio des robots**, sur fond noir : BATBOT, « Did they listen? » ; ENGIBOT, « They heard. » ; BADABOT, « Now we wait and see what they do with it. »
+- **La fin** : l'écran de statistiques d'origine, posé sur le noir, titré « Message delivered. The whole world heard it. » L'hôte peut passer toute la séquence en tenant la touche ; le niveau se termine alors aussitôt.
+
+**Pourquoi.** L'acte II de l'arc narratif finit sur un changement de statut : les robots « sont désormais considérés comme une menace majeure pour l'humanité ». Le communiqué le dit avec les mots de la première phrase du jeu (« is now considered out of control »), et « They heard » n'est pas « they listened » : c'est la porte de l'acte III, où l'ultimatum n'a rien changé. Les dix secondes donnent un dernier combat sans boss. Le bouclage garantit que ce combat a lieu même si le joueur avait ouvert le portail plus tôt.
+
+**Limites connues.** Les poursuivants ne débouchent pas sur le dépose-minute pendant le départ : le monde est figé pendant la séquence. Le véhicule garde son orientation d'origine au lieu de pivoter vers le nord. L'ancienne zone de sortie (`exitZone`, `obj_endLevel`) reste dans le niveau, inactive. La séquence n'a pas été essayée à plusieurs à l'écran. La difficulté du dernier combat n'a pas été éprouvée en jouant.
+
+**Conséquences.** `src/sim/scenes.ts` (`SCENE.pickup`, `pickupPhases`, `pickupPose`, `pickupShot`, `pickupLines`, textes), `src/sim/world.ts` (`lockNorthGates`, `slowNorthGates`, `northGatePressed`, `stepExit`, `levelEnded` ; la séquence finie reste sur son dernier plan et le monde ne reprend pas), `CONFIG.exit`, `TV_STUDIO.exit`, consignes 9 et 10 de `OBJECTIVES`, événements `pickup` et `pickupNews`, champ `alert` des répliques. Affichage : `WorldView.syncPickup` (véhicule et robots saisis), `IntroOverlay.ts` (bandeau d'urgence, fond noir), `GameScene.ts` (cadres, titre de l'écran de fin). Tests : `src/sim/exit.test.ts` (huit tests).

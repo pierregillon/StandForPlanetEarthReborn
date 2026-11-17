@@ -577,6 +577,9 @@ export type SimEvent =
   /** Le face-à-face avec le barrage de police commence (GD-088) ; puis il finit, et la police ouvre le feu. */
   | { type: 'standoff' }
   | { type: 'standoffEnd'; skipped: boolean }
+  /** L'extraction commence (GD-089) : le véhicule revient ; puis le communiqué d'urgence passe à l'antenne. */
+  | { type: 'pickup' }
+  | { type: 'pickupNews' }
   /** Les sirènes de la police montent. */
   | { type: 'sirens' }
   /** Radio en jeu : une réplique courte, qui n'arrête pas la partie. */

@@ -8,7 +8,7 @@ import { frameKey } from '../assets.ts';
 import { CONFIG } from '../../sim/config.ts';
 import { ANCHOR, arrivalPhases, introLines, introShot, typingSteps } from '../../sim/intro.ts';
 import { castShot } from '../../sim/broadcast.ts';
-import { POLICE, SCENE, sceneLines } from '../../sim/scenes.ts';
+import { POLICE, SCENE, pickupShot, sceneLines } from '../../sim/scenes.ts';
 import type { IntroLine } from '../../sim/intro.ts';
 import type { World } from '../../sim/world.ts';
 
@@ -50,6 +50,8 @@ export class IntroOverlay {
   private readonly live: Phaser.GameObjects.Text;
   /** Parasites quand l'image du journal saute. */
   private readonly glitch: Phaser.GameObjects.Graphics;
+  /** Écran noir de la fin de l'extraction (GD-089) : la radio des robots s'y écrit, puis l'écran de fin s'y pose. */
+  private readonly black: Phaser.GameObjects.Rectangle;
   private glitchUntil = 0;
   private lastShot = '';
   private readonly hint: Phaser.GameObjects.Text;
@@ -92,6 +94,7 @@ export class IntroOverlay {
     this.live = scene.add.text(s.box.width - 22, 16, '●  LIVE', { fontFamily: 'Aldo', fontSize: '26px', color: '#ff4b4b', stroke: '#000000', strokeThickness: 4 }).setOrigin(1, 0);
     this.panel = scene.add.container((width - s.box.width) / 2, 0, [box, this.portrait, this.name, this.text, this.prompt, this.live]).setScrollFactor(0).setDepth(DEPTH + 1);
     this.glitch = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH - 1);
+    this.black = scene.add.rectangle(0, 0, width, height, 0x000000).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH - 2).setAlpha(0).setVisible(false);
     this.hint = scene.add.text(width - 44, height - s.band / 2 - 8, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#aab4d8' })
       .setOrigin(1, 0.5).setScrollFactor(0).setDepth(DEPTH + 1);
     this.skipBar = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH + 1);
@@ -118,11 +121,13 @@ export class IntroOverlay {
   private show(line: IntroLine, banner: string | null, portrait: string): void {
     const s = STYLE;
     this.shown = line;
-    this.name.setText(banner ?? line.speaker.toUpperCase());
+    this.name.setText(banner ?? line.speaker.toUpperCase()).setColor(line.alert ? '#ff5a4a' : '#ffe36b');
     this.live.setVisible(banner !== null);
     // les retours à la ligne sont fixés d'avance : un mot ne saute pas à la ligne pendant qu'il s'écrit
     this.wrapped = this.text.getWrappedText(line.text).join('\n');
     const texture = frameKey(portrait, 0);
+    // le communiqué d'urgence n'a pas de visage
+    this.portrait.setVisible(portrait !== '' && this.scene.textures.exists(texture));
     if (portrait && this.scene.textures.exists(texture)) {
       this.portrait.setTexture(texture);
       this.portrait.setScale(s.portrait / Math.max(this.portrait.frame.width, this.portrait.frame.height));
@@ -192,6 +197,7 @@ export class IntroOverlay {
     }
     if (!active) {
       this.lastShot = '';
+      this.black.setAlpha(0).setVisible(false);
       this.updateRadio(delta);
       return;
     }
@@ -201,8 +207,12 @@ export class IntroOverlay {
     this.panel.setScale(1).setAlpha(1).setX((width - s.box.width) / 2);
     // le journal est coupé par l'arrivée des robots ; l'ultimatum, par ceux qui coupent l'antenne
     const ultimatum = cast && world.castScene === SCENE.ultimatum;
-    const shot = ultimatum ? castShot(world.cast) : cast ? 'scene' : introShot(arrivalPhases(lead!.arrivalTotal), lead!.arrivalTotal - lead!.arrivalSteps).kind;
-    if ((shot === 'exit' && this.lastShot === 'hall') || (shot === 'static' && this.lastShot === 'desk')) {
+    const pickup = cast && world.castScene === SCENE.pickup;
+    const shot = ultimatum ? castShot(world.cast) : pickup ? pickupShot(world.cast) : cast ? 'scene' : introShot(arrivalPhases(lead!.arrivalTotal), lead!.arrivalTotal - lead!.arrivalSteps).kind;
+    // la fin de l'extraction se joue sur fond noir, qui reste sous l'écran de fin
+    const dark = pickup && shot === 'black';
+    this.black.setAlpha(Phaser.Math.Clamp(this.black.alpha + (dark ? 1 : -1) * delta / 350, 0, 1)).setVisible(this.black.alpha > 0 || dark);
+    if ((shot === 'exit' && this.lastShot === 'hall') || (shot === 'static' && this.lastShot === 'desk') || (shot === 'hall' && this.lastShot === 'landing')) {
       this.glitchUntil = now + s.glitch * (cast ? 2 : 1);
       this.onGlitch?.();
     }
@@ -228,10 +238,12 @@ export class IntroOverlay {
     const news = line?.speaker === ANCHOR;
     // ce qui passe à l'antenne s'affiche en bas, comme un bandeau de télévision ; pour la radio des robots, le
     // véhicule occupe le bas ou le haut de l'image selon l'endroit du largage, et la boîte prend l'autre côté
-    const banner = news ? 'TvTv²  NEWS' : line?.live ? 'STAND FOR PLANET EARTH' : null;
+    const banner = news ? 'TvTv²  NEWS' : line?.alert ? 'TvTv²  EMERGENCY BROADCAST' : line?.live ? 'STAND FOR PLANET EARTH' : null;
     const low = !cast && banner === null && lead!.y - this.scene.cameras.main.scrollY > height / 2;
     this.panel.setY(low ? s.band + s.box.gap : height - s.band - s.box.gap - s.box.height);
     this.panel.setVisible(line !== null);
+    // le niveau est fini : il ne reste que les bandes et le noir, sous l'écran de fin
+    if (world.levelEnded) this.hint.setVisible(false);
     if (!line) {
       this.shown = null;
       return;

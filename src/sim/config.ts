@@ -566,6 +566,27 @@ export const CONFIG = {
     shotMargin: 130,
   },
 
+  /** La sortie par le portail nord et l'extraction (GD-089). Les répliques suivent les règles de `arrival`. */
+  exit: {
+    /** Numéro des portails du dépose-minute, au nord, et temps qu'ils mettent à s'ouvrir pendant le repli. */
+    gates: 3,
+    gateOpenSteps: s(10),
+    /**
+     * L'extraction : les bandes se ferment et la caméra rejoint le point de pose ; le véhicule arrive du nord,
+     * descend, ses pinces saisissent les robots, il remonte et repart ; l'image reste un instant sur le portail
+     * vide ; coupe vers le hall (le communiqué), puis vers le noir (la radio des robots).
+     */
+    inSteps: s(1),
+    flyInSteps: s(1.4),
+    descendSteps: s(0.8),
+    grabSteps: s(0.8),
+    ascendSteps: s(0.6),
+    flyOutSteps: s(1.2),
+    watchSteps: s(0.9),
+    cutSteps: s(0.35),
+    outSteps: s(0.6),
+  },
+
   /** La riposte de la police après l'ultimatum (GD-086). */
   wave: {
     /** Numéro des portails par où elle entre, au sud. */

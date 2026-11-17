@@ -189,7 +189,7 @@ Les points 3, 4 et 5 sont appliqués tels quels dans la première livraison (GD-
 
 ## 10. Script de la fin de mission
 
-> **Statut** (2026-11-17) : le scénario est celui de l'utilisateur (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé. **Les temps A à E sont livrés (livraisons C1 et C2, GD-085 et GD-086)**. Après essai, l'utilisateur a revu les temps D et E (GD-087) : la riposte attend l'équipe sur le parking sud, elle grossit par paliers, et « Retry » rend le monde de la sauvegarde. Il a ensuite demandé une cinématique à l'arrivée sur le parking, le face-à-face avec le barrage (GD-088). Les temps F et G restent à faire.
+> **Statut** (2026-11-17) : le scénario est celui de l'utilisateur (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé. **Les temps A à E sont livrés (livraisons C1 et C2, GD-085 et GD-086)**. Après essai, l'utilisateur a revu les temps D et E (GD-087) : la riposte attend l'équipe sur le parking sud, elle grossit par paliers, et « Retry » rend le monde de la sauvegarde. Il a ensuite demandé une cinématique à l'arrivée sur le parking, le face-à-face avec le barrage (GD-088). **Les temps F et G sont livrés (livraison C3, GD-089)** : le niveau se joue du largage à l'écran de fin.
 
 Ce que la fin doit faire comprendre, d'après l'arc narratif (acte II) : les robots ont parlé à toute la population ; ils ont laissé une dernière chance ; la réponse des humains est la force ; les robots s'échappent, et ils sont désormais une menace majeure. Elle ne dit toujours rien du virus ni de SFHB.
 
@@ -204,7 +204,8 @@ Ce que la fin doit faire comprendre, d'après l'arc narratif (acte II) : les rob
 | D bis | — | Il tombe sur le barrage de police | Son arrivée sur le parking sud | **Cinématique** (GD-088) |
 | E | Plan B: leave by the north garage | Il fait demi-tour et se replie vers le nord en combattant | Fin du face-à-face | Jeu |
 | F | Hold on. The gate is opening | Il tient devant le portail 3 | Le bouton du portail 3 | Jeu, une réplique radio |
-| G | — | Il sort ; le véhicule le récupère | La moitié de l'équipe dehors | **Cinématique**, puis l'écran de fin |
+| F bis | Get out! The pick-up is outside | Il sort par le portail | Les battants ouverts à fond | Jeu |
+| G | — | Le véhicule le récupère | La moitié de l'équipe dehors | **Cinématique**, puis l'écran de fin |
 
 Deux formes de texte :
 
@@ -285,6 +286,7 @@ Consigne 8 : « Plan B: leave by the north garage ». Le trajet : retour par le 
 - **Consigne** : « Hold on. The gate is opening ».
 - C'est le dernier combat du niveau : l'équipe est dos au portail, la vague arrive par le salon d'attente et par la porte du parking. Il remplace le duel contre SallyBot.
 - Le nord reste libre : aucun ennemi n'arrive par les portails 3.
+- **Réalisé (GD-089)** : les battants ouverts à fond, la consigne devient « Get out! The pick-up is outside ». À la fin de l'ultimatum le bâtiment est bouclé : si l'équipe avait ouvert les portails 3 en explorant, ils se referment, pour que ce dernier combat ait toujours lieu. Si l'équipe vient au nord sans être passée par le sud, appuyer sur le bouton lance aussi la police.
 
 ### 10.6 G — la récupération (cinématique)
 
@@ -298,6 +300,8 @@ Consigne 8 : « Plan B: leave by the north garage ». Le trajet : retour par le 
 | Répliques 1 et 2 | Fondu vers le plan 2 de l'introduction : le hall d'accueil et ses écrans. Bandeau rouge « TvTv² — EMERGENCY BROADCAST », sans portrait. | Bip d'alerte | 1. « This is an emergency broadcast. » — 2. « The 'Stand For Planet Earth' unit is now considered a major threat to mankind. All forces are authorized to destroy it on sight. » |
 | Répliques 3 à 5 | Noir. La boîte de dialogue seule, voix radio, comme dans l'introduction. | Rotors lointains | BATBOT : « Did they listen? » — ENGIBOT : « They heard. » — BADABOT : « Now we wait and see what they do with it. » |
 | Fin | L'écran de fin de niveau (statistiques), déjà en place. | — | — |
+
+**Réalisé (GD-089), avec deux écarts.** Les poursuivants ne débouchent pas sur le dépose-minute pendant le départ du véhicule : le monde est figé pendant la séquence, l'image reste simplement sur le portail vide. Le véhicule garde son orientation d'origine (il ne pivote pas vers le nord). La zone de sortie va de x = 9940 à 10670, juste derrière les battants ; l'écran de fin titre « Message delivered. The whole world heard it. ».
 
 Notes :
 
@@ -314,7 +318,7 @@ Trois livraisons jouables, à essayer l'une après l'autre.
 |---|---|---|
 | **C1. Jusqu'au message** — **livrée le 2026-11-17 (GD-085)** | Consignes 2, 4, 5 et 6 ; effets du bouton de la régie ; marque derrière le pupitre et compte à rebours ; cinématique de l'ultimatum (répliques 1 à 8) ; radio en jeu ; point de sauvegarde sur le plateau | Du largage jusqu'à la fin de l'ultimatum |
 | **C2. La vague** — **livrée le 2026-11-17 (GD-086), revue le même jour après essai (GD-087)** | La police en place sur le parking sud, la riposte à l'arrivée de l'équipe, trois groupes de 10, 15 et 20 par les portails 4, renforts, consignes 7 et 8, les deux répliques du changement de plan ; fourgons de police garés sur le parking sud ; « Retry » rend le monde de la sauvegarde | Le repli jusqu'au dépose-minute |
-| **C3. La sortie** | Ouverture lente du portail 3, consigne « Hold on », zone de sortie, cinématique de récupération, écran de fin. La zone de forage et SallyBot quittent ce niveau : leur salle reste dans le dépôt pour l'acte I, mais on n'y accède plus d'ici | Le niveau entier |
+| **C3. La sortie** — **livrée le 2026-11-18 (GD-089)** | Ouverture lente du portail 3, consigne « Hold on », zone de sortie, cinématique de récupération, écran de fin. La zone de forage et SallyBot quittent ce niveau : leur salle reste dans le dépôt pour l'acte I, mais on n'y accède plus d'ici | Le niveau entier |
 
 À dessiner ou à fabriquer : le bandeau « EMERGENCY BROADCAST », la marque au sol derrière le pupitre, un fourgon de police à la bonne taille (ceux d'origine étaient géants et ont été retirés des quais), les sirènes, le jingle déformé.
 

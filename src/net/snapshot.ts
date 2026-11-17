@@ -77,6 +77,7 @@ function stateOf(w: World): Entity {
   s.castReader = w.castReader;
   s.markCountdown = w.markCountdown;
   s.wave = w.waveSteps >= 0;
+  s.ended = w.levelEnded;
   Object.assign(s, w.stats);
   return s;
 }

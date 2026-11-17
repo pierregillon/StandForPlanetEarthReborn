@@ -61,6 +61,7 @@ test('les consignes de la fin, dans l\'ordre du script', () => {
   assert.deepEqual(OBJECTIVES, [
     'Go to the upper floor', 'Find the studio pass', 'Go back to ground floor', 'Take the control room',
     'Reach the studio', 'Broadcast the message', 'Leave by the south parking lot', 'Plan B: leave by the north garage',
+    'Hold on. The gate is opening', 'Get out! The pick-up is outside',
   ]);
   assert.equal(OBJECTIVES[OBJ.controlRoom], 'Take the control room');
   assert.equal(OBJECTIVES[OBJ.dropPoint], 'Leave by the south parking lot');
@@ -288,7 +289,7 @@ test('« Retry » après l\'ultimatum rend le monde de la sauvegarde : mêmes su
   const hurt = soldiers[20];
   hurt.hp = 1;
   w.breakWindow(w.windows[3]);
-  const gates = w.doors.filter((d) => d.kind === 'button' && d.doorId === 3);
+  const gates = w.doors.filter((d) => d.kind === 'button' && d.doorId === 4);
   assert.equal(gates.length, 2);
   for (const d of gates) w.openDoor(d);
   w.outlets[0].energyLeft = 7;
@@ -339,7 +340,7 @@ test('« Retry » après l\'ultimatum rend le monde de la sauvegarde : mêmes su
   assert.equal(session.stats.totalCivil, stats.totalCivil - staff);
   // le décor aussi : vitres, portails, borne, brouillards, chaise
   assert.deepEqual(fresh.windows.filter((p) => p.broken).map((p) => p.id).sort(), broken, 'la vitre brisée après la sauvegarde est intacte');
-  assert.ok(fresh.doors.filter((d) => d.kind === 'button' && d.doorId === 3).every((d) => d.phase === 'open'));
+  assert.ok(fresh.doors.filter((d) => d.kind === 'button' && d.doorId === 4).every((d) => d.phase === 'open'));
   assert.equal(fresh.outlets.find((o) => o.id === w.outlets[0].id)?.energyLeft, 7);
   assert.deepEqual(fresh.fogs.map((f) => f.id).sort(), fogs);
   const sameChair = fresh.chairs.find((c) => c.id === chair.id);

@@ -143,6 +143,11 @@ export const TV_STUDIO = {
     outside: { x0: 9960, x1: 10650, y0: 6460, y1: 7120 },
     vans: [{ x: 10226, y: 5150, angle: 10 }, { x: 10256, y: 5650, angle: -12 }, { x: 10560, y: 5400, angle: 4 }],
   },
+  /**
+   * La sortie (GD-089) : la zone à atteindre, dehors, juste derrière les portails 3 (leur ouverture va de
+   * x = 9920 à 10688), et le point où le véhicule se pose pour reprendre l'équipe.
+   */
+  exit: { zone: { x0: 9940, x1: 10670, y0: 980, y1: 1330 }, landing: { x: 10304, y: 1100 } },
   /** Salon d'attente et maquillage au nord, salon de sortie et vestiaire au sud. */
   lounges: { north: { x0: 8256, x1: 9568, y0: 1408, y1: 3040 }, south: { x0: 8256, x1: 9568, y0: 4896, y1: 6272 } },
   /** Toilettes au nord, au-dessus du maquillage ; local technique au sud, du plateau au mur extérieur. */

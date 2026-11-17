@@ -18,15 +18,18 @@ import type { World } from '../../sim/world.ts';
 import { isFreshStart, openRoom, retrySession, startTeam } from '../../sim/match.ts';
 import { arrivalPhases, clawOf, introShot } from '../../sim/intro.ts';
 import { castShot } from '../../sim/broadcast.ts';
-import { SCENE, standoffShot } from '../../sim/scenes.ts';
+import { SCENE, pickupShot, standoffShot } from '../../sim/scenes.ts';
 import { TV_STUDIO } from '../../sim/additions.ts';
 import { IntroOverlay } from '../view/IntroOverlay.ts';
-import { createSession } from '../../sim/session.ts';
+import { DRILL_AREA, createSession } from '../../sim/session.ts';
 import type { Session } from '../../sim/session.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 const PANEL_DEPTH = 20000;
 type PanelKind = 'pause' | 'lose' | 'end';
+
+/** Première ligne de l'écran de fin de TvTv² (GD-089) ; celle de la zone de forage reste celle d'origine. */
+const END_OF_TVTV = 'Message delivered. The whole world heard it.';
 
 let cursorCss: string | null = null;
 /** Curseur de visée : un réticule dessiné une fois, utilisé comme curseur de la souris en jeu (GD-029). */
@@ -269,6 +272,8 @@ export class GameScene extends Phaser.Scene {
   private cameraGoal(): { x: number; y: number } {
     const h = this.world.hero;
     if (this.world.cast >= 0 && this.world.castScene === SCENE.standoff) return standoffShot(this.world);
+    // l'extraction (GD-089) : le point de pose devant le portail nord, puis le hall et ses écrans
+    if (this.world.cast >= 0 && this.world.castScene === SCENE.pickup) return pickupShot(this.world.cast) === 'landing' ? TV_STUDIO.exit.landing : TV_STUDIO.shots.hall;
     if (this.world.cast >= 0) {
       // l'ultimatum : le plateau, le hall et ses écrans, puis le pupitre (GD-085)
       const shot = castShot(this.world.cast);
@@ -302,6 +307,7 @@ export class GameScene extends Phaser.Scene {
   private inNewsShot(): boolean {
     const h = this.world.hero;
     // l'ultimatum est fait de coupes franches ; le face-à-face du parking, d'un mouvement de caméra
+    if (this.world.cast >= 0 && this.world.castScene === SCENE.pickup) return pickupShot(this.world.cast) !== 'landing';
     if (this.world.cast >= 0) return this.world.castScene === SCENE.ultimatum;
     return h.arrivalSteps > 0 && introShot(arrivalPhases(h.arrivalTotal), h.arrivalTotal - h.arrivalSteps).kind !== 'vehicle';
   }
@@ -531,6 +537,8 @@ export class GameScene extends Phaser.Scene {
       else if (e.type === 'castStart') this.synth.newsJingle(true);
       else if (e.type === 'sirens') this.synth.sirens(14);
       else if (e.type === 'standoff') this.synth.sirens(5);
+      else if (e.type === 'pickup') this.synth.vehicle();
+      else if (e.type === 'pickupNews') this.synth.newsJingle(true);
       else if (e.type === 'standoffEnd') {
         if (e.skipped) this.cameras.main.fadeIn(260, 0, 0, 0);
       }
@@ -654,7 +662,7 @@ export class GameScene extends Phaser.Scene {
       const s = this.session.stats;
       const pct = (n: number, total: number): number => (total > 0 ? Math.round((100 * n) / total) : 0);
       const lines = [
-        'SallyBot is destroyed. Planet Earth says thanks.',
+        this.world.level.name === DRILL_AREA ? 'SallyBot is destroyed. Planet Earth says thanks.' : END_OF_TVTV,
         '',
         `Percent of civil killed : ${pct(s.civilKilled, s.totalCivil)}%`,
         `Percent of soldier killed : ${pct(s.soldierKilled, s.totalSoldier)}%`,

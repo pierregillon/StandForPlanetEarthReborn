@@ -67,6 +67,8 @@ export interface IntroLine {
   live?: boolean;
   /** Les sirènes de la police se font entendre quand cette réplique est écrite. */
   siren?: boolean;
+  /** Communiqué d'urgence de la chaîne (GD-089) : bandeau rouge, sans portrait. */
+  alert?: boolean;
 }
 
 /** Nom du présentateur du journal dans les répliques. */

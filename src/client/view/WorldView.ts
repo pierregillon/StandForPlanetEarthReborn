@@ -11,7 +11,7 @@ import { muzzlePosition } from '../../sim/hero.ts';
 import { ANCHOR, arrivalPhases, clawOf, crewReleased, introLines, introShot } from '../../sim/intro.ts';
 import type { IntroLine } from '../../sim/intro.ts';
 import { castLive } from '../../sim/broadcast.ts';
-import { SCENE } from '../../sim/scenes.ts';
+import { SCENE, pickupPose, pickupShot } from '../../sim/scenes.ts';
 import { TV_STUDIO } from '../../sim/additions.ts';
 import { GROUND_FLOOR, OBJ } from '../../sim/session.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
@@ -811,8 +811,9 @@ export class WorldView {
     this.syncBullets();
     this.syncAbilityObjects();
     this.syncDrills();
-    const standoff = this.world.cast >= 0 && this.world.castScene === SCENE.standoff;
-    this.sceneLight = Phaser.Math.Clamp(this.sceneLight + (standoff ? dt : -dt) / STANDOFF_LIGHT.seconds, 0, 1);
+    // le face-à-face et l'extraction se jouent loin du halo des robots : la pénombre se lève le temps de la scène
+    const lit = this.world.cast >= 0 && this.world.castScene !== SCENE.ultimatum;
+    this.sceneLight = Phaser.Math.Clamp(this.sceneLight + (lit ? dt : -dt) / STANDOFF_LIGHT.seconds, 0, 1);
     this.syncLights();
     this.syncFogs();
     for (const door of this.world.doors) this.syncDoor(door);
@@ -835,6 +836,7 @@ export class WorldView {
     this.syncNpcFx();
     this.syncDecor();
     this.syncVehicle();
+    this.syncPickup();
     this.syncFurniture();
     this.syncCheckpoint();
     this.world.zones.forEach((zone, i) => {
@@ -2332,7 +2334,8 @@ export class WorldView {
     const world = this.world;
     const ground = world.level.name === GROUND_FLOOR;
     // à l'antenne : le journal de l'introduction, puis les robots pendant l'ultimatum
-    const live = shot === 'studio' || shot === 'hall' || (world.castScene === SCENE.ultimatum && castLive(world.cast));
+    const alert = world.cast >= 0 && world.castScene === SCENE.pickup && pickupShot(world.cast) !== 'landing';
+    const live = shot === 'studio' || shot === 'hall' || alert || (world.castScene === SCENE.ultimatum && castLive(world.cast));
     // la régie est prise : le direct est coupé, les écrans ne montrent plus que de la neige
     const snow = !live && ground && world.session.objective >= OBJ.studio;
     const on = live || snow;
@@ -2400,7 +2403,7 @@ export class WorldView {
     let any = false;
     rt.clear();
     this.syncScreens();
-    if (this.reveal || this.newsShot() || (this.world.cast >= 0 && this.world.castScene === SCENE.ultimatum)) {
+    if (this.reveal || this.newsShot() || (this.world.cast >= 0 && this.world.castScene !== SCENE.standoff)) {
       // le brouillard de guerre est levé le temps du journal : il revient quand la caméra retrouve les robots
       rt.setVisible(false);
       return;
@@ -2770,6 +2773,75 @@ export class WorldView {
       const radius = (grounded ? 62 : 62 * scale) + pulse * 6;
       voice.lineStyle(5, 0xfff3a0, 0.55 + 0.35 * pulse).strokeCircle(at.x, at.y, radius);
       voice.lineStyle(2, 0xffffff, 0.5).strokeCircle(at.x, at.y, radius + 9);
+    }
+  }
+
+  /**
+   * L'extraction (GD-089) : le véhicule revient par le nord avec les robots restés à bord, se pose devant le
+   * portail, ses pinces saisissent l'équipe, robots à terre compris, et il repart. C'est le largage à l'envers :
+   * chaque robot se replie en rejoignant sa pince.
+   */
+  private pickup: { body: Img; shadow: Img | null; crew: Map<string, Img> } | null = null;
+
+  private syncPickup(): void {
+    const world = this.world;
+    const on = world.cast >= 0 && world.castScene === SCENE.pickup && this.scene.textures.exists(frameKey('spr_spawnVehicle', 0));
+    if (!on) {
+      if (this.pickup) {
+        this.pickup.body.destroy();
+        this.pickup.shadow?.destroy();
+        for (const img of this.pickup.crew.values()) img.destroy();
+        this.pickup = null;
+      }
+      return;
+    }
+    const a = CONFIG.arrival;
+    const land = TV_STUDIO.exit.landing;
+    const team = world.heroes.filter((h) => !h.gone);
+    if (!this.pickup) {
+      const shadow = this.scene.textures.exists(frameKey('spr_spawnVehicleShadow', 0))
+        ? this.image('spr_spawnVehicleShadow', 0, land.x, land.y, DEPTH.fx + 40).setAlpha(0.5) : null;
+      const crew = new Map<string, Img>();
+      for (const name of a.crew) {
+        const sprite = `spr_${name}_deploy`;
+        if (team.some((h) => h.def.name === name) || !this.scene.textures.exists(frameKey(sprite, 0))) continue;
+        crew.set(name, this.image(sprite, 0, land.x, land.y, DEPTH.fx + 41));
+      }
+      this.pickup = { body: this.image('spr_spawnVehicle', 0, land.x, land.y, DEPTH.fx + 42), shadow, crew };
+    }
+    const pose = pickupPose(world.cast);
+    const x = land.x;
+    const y = land.y - pose.north;
+    const scale = 1 + (a.flightScale - 1) * pose.height;
+    const { body, shadow, crew } = this.pickup;
+    body.setVisible(pose.present).setPosition(x, y).setScale(scale);
+    this.setFrame(body, 'spr_spawnVehicle', (this.scene.time.now / 60) % this.info('spr_spawnVehicle').frames);
+    shadow?.setVisible(pose.present).setPosition(x + (70 * pose.height + 10) * 0.94, y + (70 * pose.height + 10) * 0.34).setScale(scale * (1 + pose.height / 6));
+    const inClaw = (name: string): { x: number; y: number } => ({ x: x + clawOf(name).x * scale, y: y + clawOf(name).y * scale });
+    for (const [name, img] of crew) {
+      const at = inClaw(name);
+      img.setVisible(pose.present).setPosition(at.x, at.y).setScale(scale);
+    }
+    if (pose.grab <= 0) return;
+    // les pinces tirent chaque robot vers elles ; arrivé, il est replié et ne quitte plus le véhicule
+    const k = Phaser.Math.Easing.Cubic.InOut(pose.grab);
+    for (const h of team) {
+      const p = this.partsOf(h);
+      const at = inClaw(h.def.name);
+      const px = h.x + (at.x - h.x) * k;
+      const py = h.y + (at.y - h.y) * k;
+      p.body.setPosition(px, py).setScale(1 + (scale - 1) * k).setDepth(DEPTH.fx + 41).setVisible(pose.present);
+      p.legs.setVisible(false);
+      p.orb?.setVisible(false);
+      for (const aura of p.auras) aura.setVisible(false);
+      p.glow?.setVisible(false);
+      p.shadow?.setVisible(false);
+      p.tag?.setVisible(false);
+      const sprite = `spr_${h.def.name}_deploy`;
+      if (h.state !== 'dead' && this.scene.textures.exists(frameKey(sprite, 0))) {
+        p.body.setAlpha(1).clearTint();
+        this.setFrame(p.body, sprite, (1 - k) * (this.info(sprite).frames - 1));
+      }
     }
   }
 

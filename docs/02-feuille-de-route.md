@@ -9,7 +9,8 @@ Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque éta
 ## État actuel
 
 **Les 4 étapes du MVP sont livrées (2026-11-16) — l'étape 4 attend les essais de l'utilisateur.**
-Prochaine action : recueillir ses retours sur le niveau complet, en premier lieu l'équilibre du combat de boss ; puis décider de la suite (voir « Après le MVP »).
+**Depuis, TvTv² a été réécrit pour l'acte II de l'arc narratif (GD-076 à GD-089) et se joue du largage à l'écran de fin (2026-11-18)** : introduction, régie, ultimatum, barrage de police au sud, repli par le garage nord, extraction. La zone de forage et SallyBot ne font plus partie de ce niveau (jouables depuis le menu).
+Prochaine action : recueillir les retours de l'utilisateur sur la fin du niveau (face-à-face du parking, dernier combat devant le portail nord, extraction), en premier lieu la difficulté ; puis décider de la suite (voir « Après le MVP »).
 
 ## Prérequis (début de l'étape 1)
 
@@ -224,3 +225,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Fin de TvTv², livraison C2 (GD-086) : trois fourgons de police sur le parking sud, 45 soldats en trois arrivées par les portails 4, ralliement au plateau puis traque, renforts sans fin, changement de plan (deux répliques radio, consigne « Take the north gate »). Les PNJ apparus en cours de partie existent aussi chez les clients. 122 tests. Reste C3 (la sortie par le nord). |
 | 2026-11-17 | Riposte revue après essai (GD-087, demandes de l'utilisateur) : la police attend sur le parking sud et ne se lance qu'à l'arrivée de l'équipe ; groupes de 10, 15 puis 20, 45 ennemis au plus ; consigne « Leave by the south parking lot » ; « Retry » après l'ultimatum rend le monde de la sauvegarde (mêmes survivants, portes, vitres, bornes). 125 tests. Reste C3 (la sortie par le nord). |
 | 2026-11-18 | Face-à-face avec le barrage (GD-088, scène de l'utilisateur) : à l'arrivée sur le parking sud, une cinématique montre la ligne de police et ses fourgons en travers ; sommation du policier, réponse d'un robot (« late for dinner », puis le plan B) ; à la fin la police tire. Consigne 8 : « Plan B: leave by the north garage ». Portrait du policier dessiné. 127 tests. Reste C3. |
+| 2026-11-18 | Fin de TvTv², livraison C3 (GD-089) : le portail nord s'ouvre en dix secondes pendant le repli (« Hold on »), puis « Get out! » ; zone de sortie derrière le portail ; cinématique d'extraction (le véhicule reprend l'équipe), communiqué d'urgence, radio des robots, écran de fin. **Le niveau se joue du largage à la fin.** 135 tests. |

@@ -17,8 +17,8 @@ import { createBoss } from './boss.ts';
 import type { BossState } from './boss.ts';
 import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
-import { CONTROL_ROOM_TAKEN, castReader } from './broadcast.ts';
-import { SCENE, sceneLines, sceneTotal, standoffSpeaker } from './scenes.ts';
+import { CONTROL_ROOM_TAKEN, castReader, vehicleVoice } from './broadcast.ts';
+import { HOLD_ON, SCENE, pickupPhases, sceneLines, sceneTotal, standoffSpeaker } from './scenes.ts';
 import { TV_STUDIO } from './additions.ts';
 import { HOLDING, engage, stageWave, stepWave } from './wave.ts';
 import type { RoomSave, Session } from './session.ts';
@@ -500,6 +500,7 @@ export class World {
 
   /** Séquence en cours : mêmes règles que l'introduction (GD-079), l'hôte lit à son rythme ou passe tout. */
   private stepCast(host: Input | undefined): void {
+    if (this.ended) return;
     const a = CONFIG.arrival;
     if (host?.dash) {
       if (++this.introHold >= a.skipHoldSteps) {
@@ -512,6 +513,12 @@ export class World {
     const line = sceneLines(this)[this.introLine];
     if (!line || line.at > this.cast) {
       if (++this.cast >= sceneTotal(this)) this.endCast(false);
+      else if (this.castScene === SCENE.pickup) {
+        // le véhicule redécolle avec l'équipe ; puis le communiqué passe à l'antenne
+        const p = pickupPhases();
+        if (this.cast === p.grab) this.emit({ type: 'vehicleLeaves', seconds: (p.flyOut - p.grab) / STEPS_PER_SECOND });
+        if (this.cast === p.watch) this.emit({ type: 'pickupNews' });
+      }
       return;
     }
     const written = typingSteps(line.text);
@@ -532,6 +539,17 @@ export class World {
    * plateau. Après un échec, l'équipe y reprend sans relire le message, portes déjà franchies ouvertes.
    */
   private endCast(skipped: boolean): void {
+    if (this.castScene === SCENE.pickup) {
+      // l'extraction est la fin du niveau : la séquence reste sur son dernier plan, sous l'écran de fin
+      if (this.ended) return;
+      this.ended = true;
+      this.cast = sceneTotal(this);
+      this.introLine = 9999;
+      this.introLineSteps = 0;
+      this.introHold = 0;
+      this.emit({ type: 'levelEnd' });
+      return;
+    }
     this.cast = -1;
     this.introLine = 9999;
     this.introLineSteps = 0;
@@ -544,11 +562,77 @@ export class World {
       return;
     }
     s.objective = OBJ.dropPoint;
+    this.lockNorthGates();
     s.checkpoint = { room: this.level.name, x: TV_STUDIO.regroup.x - 110, y: TV_STUDIO.regroup.y - 40, objective: OBJ.dropPoint, save: this.saveRoom() };
     s.preOpened[this.level.name] = { buttons: [1, CONFIG.broadcast.controlRoomButton], cards: ['green', 'purple'] };
     if (!this.castSirens) this.emit({ type: 'sirens' });
     this.castSirens = true;
     this.emit({ type: 'castEnd', skipped });
+  }
+
+  // ---------- La sortie par le portail nord (GD-089) ----------
+
+  private northGates(): Door[] {
+    return this.doors.filter((d) => d.kind === 'button' && d.doorId === CONFIG.exit.gates);
+  }
+
+  /**
+   * L'ultimatum diffusé, le bâtiment est bouclé : les portails nord, si l'équipe les avait ouverts en
+   * explorant, sont refermés. Ils se rouvriront lentement, pendant le repli.
+   */
+  private lockNorthGates(): void {
+    for (const door of this.northGates()) {
+      door.phase = 'closed';
+      door.progress = 0;
+      this.updateDoorObstacle(door);
+    }
+    for (const button of this.buttons) if (button.doorId === CONFIG.exit.gates) button.pressedSteps = -1;
+  }
+
+  /** Avant que le bouton du portail nord n'agisse : après l'ultimatum, ses battants mettent longtemps à s'ouvrir. */
+  private slowNorthGates(): void {
+    if (this.level.name !== GROUND_FLOOR || this.session.objective < OBJ.dropPoint) return;
+    for (const door of this.northGates()) if (door.phase === 'closed') door.openSteps = CONFIG.exit.gateOpenSteps;
+  }
+
+  /**
+   * Un robot a appuyé sur le bouton du portail nord pendant le repli : la consigne est de tenir, la voix du
+   * véhicule annonce son retour. Si l'équipe est venue ici sans passer par le sud, la police se lance aussi.
+   */
+  private northGatePressed(): void {
+    const s = this.session;
+    if (this.level.name !== GROUND_FLOOR || s.objective < OBJ.dropPoint || s.objective >= OBJ.holdOn) return;
+    if (!this.northGates().some((d) => d.phase === 'opening')) return;
+    engage(this);
+    s.objective = OBJ.holdOn;
+    this.emit({ type: 'radio', speaker: vehicleVoice(s.heroNames), text: HOLD_ON });
+  }
+
+  /**
+   * Le portail ouvert, il faut sortir. L'extraction commence quand la moitié de l'équipe, vivante, est dehors
+   * dans la zone de sortie : pas de compte à rebours, on ne fait pas attendre sous le feu.
+   */
+  private stepExit(): void {
+    const s = this.session;
+    if (s.objective === OBJ.holdOn && this.northGates().every((d) => d.phase === 'open')) s.objective = OBJ.getOut;
+    if (s.objective < OBJ.northGate || this.cast >= 0) return;
+    const z = TV_STUDIO.exit.zone;
+    const team = this.present();
+    const out = team.filter((h) => h.state !== 'dead' && h.x > z.x0 && h.x < z.x1 && h.y > z.y0 && h.y < z.y1).length;
+    if (out === 0 || out * 2 < team.length) return;
+    this.cast = 0;
+    this.castScene = SCENE.pickup;
+    this.introLine = 0;
+    this.introLineSteps = 0;
+    this.introHold = 0;
+    this.bullets.length = 0;
+    for (const h of team) h.moving = false;
+    this.emit({ type: 'pickup' });
+  }
+
+  /** Le niveau est fini (l'extraction a eu lieu, ou le boss de la zone de forage est tombé). */
+  get levelEnded(): boolean {
+    return this.ended;
   }
 
   /** Passe la séquence en cours (caméra libre). */
@@ -1285,12 +1369,14 @@ export class World {
       // le héros doit être du côté avant du bouton
       const toHero = Math.atan2(h.y - button.y, h.x - button.x);
       if (Math.abs(angleDiff(button.angle, toHero)) > Math.PI / 2) continue;
+      if (button.doorId === CONFIG.exit.gates) this.slowNorthGates();
       for (const door of this.doors) {
         if (door.kind === 'button' && door.doorId === button.doorId && door.phase === 'closed') this.openDoor(door);
       }
       button.pressedSteps = 0;
       this.emit({ type: 'buttonPressed', x: button.x, y: button.y });
       if (button.doorId === CONFIG.broadcast.controlRoomButton) this.takeControlRoom(h);
+      if (button.doorId === CONFIG.exit.gates) this.northGatePressed();
     }
   }
 
@@ -1406,6 +1492,7 @@ export class World {
     if (s.objective >= OBJ.dropPoint && this.cast < 0) {
       if (this.waveSteps < 0) stageWave(this);
       else stepWave(this);
+      this.stepExit();
     }
   }
 

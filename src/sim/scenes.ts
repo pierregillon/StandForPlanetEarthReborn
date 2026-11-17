@@ -1,5 +1,5 @@
-// Les séquences jouées en cours de niveau, après l'introduction : l'ultimatum (GD-085) et le face-à-face avec
-// le barrage de police sur le parking sud (GD-088). Elles partagent une horloge (`World.cast`) et les règles de
+// Les séquences jouées en cours de niveau, après l'introduction : l'ultimatum (GD-085), le face-à-face avec le
+// barrage de police sur le parking sud (GD-088) et l'extraction qui finit le niveau (GD-089). Elles partagent une horloge (`World.cast`) et les règles de
 // l'introduction (GD-079) : le monde est figé, l'hôte passe d'une réplique à l'autre ou passe tout.
 import { CONFIG } from './config.ts';
 import { TV_STUDIO } from './additions.ts';
@@ -9,7 +9,7 @@ import type { IntroLine } from './intro.ts';
 import type { World } from './world.ts';
 
 /** Valeurs de `World.castScene`. */
-export const SCENE = { ultimatum: 0, standoff: 1 };
+export const SCENE = { ultimatum: 0, standoff: 1, pickup: 2 };
 
 // ---------- Le barrage (GD-088) ----------
 
@@ -64,17 +64,113 @@ export function standoffShot(world: World): { x: number; y: number } {
   return { x, y: Math.min(Math.max(h.y, p.y0 + half - CONFIG.standoff.shotMargin), p.y1 - half + CONFIG.standoff.shotMargin) };
 }
 
+// ---------- L'extraction (GD-089) ----------
+
+/** Ce que dit la voix du véhicule quand un robot ouvre le portail nord (radio en jeu). */
+export const HOLD_ON = 'Gate is opening. We are coming for you. Hold on.';
+
+/** Nom de celui qui lit le communiqué d'urgence : la chaîne elle-même, sans visage. */
+export const EMERGENCY = 'Emergency';
+
+/**
+ * Le communiqué. Sa seconde phrase répond mot pour mot à la première du jeu : « is now considered out of
+ * control » devient « is now considered a major threat to mankind ». C'est le changement de statut de l'acte II.
+ */
+export const ALERT = [
+  'This is an emergency broadcast.',
+  'The \'Stand For Planet Earth\' unit is now considered a major threat to mankind. All forces are authorized to destroy it on sight.',
+];
+
+/** La radio des robots, une fois à bord. « They heard » n'est pas « they listened » : la porte de l'acte III. */
+export const AFTERMATH: [string, string][] = [
+  ['BatBot', 'Did they listen?'],
+  ['EngiBot', 'They heard.'],
+  ['BadaBot', 'Now we wait and see what they do with it.'],
+];
+
+/** Instants de l'extraction, en steps de son horloge. Chaque valeur est la fin de la phase nommée. */
+export interface PickupPhases {
+  /** Les bandes sont fermées, la caméra est au point de pose. */
+  open: number;
+  flyIn: number;
+  descend: number;
+  /** Les pinces ont saisi les robots. */
+  grab: number;
+  ascend: number;
+  flyOut: number;
+  /** L'image est restée sur le portail vide. */
+  watch: number;
+  /** Coupe vers le hall : l'horloge s'arrête ici pour le communiqué. */
+  hall: number;
+  /** Coupe vers le noir : l'horloge s'arrête ici pour la radio des robots. */
+  black: number;
+  total: number;
+}
+
+export function pickupPhases(): PickupPhases {
+  const c = CONFIG.exit;
+  const open = c.inSteps;
+  const flyIn = open + c.flyInSteps;
+  const descend = flyIn + c.descendSteps;
+  const grab = descend + c.grabSteps;
+  const ascend = grab + c.ascendSteps;
+  const flyOut = ascend + c.flyOutSteps;
+  const watch = flyOut + c.watchSteps;
+  const hall = watch + c.cutSteps;
+  const black = hall + c.cutSteps;
+  return { open, flyIn, descend, grab, ascend, flyOut, watch, hall, black, total: black + c.outSteps };
+}
+
+/** Ce que la caméra montre : le point de pose, le hall et ses écrans, puis le noir. */
+export function pickupShot(t: number): 'landing' | 'hall' | 'black' {
+  const p = pickupPhases();
+  return t < p.watch ? 'landing' : t < p.hall + 1 ? 'hall' : 'black';
+}
+
+/**
+ * Où en est le véhicule à l'instant `t` : présent ou non, décalage vers le nord par rapport au point de pose,
+ * hauteur (1 = en vol, 0 = posé), et `grab`, de 0 (les robots sont où ils étaient) à 1 (repliés dans leur pince).
+ */
+export function pickupPose(t: number): { present: boolean; north: number; height: number; grab: number } {
+  const p = pickupPhases();
+  const c = CONFIG.exit;
+  const travel = CONFIG.arrival.travel;
+  if (t < p.open) return { present: false, north: travel, height: 1, grab: 0 };
+  if (t < p.flyIn) {
+    const k = 1 - (t - p.open) / c.flyInSteps;
+    return { present: true, north: travel * k * k, height: 1, grab: 0 }; // il ralentit en arrivant
+  }
+  if (t < p.descend) return { present: true, north: 0, height: 1 - (t - p.flyIn) / c.descendSteps, grab: 0 };
+  if (t < p.grab) return { present: true, north: 0, height: 0, grab: (t - p.descend) / c.grabSteps };
+  if (t < p.ascend) return { present: true, north: 0, height: (t - p.grab) / c.ascendSteps, grab: 1 };
+  if (t < p.flyOut) {
+    const k = (t - p.ascend) / c.flyOutSteps;
+    return { present: true, north: travel * k * k, height: 1, grab: 1 }; // il accélère en repartant
+  }
+  return { present: false, north: travel, height: 1, grab: 1 };
+}
+
+export function pickupLines(): IntroLine[] {
+  const p = pickupPhases();
+  return [
+    ...ALERT.map((text) => ({ at: p.hall, speaker: EMERGENCY, text, alert: true })),
+    ...AFTERMATH.map(([speaker, text]) => ({ at: p.black, speaker, text })),
+  ];
+}
+
 // ---------- Commun ----------
 
 /** Répliques de la séquence en cours. */
 export function sceneLines(world: World): IntroLine[] {
   const reader = (world.heroes[world.castReader] ?? world.hero).def.name;
   if (world.castScene === SCENE.standoff) return standoffLines(reader);
+  if (world.castScene === SCENE.pickup) return pickupLines();
   return castLines(world.session.heroNames, reader);
 }
 
 /** Durée de la séquence en cours, en steps de son horloge (qui s'arrête sur chaque réplique). */
 export function sceneTotal(world: World): number {
+  if (world.castScene === SCENE.pickup) return pickupPhases().total;
   return world.castScene === SCENE.standoff ? standoffPhases().total : castPhases().total;
 }
 
