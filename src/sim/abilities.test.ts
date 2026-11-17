@@ -253,3 +253,26 @@ test('PetBot : ses trois mini-bots partent de leur place et convergent vers les 
     assert.ok(off <= (CONFIG.abilities.petBot.droneSpreadDeg + 0.5) * Math.PI / 180, 'dans la dispersion habituelle');
   });
 });
+
+test('BadaBot : 2 points par boule, et 0,4 s entre deux tirs meme en cliquant vite (GD-055)', () => {
+  const { w, npc, aim } = arena('BadaBot', 'obj_npc_robot_shield', 5000);
+  const h = w.hero;
+  npc.fireTimer = 100000;
+  assert.equal(CONFIG.abilities.badaBot.explosionDamage, 2);
+  run(w, 5, aim);
+  // une seconde de clics aussi rapides que possible : un step appuye, un step relache
+  let fired = 0;
+  for (let i = 0; i < 60; i++) {
+    const before = h.ammo;
+    w.step({ ...aim, fire1: i % 2 === 0 });
+    fired += before - h.ammo;
+  }
+  assert.ok(fired >= 2 && fired <= 3, `2 a 3 boules par seconde en cliquant (${fired})`);
+  // pendant le delai, on ne peut pas commencer a charger
+  run(w, 30, aim);
+  run(w, 2, { ...aim, fire1: true });
+  w.step(aim);
+  assert.equal(h.fireTimer, 24);
+  run(w, 10, { ...aim, fire1: true });
+  assert.equal(h.charge, 0, 'la charge attend la fin du delai');
+});

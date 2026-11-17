@@ -1171,3 +1171,20 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Laissé de côté pour l'instant** (proposé, non retenu) : la vie des foreuses (20 PV chacune quel que soit le nombre de joueurs), la durée des étourdissements que les ultis infligent au boss, la fréquence de ses charges, les dégâts de ses coups.
 
 **Conséquences.** `healthPerExtraPlayer` et `speedPerExtraPlayer` dans `CONFIG.boss` ; `maxHp`, `speed` et `target` dans l'état du boss (`src/sim/boss.ts`), transmis sur le réseau comme le reste de son état. La barre de vie du boss se rapporte à sa vie de départ. Trois tests dans `boss.test.ts`. Vu à l'écran en solo seulement (combat inchangé) ; le combat à plusieurs n'a pas été essayé.
+
+## GD-055 — Tir principal de BadaBot : 2 points par boule, 0,4 s entre deux tirs
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — équilibrage à ajuster après essai
+- **Décidée par** : l'utilisateur (« c'est trop »), sur les valeurs proposées par défaut
+
+**Contexte.** Le tir principal de BadaBot gardait les valeurs du code de 2019 : chaque boule de plasma explosait pour 20 points de dégâts, et rien ne limitait la cadence. Une salve chargée de 3 boules faisait 60 points (toute la vie du boss en solo) ; en cliquant vite, sans charger, on lâchait jusqu'à 7 boules par seconde, soit 150 points par seconde, contre 3 pour PetBot et 5 pour EngiBot. Cliquer vite battait donc toujours la charge, qui ne servait à rien.
+
+**Décision.**
+
+- **2 points de dégâts par boule** (au lieu de 20), toujours par l'explosion, dans un rayon de 50 px. Une boule tue un humain (1 PV) ou un robot léger (2 PV) ; il en faut deux pour le robot à bouclier (3 PV).
+- **0,4 s entre deux tirs** (au lieu de 0,1 s). Pendant ce délai, BadaBot ne peut ni tirer ni commencer à charger.
+
+**Pourquoi.** En cliquant, on lâche environ 2,3 boules par seconde ; en chargeant, 3 boules toutes les 1,4 s : les deux se valent en débit, et la charge retrouve son intérêt, qui est de tout lâcher d'un coup. BadaBot fait ainsi environ 4,5 points par seconde sur une cible, entre PetBot (3) et EngiBot (5), ce qui convient à un tank qui a déjà un bouclier et des dégâts de zone.
+
+**Conséquences.** `explosionDamage` dans `CONFIG.abilities.badaBot` et `shotsPerSecond` de BadaBot dans `CONFIG.heroes`. Une salve chargée enlève 6 PV au boss au lieu de 60 ; un chargeur complet (25 boules) vaut 50 points. Le clic à vide (chargeur vide) est lui aussi espacé de 0,4 s. Un test dans `abilities.test.ts`. Contrôlé dans la page en solo : une salve chargée de 3 boules enlève 6 PV à un ennemi.

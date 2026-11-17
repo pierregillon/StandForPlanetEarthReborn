@@ -220,7 +220,7 @@ export const CONFIG = {
       radius: 44,
       maxHealth: 12,
       rotateSpeedDeg: 15,
-      shotsPerSecond: 10,
+      shotsPerSecond: 2.5, // 10 dans le code de 2019 ; 0,4 s entre deux tirs (GD-055)
       precisionDeg: 3,
       muzzle: { x: 28, y: 0 },
       bullet: { sprite: 'spr_BadaBot_bullet', speed: 40, maxDistance: 1500, damage: 0, radius: 8, kind: 'plasma', scale: 0.25 },
@@ -298,7 +298,7 @@ export const CONFIG = {
       chargePerBall: 20,
       precisionPerBallDeg: 3,
       explosionRadius: 50,
-      explosionDamage: 20,
+      explosionDamage: 2, // 20 dans le code de 2019 (GD-055)
       /** Zone protégée par le bouclier dans le repère du héros (masque de spr_BadaBot_shield). */
       shieldBox: { x0: 18, y0: -79, x1: 104, y1: 78 },
       shieldRaiseSteps: 12,
