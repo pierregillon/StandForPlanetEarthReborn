@@ -198,7 +198,7 @@ export class Hud {
     if (boss && boss.seen && world.npcs.includes(boss.npc)) {
       const w = this.scene.scale.width - 400;
       this.bossBar.fillStyle(0x000000, 0.85).fillRect(200, 100, w, 30);
-      this.bossBar.fillStyle(boss.invulnerable ? 0x7a2a2a : 0xe01f1f, 1).fillRect(200, 100, w * Math.max(0, boss.npc.hp / boss.npc.def.maxHealth), 30);
+      this.bossBar.fillStyle(boss.invulnerable ? 0x7a2a2a : 0xe01f1f, 1).fillRect(200, 100, w * Math.max(0, boss.npc.hp / boss.maxHp), 30);
       this.bossBar.lineStyle(3, 0xffffff, 0.8).strokeRect(200, 100, w, 30);
     }
 

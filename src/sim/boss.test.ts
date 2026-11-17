@@ -79,7 +79,7 @@ test('SallyBot : transformation à mi-vie, puis invulnérable sauf quand il resp
   for (let i = 0; i < 30; i++) w.step(NO_INPUT);
   // phase 1 : vulnérable hors charge
   while (boss.action === 'charge') w.step(NO_INPUT);
-  npc.hp = npc.def.maxHealth / 2;
+  npc.hp = boss.maxHp / 2;
   w.step(NO_INPUT);
   assert.equal(boss.phase, 2);
   assert.equal(boss.action, 'transform');
@@ -119,4 +119,77 @@ test('brouillard : une pièce se dévoile quand le héros en ouvre la porte', ()
   w.hero.y = door.y + ny * 150;
   for (let i = 0; i < 80; i++) w.step(NO_INPUT);
   assert.ok(w.fogs.length < total, 'au moins une pièce dévoilée');
+});
+
+test('SallyBot a plusieurs : plus de vie et un peu plus vite par joueur en plus', () => {
+  const names = ['PetBot', 'BatBot', 'EngiBot', 'BadaBot'];
+  const expected = [{ hp: 60, speed: 7 }, { hp: 100, speed: 8 }, { hp: 140, speed: 9 }, { hp: 180, speed: 10 }];
+  expected.forEach((want, i) => {
+    const team = names.slice(0, i + 1);
+    const session = createSession(team, DRILL_AREA);
+    session.objective = 3;
+    const w = new World(drillArea, sprites, team, 11, session);
+    assert.ok(w.boss);
+    assert.equal(w.boss.maxHp, want.hp, `${i + 1} joueur(s)`);
+    assert.equal(w.boss.npc.hp, want.hp);
+    assert.equal(w.boss.speed, want.speed);
+    assert.ok(w.boss.speed < Math.min(...w.heroes.map((h) => h.def.walkSpeed)), 'il reste plus lent que les heros');
+  });
+});
+
+test('SallyBot a plusieurs : il passe en phase 2 a la moitie de sa vie de depart', () => {
+  const team = ['PetBot', 'BatBot'];
+  const session = createSession(team, DRILL_AREA);
+  session.objective = 3;
+  const w = new World(drillArea, sprites, team, 11, session);
+  const boss = w.boss;
+  assert.ok(boss);
+  for (const h of w.heroes) {
+    h.hp = 100000;
+    h.x = boss.npc.x;
+    h.y = boss.npc.y + 400;
+  }
+  for (let i = 0; i < 30; i++) w.step([NO_INPUT, NO_INPUT]);
+  while (boss.action === 'charge') w.step([NO_INPUT, NO_INPUT]);
+  boss.npc.hp = 60;
+  w.step([NO_INPUT, NO_INPUT]);
+  assert.equal(boss.phase, 1, '60 PV sur 100 : encore en phase 1');
+  while ((boss.action as string) === 'charge') w.step([NO_INPUT, NO_INPUT]);
+  boss.npc.hp = 50;
+  w.step([NO_INPUT, NO_INPUT]);
+  assert.equal(boss.phase, 2);
+});
+
+test('SallyBot a plusieurs : ses charges visent tantot l\'un, tantot l\'autre', () => {
+  const team = ['PetBot', 'BatBot'];
+  const session = createSession(team, DRILL_AREA);
+  session.objective = 3;
+  const w = new World(drillArea, sprites, team, 11, session);
+  const boss = w.boss;
+  assert.ok(boss);
+  const [near, far] = w.heroes;
+  const targets = new Set<number>();
+  let charges = 0;
+  let was: string = boss.action;
+  const home = { x: boss.npc.x, y: boss.npc.y };
+  for (let i = 0; i < 20000 && (targets.size < 2 || charges < 6); i++) {
+    // le boss est ramene a sa place a chaque step : les deux heros restent en vue, hors de portee de ses coups,
+    // l'un pres, l'autre loin, et ils encaissent
+    boss.npc.x = home.x;
+    boss.npc.y = home.y;
+    near.hp = far.hp = 100000;
+    near.x = home.x;
+    near.y = home.y + 420;
+    far.x = home.x + 60;
+    far.y = home.y + 720;
+    w.step([NO_INPUT, NO_INPUT]);
+    if ((boss.action as string) === 'charge' && was !== 'charge') {
+      charges++;
+      targets.add(boss.target);
+    }
+    if ((boss.action as string) !== 'charge') assert.equal(boss.target, -1, 'hors charge, il vise le plus proche');
+    was = boss.action;
+  }
+  assert.ok(charges >= 6, `il a charge (${charges} fois)`);
+  assert.deepEqual([...targets].sort(), [near.id, far.id], 'les deux heros ont ete vises');
 });

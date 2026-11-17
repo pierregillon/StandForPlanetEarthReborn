@@ -1143,3 +1143,31 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Décision.** L'onde fait **14 points de dégâts** au contact, une fois par ennemi, comme le bond de BatBot.
 
 **Conséquences.** Tous les ennemis ordinaires touchés meurent (ils ont 1 à 3 PV), robots à bouclier compris puisque leur bouclier ne les protège pas de l'onde. La projection et l'étourdissement ne concernent donc plus, en pratique, que le boss (60 PV : il perd 14 PV et reste sonné 1,5 s sans être déplacé) et ce qui n'a pas de points de vie (chaises, débris, balles). Les foreuses du boss (20 PV) encaissent 14 points. Réglage : `CONFIG.ulti.badaBot.damage`.
+
+## GD-054 — Le boss est plus coriace à plusieurs joueurs
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — équilibrage à ajuster après essai
+- **Décidée par** : l'utilisateur (augmenter la vie et légèrement la vitesse à plusieurs ; il a retenu la vie, la vitesse et la cible parmi les réglages proposés) ; les formules sont celles proposées par défaut
+
+**Contexte.** SallyBot était réglé pour un joueur seul (60 PV, vitesse 7, GD-028), alors que l'original (100 PV, vitesse 10) était prévu pour quatre héros. À plusieurs, il tombait trop vite, et il restait collé au héros le plus proche pendant que les autres tiraient sans risque.
+
+**Décision.**
+
+| Joueurs | Vie | Vitesse de marche |
+|---|---|---|
+| 1 | 60 | 7 |
+| 2 | 100 | 8 |
+| 3 | 140 | 9 |
+| 4 | 180 | 10 |
+
+- **Vie : 60, plus 40 par joueur en plus du premier.** Chaque joueur apporte une arme de plus, ce qui justifierait +60 ; +40 tient compte du temps perdu à se relever et à se replacer, et du fait qu'on ne tire pas tous dans les mêmes fenêtres de vulnérabilité.
+- **Vitesse : 7, plus 1 par joueur en plus.** À quatre, on retrouve la vitesse de l'original ; il reste plus lent que les héros (11,5 ; EngiBot 15).
+- **Cible de la charge** : à chaque charge, le boss vise un héros tiré au hasard parmi ceux qu'il voit, au lieu du plus proche. S'il percute un autre héros sur sa route, c'est celui-là qui encaisse et qui l'arrête. Hors charge, il poursuit et frappe toujours le plus proche.
+- Le nombre de joueurs est compté à l'entrée dans la salle du boss ; le boss ne faiblit pas si un joueur quitte la partie ensuite.
+- Le passage en phase 2 se fait toujours à la moitié de la vie de départ (50 PV à deux, 90 à quatre).
+- **Un joueur seul garde exactement le même combat** : mêmes valeurs, et le hasard n'est pas consulté pour la cible.
+
+**Laissé de côté pour l'instant** (proposé, non retenu) : la vie des foreuses (20 PV chacune quel que soit le nombre de joueurs), la durée des étourdissements que les ultis infligent au boss, la fréquence de ses charges, les dégâts de ses coups.
+
+**Conséquences.** `healthPerExtraPlayer` et `speedPerExtraPlayer` dans `CONFIG.boss` ; `maxHp`, `speed` et `target` dans l'état du boss (`src/sim/boss.ts`), transmis sur le réseau comme le reste de son état. La barre de vie du boss se rapporte à sa vie de départ. Trois tests dans `boss.test.ts`. Vu à l'écran en solo seulement (combat inchangé) ; le combat à plusieurs n'a pas été essayé.

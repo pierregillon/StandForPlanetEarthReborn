@@ -34,13 +34,21 @@ export interface BossState {
   repathTimer: number;
   /** Le boss est déjà apparu à l'écran : sa barre de vie reste affichée. */
   seen: boolean;
+  /** Points de vie de départ et vitesse de marche : ils dépendent du nombre de joueurs (GD-054). */
+  maxHp: number;
+  speed: number;
+  /** Rang du héros visé par la charge en cours, -1 hors charge : le boss vise alors le plus proche. */
+  target: number;
 }
 
-export function createBoss(npc: Npc): BossState {
+/** `players` : nombre de joueurs à l'entrée dans la salle. Le boss ne faiblit pas si l'un d'eux quitte la partie. */
+export function createBoss(npc: Npc, players = 1): BossState {
+  const extra = Math.max(0, players - 1);
+  npc.hp = npc.def.maxHealth + B.healthPerExtraPlayer * extra;
   return {
     npc, phase: 1, action: 'idle', sprite: B.sprites.stand1, anim: 0, animSteps: 0, combo: 0, hitDone: false,
     engaged: false, transformed: false, fatigue: 0, invulnerable: false, guardedHp: npc.hp, path: null, pathIdx: 0,
-    repathTimer: 0, seen: false,
+    repathTimer: 0, seen: false, maxHp: npc.hp, speed: B.speed + B.speedPerExtraPlayer * extra, target: -1,
   };
 }
 
@@ -56,6 +64,7 @@ function start(world: World, b: BossState, action: BossAction, sprite: string): 
   b.anim = 0;
   b.animSteps = animSteps(world, sprite);
   b.hitDone = false;
+  if (action !== 'charge') b.target = -1;
 }
 
 /** À appeler avant le test de mort : annule les dégâts reçus pendant que le boss était invulnérable. */
@@ -68,15 +77,29 @@ function prey(world: World, npc: Npc): Hero {
   return world.nearestHero(npc.x, npc.y) ?? world.heroes[0];
 }
 
+/**
+ * Cible d'une charge (GD-054) : un héros au hasard parmi ceux que le boss voit, pour que ceux qui tirent de
+ * loin ne soient pas à l'abri pendant qu'un coéquipier l'occupe au contact. Seul en vue, c'est lui ; personne
+ * en vue, -1 : le boss charge le plus proche, comme avant.
+ */
+function chargeTarget(world: World, npc: Npc): number {
+  const seen = world.living().filter((h) => !world.sightBlocked(npc.x, npc.y, h.x, h.y));
+  if (seen.length === 0) return -1;
+  // le hasard n'est consulté qu'à plusieurs : un joueur seul garde exactement le même combat
+  return seen.length === 1 ? seen[0].id : seen[world.rng.int(0, seen.length - 1)].id;
+}
+
 export function stepBoss(world: World, b: BossState): void {
   const npc = b.npc;
-  const h = prey(world, npc);
+  // en pleine charge, il garde la cible qu'il s'est choisie tant qu'elle est debout
+  const chosen = b.action === 'charge' ? world.heroes[b.target] : undefined;
+  const h = chosen && !chosen.gone && chosen.state !== 'dead' ? chosen : prey(world, npc);
   const dx = h.x - npc.x;
   const dy = h.y - npc.y;
   const edge = Math.hypot(dx, dy) - npc.def.radius - h.def.radius;
   const toHero = Math.atan2(dy, dx);
   if (!b.engaged) {
-    const provoked = npc.hp < npc.def.maxHealth || world.drills.some((d) => d.hp < d.maxHp);
+    const provoked = npc.hp < b.maxHp || world.drills.some((d) => d.hp < d.maxHp);
     if (h.state === 'dead' || (edge > B.aggroRange && !provoked)) return finish(b);
     b.engaged = true;
   }
@@ -84,7 +107,7 @@ export function stepBoss(world: World, b: BossState): void {
   if (b.repathTimer > 0) b.repathTimer--;
 
   // passage en phase 2 à la moitié des points de vie : transformation, pendant laquelle il reste vulnérable
-  if (b.phase === 1 && npc.hp <= npc.def.maxHealth / 2 && b.action !== 'charge') {
+  if (b.phase === 1 && npc.hp <= b.maxHp / 2 && b.action !== 'charge') {
     b.phase = 2;
     start(world, b, 'transform', B.sprites.transform);
   }
@@ -125,10 +148,12 @@ export function stepBoss(world: World, b: BossState): void {
       const info = world.sprite(b.sprite);
       const frame = (b.anim / b.animSteps) * info.frames;
       if (frame >= B.chargeMoveFromFrame) {
-        const touching = edge <= 4;
-        if (touching && !b.hitDone) {
+        // il percute le premier héros sur sa route, sa cible ou un autre, et s'arrête contre lui
+        const bumped = world.living().find((o) => Math.hypot(o.x - npc.x, o.y - npc.y) - npc.def.radius - o.def.radius <= 4);
+        const touching = bumped !== undefined;
+        if (bumped && !b.hitDone) {
           b.hitDone = true;
-          world.damageHero(h, B.chargeDamage);
+          world.damageHero(bumped, B.chargeDamage);
         }
         const nx = npc.x + Math.cos(npc.angle) * B.chargeSpeed;
         const ny = npc.y + Math.sin(npc.angle) * B.chargeSpeed;
@@ -193,6 +218,7 @@ function decide(world: World, b: BossState, edge: number, wasAttacking: boolean)
   if (world.rng.next() < B.chargeChance) {
     b.path = null;
     start(world, b, 'charge', b.phase === 1 ? B.sprites.charge1 : B.sprites.charge2);
+    b.target = chargeTarget(world, b.npc);
     return;
   }
   const target = prey(world, b.npc);
@@ -205,13 +231,13 @@ function walk(world: World, b: BossState, toHero: number): void {
   let target: Point = prey(world, npc);
   if (b.path && b.pathIdx < b.path.length) {
     target = b.path[b.pathIdx];
-    if (Math.hypot(target.x - npc.x, target.y - npc.y) <= B.speed * 2) {
+    if (Math.hypot(target.x - npc.x, target.y - npc.y) <= b.speed * 2) {
       b.pathIdx++;
       return;
     }
   }
   const dir = Math.atan2(target.y - npc.y, target.x - npc.x);
-  const res = world.collision.resolveCircle(npc.x + Math.cos(dir) * B.speed, npc.y + Math.sin(dir) * B.speed, npc.def.radius * 0.6, BLOCK_MOVE);
+  const res = world.collision.resolveCircle(npc.x + Math.cos(dir) * b.speed, npc.y + Math.sin(dir) * b.speed, npc.def.radius * 0.6, BLOCK_MOVE);
   npc.walkDist += Math.hypot(res.x - npc.x, res.y - npc.y);
   npc.x = res.x;
   npc.y = res.y;

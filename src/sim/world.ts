@@ -438,7 +438,7 @@ export class World {
       if (!def) return;
       const npc = createNpc(this, this.nextId++, inst, def);
       this.npcs.push(npc);
-      if (def.kind === 'boss') this.boss = createBoss(npc);
+      if (def.kind === 'boss') this.boss = createBoss(npc, this.session.heroNames.length);
       if (def.kind === 'civil') {
         this.stats.totalCivil++;
         this.counted.civil++;

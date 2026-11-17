@@ -423,7 +423,8 @@ export const CONFIG = {
     obj_npc_civil_ouvrier: civil('spr_npc_ouvrier_marche', 'spr_npc_ouvrier_cours', 'spr_npc_ouvier_mort', 33, 1),
     obj_npc_civil_scientifique: civil('spr_npc_scientifique_marche', 'spr_npc_scientifique_cours', 'spr_npc_scientifique_mort', 28, 1),
     obj_npc_civil_technicien: civil('spr_npc_techni_move', 'spr_npc_techni_course', 'spr_npc_techni_mort', 38, 1),
-    // Boss. 100 PV dans l'original, prévus pour quatre héros ; 60 pour un joueur seul (GD-028).
+    // Boss. 100 PV dans l'original, prévus pour quatre héros ; 60 pour un joueur seul (GD-028), et 40 de plus
+    // par joueur supplémentaire (GD-054, `boss.healthPerExtraPlayer`).
     obj_sallyBot: {
       kind: 'boss', genre: 'robot', maxHealth: 60, normalSpeed: 10, radius: 110,
       sprites: { stand: 'spr_sallyBot_1_standing', move: 'spr_sallyBot_1_marche', dead: 'spr_explosion_robot' },
@@ -437,6 +438,12 @@ export const CONFIG = {
     aggroRange: 650,
     // 10 dans le code, la vitesse des heros ; 7 ici pour qu un joueur seul puisse prendre de la distance (GD-028)
     speed: 7,
+    /**
+     * À plusieurs (GD-054) : par joueur en plus du premier, le boss gagne des points de vie et un peu de
+     * vitesse. À quatre : 180 PV et la vitesse de marche de l'original (10), toujours sous celle des héros.
+     */
+    healthPerExtraPlayer: 40,
+    speedPerExtraPlayer: 1,
     chargeSpeed: 20,
     chargeDamage: 4,
     /** Une chance sur cinq de charger à chaque recalcul de chemin (toutes les 0,5 s). */
