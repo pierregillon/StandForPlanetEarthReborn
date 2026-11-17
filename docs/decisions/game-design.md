@@ -1243,3 +1243,48 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 **Pourquoi.** Recharger doit être un choix de moment, pas un événement rare. Les rôles se retrouvent dans le chargeur : le tireur arrose le plus longtemps, l'arme lourde compte ses coups, le soigneur tire par courtes séries.
 
 **Conséquences.** `magazine` dans `CONFIG.heroes`. En comptant les rechargements, les dégâts par seconde deviennent environ 2,3 pour PetBot, 3,6 pour EngiBot et 3,3 pour BadaBot ; BatBot reste à 6. On recharge environ deux fois plus souvent : si le rythme paraît trop haché, raccourcir les rechargements plutôt que regrossir les chargeurs.
+
+## GD-058 — Ennemis : un rôle par type, plus solides à plusieurs, un déplacement adapté à leur arme
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — équilibrage à ajuster après essai
+- **Décidée par** : l'utilisateur (il a validé la proposition, demandé un ShotBot plus rapide, une surchauffe du LightBot plus courte que 1,5 s, des ennemis plus durs à plusieurs « en choisissant ce qui est le mieux », et des déplacements adaptés à l'arme) ; les valeurs et le détail des déplacements sont des choix par défaut
+
+**Contexte.** Les soldats gardaient les valeurs du code de 2019. Deux sortaient du cadre : le LightBot tirait 10 balles par seconde sans jamais s'arrêter, à une vitesse que seul EngiBot égalait, et le ShotBot tirait au fusil à pompe d'aussi loin qu'un pistolet, 10 plombs capables de tuer un héros d'un coup. Tous se déplaçaient de la même façon : approcher, s'arrêter, tirer. Enfin, rien ne changeait avec le nombre de joueurs.
+
+**Principe.** Chaque ennemi pose une question différente à l'équipe, a un moment de faiblesse lisible, et un robot mieux placé que les autres pour y répondre.
+
+**Réglages par type** (solo).
+
+| | Soldat humain | Robot bouclier | LightBot | ShotBot |
+|---|---|---|---|---|
+| Rôle | la masse | le mur qui avance | le harceleur | le gardien de zone |
+| Vie | 1 | 3, bouclier de 6 coups | 2 | 4 (2 avant) |
+| Vitesse en poursuite | 10 | 6 | 12 (14 avant) | 9 (6 avant) |
+| Tir | 3 par seconde, ±5° (±3° avant) | coup de bouclier | rafale de 13 balles à 10 par seconde, puis 0,8 s de surchauffe (tir continu avant) | 6 plombs par seconde (10 avant) |
+| Distance de tir | 600 à 950 px | 150 px | 800 à 950 px | 350 à 500 px (600 à 950 avant) ; plombs portant à 700 px (1 500 avant) |
+| Moment de faiblesse | il recharge 0,7 s toutes les 16 balles | il pivote lentement | la surchauffe | 1 s entre deux salves |
+
+**Déplacement en combat, selon l'arme.**
+
+- **Soldat (pistolet précis)** : il tient sa position ; si un héros approche à moins de 280 px, il recule sans cesser de tirer.
+- **Robot bouclier (corps à corps)** : inchangé, il avance droit sur sa cible, bouclier en avant.
+- **LightBot (rafales imprécises)** : il tourne autour de sa cible pendant qu'il tire, à distance (pas à moins de 450 px), ce qui le rend difficile à toucher ; pendant la surchauffe il s'immobilise. Il change de sens devant un mur, et une fois sur deux après une surchauffe.
+- **ShotBot (fusil à pompe)** : il fonce au contact, puis continue d'avancer entre deux salves, jusqu'à 220 px.
+- Aucun ne quitte sa cible des yeux en manœuvrant. Le soldat qui recharge et le LightBot en surchauffe ne bougent pas : leur moment de faiblesse reste lisible.
+
+**Plus solides à plusieurs.** Par joueur en plus du premier, les soldats ont moitié plus de vie (arrondie) et le bouclier des robots à bouclier encaisse 2 coups de plus.
+
+| Joueurs | Soldat | LightBot | Robot bouclier (vie / bouclier) | ShotBot |
+|---|---|---|---|---|
+| 1 | 1 | 2 | 3 / 6 | 4 |
+| 2 | 2 | 3 | 5 / 8 | 6 |
+| 3 | 2 | 4 | 6 / 10 | 8 |
+| 4 | 3 | 5 | 8 / 12 | 10 |
+
+- **La vie plutôt que les dégâts ou la vitesse** : à plusieurs, ce qui augmente, c'est la puissance de feu de l'équipe, donc c'est la résistance des ennemis qui doit suivre. Augmenter leurs dégâts punirait chaque joueur individuellement, alors que sa vie n'a pas changé ; augmenter leur vitesse fausserait les esquives et les rapports de vitesse avec les robots (GD-056).
+- Les civils ne changent pas. Le boss a sa propre règle (GD-054). Comme pour lui, le nombre de joueurs est compté à l'entrée dans la salle.
+
+**Réponse attendue de l'équipe.** Le tank lève son bouclier pendant la rafale du LightBot et les autres frappent pendant la surchauffe ; le cogneur contourne le robot bouclier ; les tireurs nettoient les soldats et tuent le ShotBot pendant son approche ; le soigneur reste en retrait.
+
+**Conséquences.** `tactic` dans la définition de chaque soldat, `CONFIG.npc.tactics`, `healthPerExtraPlayer` et `shieldHitsPerExtraPlayer` dans `CONFIG.npc` ; `manoeuvre` dans `src/sim/npc.ts`. La pause du LightBot réutilise le rechargement des soldats. La tourelle de niveau 1 d'EngiBot touche mal un LightBot qui tourne : à surveiller. En solo, le jeu devient plus facile face au LightBot et au ShotBot. Cinq tests dans `enemies.test.ts` ; cinq tests plus anciens, qui supposaient des cibles immobiles, les immobilisent maintenant explicitement. Vu dans la page en solo : le LightBot tourne à distance, le ShotBot vient à bout portant, le soldat tient sa position. Le jeu à plusieurs n'a pas été essayé.

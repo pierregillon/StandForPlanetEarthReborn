@@ -103,7 +103,7 @@ export const LISTS: ListDef[] = [
   {
     ...array('npcs', [
       'dir', 'spd', 'path', 'pathIdx', 'waypointTimer', 'waypointFailures', 'patrolType', 'patrolReverse', 'pauseTimer',
-      'attackRange', 'fireTimer', 'repathTimer', 'viewRange', 'alertX', 'alertY', 'alertTimer', 'fearTimer', 'walkDist',
+      'attackRange', 'fireTimer', 'repathTimer', 'viewRange', 'alertX', 'alertY', 'alertTimer', 'fearTimer', 'walkDist', 'strafe',
     ]),
     clock: ['stateSteps'],
   },

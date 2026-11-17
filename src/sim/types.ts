@@ -344,6 +344,8 @@ export interface Npc {
   thrownAngle: number;
   /** Steps pendant lesquels il reste sonné après avoir été projeté : il ne bouge pas et ne tire pas. */
   daze: number;
+  /** Côté vers lequel il se décale en combat (1 ou -1 ; 0 tant qu'il n'a pas choisi) (GD-058). */
+  strafe: number;
   /** Coups que le bouclier frontal peut encore encaisser (robot bouclier). */
   shieldHp: number;
   shieldBroken: boolean;

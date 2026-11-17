@@ -160,7 +160,9 @@ test('ulti de BatBot : pleine surcharge, 2 s de lancement immobile, bond puis ex
   near.active = false;
   far.active = false;
   near.fireTimer = 100000;
+  near.stun = 100000;
   far.fireTimer = 100000;
+  far.stun = 100000;
   w.npcs = [near, far];
   const hpNear = near.hp;
   const hpFar = far.hp;
@@ -253,6 +255,7 @@ test('ulti de BadaBot : une vague projette au loin ennemis, chaises et balles su
   for (const npc of [front, beside, behind]) {
     npc.active = false;
     npc.fireTimer = 100000;
+    npc.stun = 100000;
     npc.hp = 100;
   }
   // un ennemi fragile sur le passage : la vague le tue
@@ -313,6 +316,7 @@ test('vague de BadaBot : une onde, la partie qui heurte un obstacle s\'arrete, l
   for (const npc of [sheltered, exposed, before]) {
     npc.active = false;
     npc.fireTimer = 100000;
+    npc.stun = 100000;
     npc.hp = 100;
   }
   w.npcs = [sheltered, exposed, before];
@@ -343,6 +347,7 @@ test('vague de BadaBot : un ennemi projete reste sonne, un mur arrete la bande q
   npc.y = bada.y;
   npc.active = false;
   npc.hp = 100;
+  npc.stun = 100000;
   w.npcs = [npc];
   const aim = { ...NO_INPUT, aimX: bada.x - 600, aimY: bada.y };
   castUlti(w, aim);

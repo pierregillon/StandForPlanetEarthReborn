@@ -70,6 +70,12 @@ export interface SoldierDef {
   melee: boolean;
   /** Ne subit des dégâts que si l'impact vient de l'arrière. */
   frontShield: boolean;
+  /**
+   * Façon de se déplacer pendant l'attaque, selon l'arme (GD-058) : `hold` tient sa position (pistolet précis),
+   * `wall` avance bouclier en avant (corps à corps), `harass` tourne autour de sa cible (rafales imprécises),
+   * `rush` avance jusqu'à bout portant (fusil à pompe).
+   */
+  tactic: 'hold' | 'wall' | 'harass' | 'rush';
   fireSound: string | null;
   sprites: { stand: string; move: string; shot: string; reload: string | null; dead: string };
 }
@@ -95,7 +101,7 @@ export interface BossDef {
 
 export type NpcDef = SoldierDef | CivilDef | BossDef;
 
-const enemyBullet = (sprite: string): BulletDef => ({ sprite, speed: 40, maxDistance: 1500, damage: 1, radius: 4 });
+const enemyBullet = (sprite: string, maxDistance = 1500): BulletDef => ({ sprite, speed: 40, maxDistance, damage: 1, radius: 4 });
 
 const civil = (move: string, run: string, dead: string, radius: number, runAnimFactor: number): CivilDef => ({
   kind: 'civil',
@@ -392,6 +398,21 @@ export const CONFIG = {
     // se brise après 6 coups encaissés de face. Dans l'original : invulnérable de face, rotation normale.
     shieldRotateSpeedDeg: 1.5,
     shieldHits: 6,
+    /**
+     * À plusieurs (GD-058) : par joueur en plus du premier, les soldats ont moitié plus de vie (arrondie) et le
+     * bouclier des robots à bouclier encaisse 2 coups de plus. Ni leurs dégâts ni leur vitesse ne changent.
+     */
+    healthPerExtraPlayer: 0.5,
+    shieldHitsPerExtraPlayer: 2,
+    /** Déplacements pendant l'attaque (GD-058), en pixels. */
+    tactics: {
+      /** Pistolet : en deçà, le soldat recule sans cesser de tirer. */
+      holdTooClose: 280,
+      /** LightBot : il ne s'approche pas plus que cela en tournant autour de sa cible. */
+      harassMin: 450,
+      /** ShotBot : il avance entre deux salves jusqu'à cette distance. */
+      rushStop: 220,
+    },
     fearSteps: s(30),
     fearSpeedFactor: 2,
     chaseSpeedFactor: 2,
@@ -402,30 +423,36 @@ export const CONFIG = {
   npcs: {
     obj_npc_human_pistol: {
       kind: 'soldier', genre: 'humain', maxHealth: 1, normalSpeed: 5, radius: 36,
-      attackRangeMin: 600, attackRangeMax: 950, shotsPerSecond: 3, bulletsPerShot: 1, precisionDeg: 3,
+      // précision ±3° dans le code de 2019 ; ±5° pour que bouger serve face au nombre (GD-058)
+      attackRangeMin: 600, attackRangeMax: 950, shotsPerSecond: 3, bulletsPerShot: 1, precisionDeg: 5,
       magazine: 16, canReload: true, reloadSteps: s(0.7), muzzle: { x: 82, y: 7 },
-      bullet: enemyBullet('spr_bullet_pistol'), melee: false, frontShield: false, fireSound: 'snd_pistolBot_fire1',
+      bullet: enemyBullet('spr_bullet_pistol'), melee: false, frontShield: false, tactic: 'hold', fireSound: 'snd_pistolBot_fire1',
       sprites: { stand: 'spr_npc1_stand', move: 'spr_npc1_move', shot: 'spr_npc1_shot', reload: 'spr_npc1_reload', dead: 'spr_npc1_mort' },
     },
     obj_npc_robot_shield: {
       kind: 'soldier', genre: 'robot', maxHealth: 3, normalSpeed: 3, radius: 50,
       attackRangeMin: 150, attackRangeMax: 150, shotsPerSecond: 1, bulletsPerShot: 1, precisionDeg: 3,
       magazine: 25, canReload: false, reloadSteps: 0, muzzle: { x: 73, y: 0 },
-      bullet: null, melee: true, frontShield: true, fireSound: null,
+      bullet: null, melee: true, frontShield: true, tactic: 'wall', fireSound: null,
       sprites: { stand: 'spr_npc2_stand', move: 'spr_npc2_move', shot: 'spr_npc2_shot', reload: null, dead: 'spr_npc2_mort' },
     },
     obj_npc_robot_lightBot: {
-      kind: 'soldier', genre: 'robot', maxHealth: 2, normalSpeed: 7, radius: 38,
+      // GD-058 : vitesse 7 dans le code de 2019 (14 en poursuite), 6 ici (12). Il tirait sans fin : il lâche
+      // maintenant des rafales de 13 balles séparées par 0,8 s de surchauffe, le temps de riposter.
+      kind: 'soldier', genre: 'robot', maxHealth: 2, normalSpeed: 6, radius: 38,
       attackRangeMin: 800, attackRangeMax: 950, shotsPerSecond: 10, bulletsPerShot: 1, precisionDeg: 10,
-      magazine: 13, canReload: false, reloadSteps: 0, muzzle: { x: 79, y: 24 },
-      bullet: enemyBullet('spr_bullet_lightBot'), melee: false, frontShield: false, fireSound: 'snd_pistolBot_fire1',
+      magazine: 13, canReload: true, reloadSteps: s(0.8), muzzle: { x: 79, y: 24 },
+      bullet: enemyBullet('spr_bullet_lightBot'), melee: false, frontShield: false, tactic: 'harass', fireSound: 'snd_pistolBot_fire1',
       sprites: { stand: 'spr_npc_lightBot_marche', move: 'spr_npc_lightBot_marche', shot: 'spr_npc_lightBot_tir', reload: null, dead: 'spr_npc1_mort' },
     },
     obj_npc_robot_shotBot: {
-      kind: 'soldier', genre: 'robot', maxHealth: 2, normalSpeed: 3, radius: 48,
-      attackRangeMin: 600, attackRangeMax: 950, shotsPerSecond: 1, bulletsPerShot: 10, precisionDeg: 10,
+      // GD-058 : dans le code de 2019, 2 PV, vitesse 3 (6 en poursuite), 10 plombs tirés de 600 à 950 px. Un
+      // fusil à pompe doit venir au contact : il tire de près (350 à 500 px), ses plombs ne portent qu'à 700 px,
+      // il en tire 6, il est plus rapide (9 en poursuite) et plus solide.
+      kind: 'soldier', genre: 'robot', maxHealth: 4, normalSpeed: 4.5, radius: 48,
+      attackRangeMin: 350, attackRangeMax: 500, shotsPerSecond: 1, bulletsPerShot: 6, precisionDeg: 10,
       magazine: 10, canReload: false, reloadSteps: 0, muzzle: { x: 79, y: -35 },
-      bullet: enemyBullet('spr_bullet_shotgun'), melee: false, frontShield: false, fireSound: 'snd_pistolBot_fire1',
+      bullet: enemyBullet('spr_bullet_shotgun', 700), melee: false, frontShield: false, tactic: 'rush', fireSound: 'snd_pistolBot_fire1',
       sprites: { stand: 'spr_npc_shotBot_marche', move: 'spr_npc_shotBot_marche', shot: 'spr_npc_shotBot_shot', reload: null, dead: 'spr_npc_shotBot_mort' },
     },
     obj_npc_civil_femme: civil('spr_npc_femme_move', 'spr_npc_femme_move', 'spr_npc_femme_mort', 30, 2),

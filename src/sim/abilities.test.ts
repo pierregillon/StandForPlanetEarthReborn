@@ -65,7 +65,7 @@ test('PetBot : pas de salve sous 3 points d\'énergie', () => {
 test('EngiBot : la tourelle se déploie, tire sur le soldat, puis se replie', () => {
   const { w, npc, aim } = arena('EngiBot', 'obj_npc_robot_lightBot', 700);
   const h = w.hero;
-  npc.fireTimer = 100000;
+  npc.stun = 100000; // cible immobile : le test porte sur la tourelle, pas sur les esquives du LightBot
   h.energy = 7;
   w.step({ ...aim, fire2: true });
   assert.equal(h.state, 'firing2');

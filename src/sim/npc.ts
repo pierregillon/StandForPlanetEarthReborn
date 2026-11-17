@@ -27,16 +27,19 @@ export function createNpc(world: World, id: number, inst: LevelInstance, def: Np
     if (patrolPoints.length > 0) patrolPoints.unshift({ x: inst.x, y: inst.y });
   }
   const soldier = def.kind === 'soldier' ? def : null;
+  // à plusieurs, les soldats sont plus solides (GD-058) ; les civils non, et le boss a sa propre règle (GD-054)
+  const extra = Math.max(0, world.session.heroNames.length - 1);
+  const hp = soldier ? Math.round(def.maxHealth * (1 + N.healthPerExtraPlayer * extra)) : def.maxHealth;
   return {
     id, object: inst.object, def, x: inst.x, y: inst.y, angle, dir: angle,
-    hp: def.maxHealth, active: false, behaviour: 'none', state: 'standing', spd,
+    hp, active: false, behaviour: 'none', state: 'standing', spd,
     path: null, pathIdx: 0, waypointTimer: 0, waypointFailures: 0,
     patrolType, patrolPoints, patrolReverse: false, pauseTimer: -1,
     attackRange: soldier ? world.rng.int(soldier.attackRangeMin, soldier.attackRangeMax) : 0,
     ammo: soldier ? soldier.magazine : 0,
     fireTimer: 0, reloadTimer: 0, repathTimer: 0, surpriseTimer: 0, spotted: false, viewRange: N.viewRange,
-    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0, thrown: 0, thrownAngle: 0, daze: 0,
-    shieldHp: soldier && soldier.frontShield ? N.shieldHits : 0, shieldBroken: false,
+    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0, thrown: 0, thrownAngle: 0, daze: 0, strafe: 0,
+    shieldHp: soldier && soldier.frontShield ? N.shieldHits + N.shieldHitsPerExtraPlayer * extra : 0, shieldBroken: false,
     fear: false, fearTimer: 0, stateSteps: 0, walkDist: 0,
   };
 }
@@ -185,13 +188,64 @@ function stepSoldier(world: World, npc: Npc, def: SoldierDef): void {
     }
     npc.dir = toHero;
   } else {
-    // attaque : à l'arrêt, face au héros
+    // attaque : face au héros, en se déplaçant selon son arme
     npc.path = null;
     npc.dir = toHero;
     // le robot bouclier pivote lentement, même en attaque : on peut passer dans son dos
     if (!def.frontShield) npc.angle = toHero;
     processFire(world, npc, def);
+    manoeuvre(world, npc, def, hero, dist, toHero);
   }
+}
+
+/**
+ * Déplacement pendant l'attaque, propre à l'arme de chaque soldat (GD-058) :
+ *   pistolet (`hold`)    : il tient sa position ; si on l'approche de trop près, il recule sans cesser de tirer ;
+ *   bouclier (`wall`)    : rien ici, il avance sur sa cible par la poursuite ;
+ *   LightBot (`harass`)  : il tourne autour de sa cible en tirant sa rafale, difficile à toucher ; pendant la
+ *                          surchauffe il s'immobilise : c'est le moment de riposter ;
+ *   ShotBot (`rush`)     : il avance entre deux salves, jusqu'à bout portant.
+ * Les moments de faiblesse restent lisibles : le soldat qui recharge et le LightBot en surchauffe ne bougent pas.
+ */
+function manoeuvre(world: World, npc: Npc, def: SoldierDef, hero: Hero, dist: number, toHero: number): void {
+  const T = N.tactics;
+  const pausing = npc.reloadTimer > 0;
+  if (def.tactic === 'hold') {
+    if (dist < T.holdTooClose && !pausing) shift(world, npc, hero, toHero + Math.PI, def.normalSpeed);
+  } else if (def.tactic === 'harass') {
+    if (pausing) {
+      // la surchauffe commence : une fois sur deux, il repartira de l'autre côté
+      if (npc.reloadTimer === def.reloadSteps && world.rng.next() < 0.5) npc.strafe = -npc.strafe;
+      return;
+    }
+    // il corrige sa distance en tournant : ni trop près, ni hors de portée
+    const lean = dist < T.harassMin ? -0.6 : dist > npc.attackRange - 80 ? 0.6 : 0;
+    sidestep(world, npc, hero, toHero, def.normalSpeed, lean);
+  } else if (def.tactic === 'rush') {
+    if (dist > T.rushStop) shift(world, npc, hero, toHero, def.normalSpeed);
+  }
+}
+
+/**
+ * Pas de côté autour de la cible. `lean` > 0 le rapproche en même temps, < 0 l'éloigne. Il change de côté
+ * devant un mur ou s'il perdrait sa cible de vue.
+ */
+function sidestep(world: World, npc: Npc, hero: Hero, toHero: number, speed: number, lean: number): boolean {
+  if (npc.strafe === 0) npc.strafe = world.rng.next() < 0.5 ? 1 : -1;
+  if (shift(world, npc, hero, toHero + npc.strafe * (Math.PI / 2 - 0.8 * lean), speed)) return true;
+  npc.strafe = -npc.strafe;
+  return false;
+}
+
+/** Avance d'un pas dans une direction sans quitter sa cible des yeux. Retourne false s'il ne peut pas. */
+function shift(world: World, npc: Npc, hero: Hero, angle: number, speed: number): boolean {
+  const res = world.collision.resolveCircle(npc.x + Math.cos(angle) * speed, npc.y + Math.sin(angle) * speed, npc.def.radius * 0.5, BLOCK_MOVE);
+  const moved = Math.hypot(res.x - npc.x, res.y - npc.y);
+  if (moved < speed * 0.5 || world.sightBlocked(res.x, res.y, hero.x, hero.y)) return false;
+  npc.walkDist += moved;
+  npc.x = res.x;
+  npc.y = res.y;
+  return true;
 }
 
 /**
