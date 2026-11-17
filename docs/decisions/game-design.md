@@ -1288,3 +1288,54 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 **Réponse attendue de l'équipe.** Le tank lève son bouclier pendant la rafale du LightBot et les autres frappent pendant la surchauffe ; le cogneur contourne le robot bouclier ; les tireurs nettoient les soldats et tuent le ShotBot pendant son approche ; le soigneur reste en retrait.
 
 **Conséquences.** `tactic` dans la définition de chaque soldat, `CONFIG.npc.tactics`, `healthPerExtraPlayer` et `shieldHitsPerExtraPlayer` dans `CONFIG.npc` ; `manoeuvre` dans `src/sim/npc.ts`. La pause du LightBot réutilise le rechargement des soldats. La tourelle de niveau 1 d'EngiBot touche mal un LightBot qui tourne : à surveiller. En solo, le jeu devient plus facile face au LightBot et au ShotBot. Cinq tests dans `enemies.test.ts` ; cinq tests plus anciens, qui supposaient des cibles immobiles, les immobilisent maintenant explicitement. Vu dans la page en solo : le LightBot tourne à distance, le ShotBot vient à bout portant, le soldat tient sa position. Le jeu à plusieurs n'a pas été essayé.
+
+## GD-059 — ShotBot : il surprend, tire d'un peu plus loin, et retrouve ses 10 plombs
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; modifie les valeurs du ShotBot de GD-058
+- **Décidée par** : l'utilisateur, après essai (réaction bien plus courte, un peu plus de vitesse et de portée, 10 plombs) ; les valeurs sont des choix par défaut
+
+**Contexte.** Avec les réglages de GD-058, le ShotBot ne tirait presque jamais sur des joueurs toujours en mouvement : il devait s'approcher bien en deçà de sa portée avant sa première salve, et marquait 0,8 s de surprise comme les autres soldats.
+
+**Décision.**
+
+| | GD-058 | Maintenant |
+|---|---|---|
+| Temps de réaction | 0,8 s | 0,2 s |
+| Vitesse en poursuite | 9 | 10,5 |
+| Distance de tir | 350 à 500 px | 500 à 650 px |
+| Portée des plombs | 700 px | 950 px |
+| Plombs par salve | 6 | 10 |
+
+- Il tire dès qu'il est à portée, au lieu d'attendre d'être 100 à 300 px plus près comme les autres soldats.
+- 10 plombs comme dans l'original : tirés d'un peu plus loin, ils font un large éventail, donc peu touchent la même cible ; à bout portant la salve reste très dangereuse.
+
+**Conséquences.** `reactionSteps` (propre au ShotBot) et ses valeurs dans `CONFIG.npcs`. À 10,5, il va aussi vite que BadaBot : le tank ne le sème pas en marchant. Un test vérifie qu'il tire régulièrement sur un héros qui ne cesse de bouger.
+
+## GD-060 — Largage : un robot par pince du véhicule
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur
+
+**Contexte.** Le véhicule de largage a quatre pinces, deux en haut et deux en bas, de part et d'autre de la coque. À plusieurs, seul le robot du joueur était montré dans la première pince ; ses coéquipiers apparaissaient au sol, alignés, une fois le véhicule posé. Par ailleurs l'orbe de BadaBot, qui est un calque séparé, l'attendait au sol pendant qu'il arrivait par les airs.
+
+**Décision.**
+
+- Chaque joueur occupe une pince : le joueur 1 la première (en haut), le joueur 2 la deuxième (en bas, du même côté), puis les deux autres. À deux, un robot de chaque côté de la coque ; à quatre, toutes les pinces sont prises.
+- Chaque robot est posé à l'aplomb de sa pince. Le véhicule se pose de façon à déposer le joueur 1 sur son point de départ ; les autres sont donc posés en carré autour, et non plus alignés sur les points de départ du niveau.
+- L'orbe de BadaBot voyage avec lui dans sa pince.
+
+**Conséquences.** Positions des pinces reprises de l'original (`scr_arrayOfSpawnPositionRelativeToSprite`) dans `CONFIG.arrival.claws` ; placement dans `deployHero` (`src/sim/world.ts`), dessin dans `syncVehicle` (`WorldView.ts`). Vu dans la page en solo (BadaBot et son orbe dans la première pince) ; l'arrivée à plusieurs n'est couverte que par un test.
+
+## GD-061 — Correction : les bornes gardées ne dépendent plus de l'entrée dans la salle
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée (correction de bogue)
+- **Décidée par** : signalé par l'utilisateur (« des bornes qui ne marchent pas après la carte violette, vers le garage »)
+
+**Contexte.** Chaque salle ne garde que quelques bornes, choisies les plus écartées possible en partant du point d'arrivée (GD-029). En partie réseau, le serveur garde le monde de la première visite, alors que le client reconstruit le sien à chaque entrée. Au retour de l'étage, on entre au rez-de-chaussée par une autre porte : le client choisissait alors quatre autres bornes que le serveur. Le joueur voyait des bornes qui n'existaient pas pour le serveur, donc sans effet, et ne voyait pas les vraies.
+
+**Décision.** Les bornes gardées sont toujours choisies depuis l'entrée principale de la salle, quel que soit l'endroit par où l'on arrive.
+
+**Conséquences.** Les quatre bornes du rez-de-chaussée sont les mêmes qu'avant pour une partie commencée normalement. Un test dans `net.test.ts` compare les bornes obtenues par les deux entrées. Le solo n'était pas touché.

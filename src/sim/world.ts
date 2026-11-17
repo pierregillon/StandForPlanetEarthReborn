@@ -161,7 +161,10 @@ export class World {
     }
     const resumed = this.checkpoint?.active === true;
     const spawn = resumed && this.checkpoint ? { x: this.checkpoint.x + 110, y: this.checkpoint.y + 40 } : start;
-    this.keepSpreadOutlets(CONFIG.outlet.keepPerRoom[level.name] ?? this.outlets.length, spawn);
+    // Les bornes gardées sont choisies depuis l'entrée principale de la salle, jamais depuis l'endroit par où
+    // l'on arrive : le monde miroir d'un client, reconstruit à chaque entrée, doit garder les mêmes que le
+    // serveur. Sinon, au retour de l'étage, le joueur voyait des bornes que le serveur n'avait pas.
+    this.keepSpreadOutlets(CONFIG.outlet.keepPerRoom[level.name] ?? this.outlets.length, this.spawnPoint(1));
     session.heroNames.forEach((name, slot) => {
       // au point de sauvegarde, l'équipe reprend groupée ; sinon chacun a son point d'apparition
       const at = resumed ? { x: spawn.x + (slot % 2) * 100, y: spawn.y + Math.floor(slot / 2) * 100 } : this.spawnPoint(session.spawnNumber, slot);
@@ -216,7 +219,22 @@ export class World {
   deployHero(withVehicle = false): void {
     const a = CONFIG.arrival;
     const arrivalTotal = a.flyInSteps + a.descendSteps + a.holdSteps + a.ascendSteps + a.flyOutSteps;
+    // chaque robot arrive dans sa pince : il est posé là où elle se trouve quand le véhicule touche le sol
+    // (le véhicule se pose de façon à déposer le joueur 1 sur son point de départ)
+    const lead = this.heroes[0];
+    const origin = lead ? { x: lead.x - a.claws[0].x, y: lead.y - a.claws[0].y } : null;
     for (const h of this.heroes) {
+      if (withVehicle && origin && h !== lead) {
+        const claw = a.claws[h.id % a.claws.length];
+        const x = origin.x + claw.x;
+        const y = origin.y + claw.y;
+        if (this.collision.circleFree(x, y, h.def.radius, BLOCK_MOVE)) {
+          h.x = x;
+          h.y = y;
+          h.targetX = x;
+          h.targetY = y;
+        }
+      }
       const info = this.sprite(`spr_${h.def.name}_deploy`);
       const fps = info.speedType === 0 ? info.speed : info.speed * STEPS_PER_SECOND;
       h.deployTotal = Math.min(CONFIG.hero.maxDeploySteps, Math.max(30, Math.round((info.frames / fps) * STEPS_PER_SECOND)));

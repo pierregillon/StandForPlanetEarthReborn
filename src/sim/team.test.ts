@@ -209,3 +209,28 @@ test('dashs : BadaBot n\'en a qu\'un, BatBot en recharge trois', () => {
   assert.equal(bat.dashCharges, 3);
   assert.equal(bada.dashCharges, 1);
 });
+
+test('largage : chaque robot arrive dans sa pince du véhicule, deux en haut, deux en bas', () => {
+  const claws = CONFIG.arrival.claws;
+  const four = team('PetBot', 'EngiBot', 'BatBot', 'BadaBot');
+  const first = { x: four.heroes[0].x, y: four.heroes[0].y };
+  four.deployHero(true);
+  four.heroes.forEach((h, i) => {
+    assert.equal(h.x, first.x + claws[i].x - claws[0].x, `robot ${i + 1}`);
+    assert.equal(h.y, first.y + claws[i].y - claws[0].y);
+    assert.ok(h.arrivalSteps > 0);
+  });
+  // les quatre emplacements sont distincts et assez écartés pour quatre robots
+  for (let i = 0; i < 4; i++) {
+    for (let j = i + 1; j < 4; j++) {
+      const d = Math.hypot(four.heroes[i].x - four.heroes[j].x, four.heroes[i].y - four.heroes[j].y);
+      assert.ok(d >= four.heroes[i].def.radius + four.heroes[j].def.radius, `pinces ${i + 1} et ${j + 1}`);
+    }
+  }
+  // à deux : un robot de chaque côté de la coque, l'un en haut, l'autre en bas
+  const two = team('BatBot', 'BadaBot');
+  two.deployHero(true);
+  assert.equal(two.heroes[1].x, two.heroes[0].x);
+  assert.equal(two.heroes[1].y - two.heroes[0].y, claws[1].y - claws[0].y);
+  assert.ok(two.heroes[1].y > two.heroes[0].y);
+});

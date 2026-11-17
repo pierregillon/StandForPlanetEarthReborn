@@ -504,10 +504,8 @@ export class WorldView {
     const { body, legs } = p;
     const local = h === this.world.hero;
     const dead = h.state === 'dead';
-    // le véhicule de largage ne montre dans sa pince que le robot du joueur ; les coéquipiers apparaissent une fois posés
-    const a = CONFIG.arrival;
-    const carried = !local && h.arrivalSteps > 0 && h.arrivalTotal - h.arrivalSteps < a.flyInSteps + a.descendSteps + a.holdSteps;
-    const shown = !h.gone && !carried;
+    // pendant le largage, chaque robot est dessiné dans sa pince du véhicule (voir syncVehicle)
+    const shown = !h.gone;
     body.setVisible(shown);
     legs.setVisible(shown && !dead && h.deploySteps === 0);
     if (!shown || dead) {
@@ -1613,29 +1611,36 @@ export class WorldView {
   }
 
   /**
-   * Véhicule de largage (GD-035) : il entre par la gauche avec le robot replié dans sa pince, descend, le pose,
-   * remonte et sort par la droite. Sprites et position des pinces repris de obj_spawnVehicle.
+   * Véhicule de largage (GD-035, GD-059) : il entre par la gauche avec toute l'équipe, chaque robot replié dans
+   * sa pince (deux en haut, deux en bas), descend, les pose, remonte et sort par la droite. Sprites et position
+   * des pinces repris de obj_spawnVehicle.
    */
   private syncVehicle(): void {
-    const h = this.world.hero;
-    if (h.arrivalTotal === 0 || !this.scene.textures.exists(frameKey('spr_spawnVehicle', 0))) return;
-    if (h.arrivalSteps === 0) {
+    const a = CONFIG.arrival;
+    const team = this.world.heroes.filter((h) => !h.gone && h.arrivalTotal > 0);
+    const lead = team.find((h) => h.arrivalSteps > 0);
+    if (!lead || !this.scene.textures.exists(frameKey('spr_spawnVehicle', 0))) {
       if (this.vehicle) {
         this.vehicle.body.destroy();
         this.vehicle.shadow?.destroy();
         this.vehicle = null;
-        this.partsOf(h).body.setScale(1);
+        for (const h of team) {
+          const p = this.partsOf(h);
+          p.body.setScale(1).setDepth(DEPTH.character);
+          p.orb?.setDepth(DEPTH.character + 1);
+        }
       }
       return;
     }
-    const a = CONFIG.arrival;
+    const clawOf = (h: Hero): { x: number; y: number } => a.claws[h.id % a.claws.length];
     if (!this.vehicle) {
       const shadow = this.scene.textures.exists(frameKey('spr_spawnVehicleShadow', 0))
-        ? this.image('spr_spawnVehicleShadow', 0, h.x, h.y, DEPTH.fx + 40).setAlpha(0.5) : null;
-      this.vehicle = { body: this.image('spr_spawnVehicle', 0, h.x, h.y, DEPTH.fx + 42), shadow };
+        ? this.image('spr_spawnVehicleShadow', 0, lead.x, lead.y, DEPTH.fx + 40).setAlpha(0.5) : null;
+      this.vehicle = { body: this.image('spr_spawnVehicle', 0, lead.x, lead.y, DEPTH.fx + 42), shadow };
     }
-    const t = h.arrivalTotal - h.arrivalSteps;
-    const landed = { x: h.x - a.claw.x, y: h.y - a.claw.y };
+    const t = lead.arrivalTotal - lead.arrivalSteps;
+    // le véhicule se pose de façon que chaque pince soit au-dessus du point de départ de son robot
+    const landed = { x: lead.x - clawOf(lead).x, y: lead.y - clawOf(lead).y };
     const t1 = a.flyInSteps;
     const t2 = t1 + a.descendSteps;
     const t3 = t2 + a.holdSteps;
@@ -1663,11 +1668,24 @@ export class WorldView {
     body.setPosition(x, landed.y).setScale(scale);
     // l'ombre s'écarte et s'agrandit avec l'altitude, comme dans l'original
     shadow?.setPosition(x + (70 * height + 10) * 0.94, landed.y + (70 * height + 10) * 0.34).setScale(scale * (1 + height / 6));
-    // le robot reste dans la pince jusqu'à ce que le véhicule soit posé
+    // les robots restent dans leur pince jusqu'à ce que le véhicule soit posé
     const carried = t < t3;
-    const carriedBody = this.partsOf(h).body;
-    if (carried) carriedBody.setPosition(x + a.claw.x * scale, landed.y + a.claw.y * scale).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
-    else carriedBody.setPosition(h.x, h.y).setScale(1).setDepth(DEPTH.character);
+    for (const h of team) {
+      const p = this.partsOf(h);
+      if (!carried) {
+        p.body.setPosition(h.x, h.y).setScale(1).setDepth(DEPTH.character);
+        p.orb?.setDepth(DEPTH.character + 1);
+        continue;
+      }
+      const claw = clawOf(h);
+      const bx = x + claw.x * scale;
+      const by = landed.y + claw.y * scale;
+      p.body.setPosition(bx, by).setScale(scale).setRotation(h.angle).setDepth(DEPTH.fx + 41);
+      // l'orbe de BadaBot est un calque à part : elle voyage avec lui au lieu de l'attendre au sol
+      if (p.orb) {
+        p.orb.setPosition(bx + (p.orbX - h.x) * scale, by + (p.orbY - h.y) * scale).setScale(p.orb.scaleX * scale).setDepth(DEPTH.fx + 41.5);
+      }
+    }
   }
 
   private nearView(x: number, y: number): boolean {

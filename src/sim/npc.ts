@@ -128,7 +128,7 @@ function heardHero(world: World, x: number, y: number): Hero | null {
 function alertSoldier(npc: Npc, x: number, y: number): void {
   if (!npc.alerted) {
     npc.alerted = true;
-    npc.surpriseTimer = N.reactionSteps;
+    npc.surpriseTimer = (npc.def.kind === 'soldier' ? npc.def.reactionSteps : undefined) ?? N.reactionSteps;
   }
   npc.alertX = x;
   npc.alertY = y;
@@ -155,7 +155,9 @@ function stepSoldier(world: World, npc: Npc, def: SoldierDef): void {
     next = 'surprised';
   } else if (prev === 'attack' && dist <= npc.attackRange) {
     next = 'attack';
-  } else if (dist > Math.max(npc.attackRange - world.rng.int(100, 300), def.radius * 2 + hero.def.radius)) {
+  } else if (dist > Math.max(npc.attackRange - (def.tactic === 'rush' ? world.rng.int(0, 60) : world.rng.int(100, 300)), def.radius * 2 + hero.def.radius)) {
+    // (le ShotBot tire dès qu'il est à portée : s'il attendait d'être bien plus près, une cible qui bouge ne
+    // lui en laisserait jamais le temps)
     next = 'chase';
   } else if (world.shotBlocked(npc.x, npc.y, hero.x, hero.y)) {
     next = 'chase';

@@ -284,3 +284,20 @@ test('chargement d\'une salle : le jeu attend que tous les joueurs soient prêts
   s2.tick();
   assert.equal(s2.currentWorld?.tick, 1);
 });
+
+test('les bornes gardées ne dépendent pas de la porte par où l\'on entre dans la salle', async () => {
+  const { World } = await import('../sim/world.ts');
+  const { GROUND_FLOOR, createSession } = await import('../sim/session.ts');
+  const { readFileSync } = await import('node:fs');
+  const ground = JSON.parse(readFileSync(new URL(`../../public/levels/${GROUND_FLOOR}.json`, import.meta.url), 'utf8'));
+  const manifest = JSON.parse(readFileSync(new URL('../../public/assets/sprites.json', import.meta.url), 'utf8'));
+  const outletsFrom = (spawnNumber: number): string[] => {
+    const session = createSession(['PetBot', 'BatBot'], GROUND_FLOOR);
+    session.spawnNumber = spawnNumber;
+    return new World(ground, manifest, ['PetBot', 'BatBot'], 1, session).outlets.map((o) => `${o.id}:${o.x},${o.y}`);
+  };
+  // le serveur garde le monde de la première visite (entrée 1) ; le client reconstruit le sien au retour de
+  // l'étage (entrée 2) : les deux doivent avoir les mêmes bornes
+  assert.equal(outletsFrom(1).length, 4);
+  assert.deepEqual(outletsFrom(2), outletsFrom(1));
+});

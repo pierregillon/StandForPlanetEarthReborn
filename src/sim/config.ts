@@ -76,6 +76,8 @@ export interface SoldierDef {
    * `rush` avance jusqu'à bout portant (fusil à pompe).
    */
   tactic: 'hold' | 'wall' | 'harass' | 'rush';
+  /** Temps de surprise avant de réagir, s'il diffère de celui des autres soldats (`npc.reactionSteps`). */
+  reactionSteps?: number;
   fireSound: string | null;
   sprites: { stand: string; move: string; shot: string; reload: string | null; dead: string };
 }
@@ -446,13 +448,14 @@ export const CONFIG = {
       sprites: { stand: 'spr_npc_lightBot_marche', move: 'spr_npc_lightBot_marche', shot: 'spr_npc_lightBot_tir', reload: null, dead: 'spr_npc1_mort' },
     },
     obj_npc_robot_shotBot: {
-      // GD-058 : dans le code de 2019, 2 PV, vitesse 3 (6 en poursuite), 10 plombs tirés de 600 à 950 px. Un
-      // fusil à pompe doit venir au contact : il tire de près (350 à 500 px), ses plombs ne portent qu'à 700 px,
-      // il en tire 6, il est plus rapide (9 en poursuite) et plus solide.
-      kind: 'soldier', genre: 'robot', maxHealth: 4, normalSpeed: 4.5, radius: 48,
-      attackRangeMin: 350, attackRangeMax: 500, shotsPerSecond: 1, bulletsPerShot: 6, precisionDeg: 10,
+      // GD-058, GD-059 : dans le code de 2019, 2 PV, vitesse 3 (6 en poursuite), 10 plombs tirés de 600 à 950 px.
+      // Un fusil à pompe doit venir au contact : il tire de 500 à 650 px, ses plombs ne portent qu'à 950 px, il
+      // est rapide (10,5 en poursuite), solide, et il réagit presque aussitôt pour surprendre.
+      kind: 'soldier', genre: 'robot', maxHealth: 4, normalSpeed: 5.25, radius: 48,
+      attackRangeMin: 500, attackRangeMax: 650, shotsPerSecond: 1, bulletsPerShot: 10, precisionDeg: 10,
       magazine: 10, canReload: false, reloadSteps: 0, muzzle: { x: 79, y: -35 },
-      bullet: enemyBullet('spr_bullet_shotgun', 700), melee: false, frontShield: false, tactic: 'rush', fireSound: 'snd_pistolBot_fire1',
+      bullet: enemyBullet('spr_bullet_shotgun', 950), melee: false, frontShield: false, tactic: 'rush', reactionSteps: s(0.2),
+      fireSound: 'snd_pistolBot_fire1',
       sprites: { stand: 'spr_npc_shotBot_marche', move: 'spr_npc_shotBot_marche', shot: 'spr_npc_shotBot_shot', reload: null, dead: 'spr_npc_shotBot_mort' },
     },
     obj_npc_civil_femme: civil('spr_npc_femme_move', 'spr_npc_femme_move', 'spr_npc_femme_mort', 30, 2),
@@ -528,8 +531,12 @@ export const CONFIG = {
     holdSteps: s(0.45),
     ascendSteps: s(0.6),
     flyOutSteps: s(1.2),
-    /** Pince du joueur 1, par rapport à l'origine du sprite du véhicule (scr_arrayOfSpawnPositionRelativeToSprite). */
-    claw: { x: 72, y: -95 },
+    /**
+     * Les quatre pinces du véhicule, par rapport à l'origine de son sprite (scr_arrayOfSpawnPositionRelativeToSprite
+     * de l'original) : deux en haut, deux en bas, de part et d'autre de la coque. Le joueur 1 prend la première,
+     * le joueur 2 la deuxième, et ainsi de suite : à deux, un robot de chaque côté ; à quatre, toutes sont prises.
+     */
+    claws: [{ x: 72, y: -95 }, { x: 72, y: 97 }, { x: -71, y: -95 }, { x: -71, y: 97 }],
     /** Échelle du véhicule en vol (1,1 dans l'original ; accentuée pour qu'on lise la descente). */
     flightScale: 1.3,
     travel: 1900,

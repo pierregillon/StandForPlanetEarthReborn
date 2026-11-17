@@ -88,15 +88,18 @@ test('LightBot : rafales de 13 balles en tournant autour de sa cible, puis 0,8 s
   assert.ok(d >= T.harassMin - 60 && d <= npc.attackRange + 20, `il garde sa distance (${Math.round(d)} px)`);
 });
 
-test('ShotBot : il vient au contact, tire 6 plombs à courte portée et avance entre deux salves', () => {
+test('ShotBot : il réagit vite, tire 10 plombs à courte portée et avance entre deux salves', () => {
   const { w, npc } = duel('obj_npc_robot_shotBot', 760);
   const def = npc.def;
   assert.ok(def.kind === 'soldier' && def.bullet);
-  assert.equal(def.bulletsPerShot, 6);
-  assert.equal(def.bullet.maxDistance, 700);
-  assert.equal(def.normalSpeed * CONFIG.npc.chaseSpeedFactor, 9);
-  assert.ok(npc.attackRange >= 350 && npc.attackRange <= 500);
+  assert.equal(def.bulletsPerShot, 10);
+  assert.equal(def.bullet.maxDistance, 950);
+  assert.equal(def.normalSpeed * CONFIG.npc.chaseSpeedFactor, 10.5);
+  assert.equal(def.reactionSteps, 12);
+  assert.ok(def.reactionSteps < CONFIG.npc.reactionSteps / 3, 'bien plus vif que les autres soldats');
+  assert.ok(npc.attackRange >= 500 && npc.attackRange <= 650);
   let firstShotAt = -1;
+  let firstShotStep = -1;
   let salvo = 0;
   for (let i = 0; i < 900; i++) {
     const before = w.bullets.filter((b) => b.owner === 'enemy').length;
@@ -104,11 +107,13 @@ test('ShotBot : il vient au contact, tire 6 plombs à courte portée et avance e
     const fired = w.bullets.filter((b) => b.owner === 'enemy').length - before;
     if (fired > 0 && firstShotAt < 0) {
       firstShotAt = gap(w, npc);
+      firstShotStep = i;
       salvo = fired;
     }
   }
-  assert.ok(firstShotAt > 0 && firstShotAt <= 500, `première salve de près (${Math.round(firstShotAt)} px)`);
-  assert.equal(salvo, 6);
+  assert.ok(firstShotAt > 0 && firstShotAt <= 650, `première salve de près (${Math.round(firstShotAt)} px)`);
+  assert.ok(firstShotStep < 60, `et sans tarder (${firstShotStep} steps)`);
+  assert.equal(salvo, 10);
   const d = gap(w, npc);
   assert.ok(d <= T.rushStop + 10 && d >= T.rushStop - def.normalSpeed - 1, `il finit à bout portant (${Math.round(d)} px)`);
 });
@@ -140,4 +145,17 @@ test('robot bouclier : il avance sur sa cible, sans manœuvrer', () => {
   assert.ok(w.hero.hp < 100000, 'il est venu au contact et a frappé');
   assert.ok(gap(w, npc) < 520, `il reste sur sa cible (${Math.round(gap(w, npc))} px)`);
   assert.ok(Math.abs(npc.y - w.hero.y) < 40, 'en ligne droite');
+});
+
+test('ShotBot : il arrive à tirer sur un héros qui ne cesse de bouger', () => {
+  const { w, npc } = duel('obj_npc_robot_shotBot', 760);
+  let salvos = 0;
+  for (let i = 0; i < 600; i++) {
+    const before = w.bullets.filter((b) => b.owner === 'enemy').length;
+    // le héros court en rond devant lui, sans jamais s'arrêter
+    const a = i / 40;
+    w.step({ ...NO_INPUT, moveX: Math.cos(a), moveY: Math.sin(a), aimX: npc.x, aimY: npc.y });
+    if (w.bullets.filter((b) => b.owner === 'enemy').length > before) salvos++;
+  }
+  assert.ok(salvos >= 5, `il tire régulièrement (${salvos} salves en 10 s)`);
 });
