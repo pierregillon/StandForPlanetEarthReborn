@@ -19,7 +19,7 @@ Lire, dans cet ordre :
 
 | Travail | À lire avant de commencer |
 |---|---|
-| **Game design narratif** | **[docs/narration/arc-narratif.md](docs/narration/arc-narratif.md), en entier, à chaque fois.** Puis ce qui existe déjà dans le jeu : consignes dans `src/sim/session.ts` (`OBJECTIVES`), textes et dialogue d'origine dans [03-niveaux-et-interface.md](docs/reference/jeu-original/03-niveaux-et-interface.md) §6 |
+| **Game design narratif** | **[docs/narration/arc-narratif.md](docs/narration/arc-narratif.md), en entier, à chaque fois.** Pour le niveau en cours : [docs/narration/niveau-tvtv2.md](docs/narration/niveau-tvtv2.md). Puis ce qui existe déjà dans le jeu : consignes dans `src/sim/session.ts` (`OBJECTIVES`), textes et dialogue d'origine dans [03-niveaux-et-interface.md](docs/reference/jeu-original/03-niveaux-et-interface.md) §6 |
 | Gameplay, règles, équilibrage | `src/sim/config.ts`, les analyses du jeu d'origine dans [docs/reference/jeu-original/](docs/reference/jeu-original/) |
 | Construction des niveaux | [docs/formats-donnees.md](docs/formats-donnees.md), [03-niveaux-et-interface.md](docs/reference/jeu-original/03-niveaux-et-interface.md), `public/levels/`, `tools/convert-rooms.ts` |
 | Code, architecture, multijoueur | [docs/decisions/architecture.md](docs/decisions/architecture.md) : ADR-005 (séparation simulation / affichage), ADR-014 (multijoueur) |
@@ -59,6 +59,7 @@ Lire, dans cet ordre :
 | Fichier | Contenu |
 |---|---|
 | [narration/arc-narratif.md](docs/narration/arc-narratif.md) | **Référence narrative** : concept, les six actes SFPE, les quatre actes SFHB, dénouement, alternance des époques, personnages (le chimiste, le scientifique, PLUTO), thématique, questions en suspens |
+| [narration/niveau-tvtv2.md](docs/narration/niveau-tvtv2.md) | Le niveau TvTv² (acte II) : fiche de mission, lieux, suite d'objectifs, script de la cinématique d'introduction, répliques du largage. Plans annotés des deux étages dans `docs/narration/plans/` (`npm run level-map` les régénère) |
 | [01-cadre-mvp.md](docs/01-cadre-mvp.md) | Périmètre de la première version, sources de vérité, points ouverts |
 | [02-feuille-de-route.md](docs/02-feuille-de-route.md) | Étapes de livraison, état actuel, journal d'avancement (une ligne par changement) |
 | [decisions/game-design.md](docs/decisions/game-design.md) | Journal des décisions de game design (`GD-xxx`) : quoi, pourquoi, décidé par qui |
@@ -77,7 +78,7 @@ Lire, dans cet ordre :
 | `src/net/` | Multijoueur : instantanés et monde miroir du client | `snapshot.ts`, `mirror.ts`, `messages.ts`, `net.test.ts` |
 | `server/` | Serveur Node : fichiers statiques, WebSocket, salon de jeu | `main.ts`, `game.ts` |
 | `src/client/` | Affichage Phaser | `scenes/` (menu, choix du niveau et du héros, salon, jeu), `view/WorldView.ts` (dessin du monde et effets), `view/Hud.ts`, `assets.ts`, `sfx.ts`, `keys.ts`, `net/Connection.ts` |
-| `tools/` | Outils de fabrication | `build.ts`, `convert-rooms.ts` (salles GameMaker → JSON), `extract-assets.ts` + `assets.config.json`, `make-sprites.ts` (sprites fabriqués) |
+| `tools/` | Outils de fabrication | `build.ts`, `convert-rooms.ts` (salles GameMaker → JSON), `extract-assets.ts` + `assets.config.json`, `make-sprites.ts` (sprites fabriqués), `level-map.ts` (plan annoté d'une salle, en SVG) |
 | `public/` | Ce que sert le serveur | `levels/*.json` (les salles du monde 2), `assets/sprites/` + `sprites.json`, `assets/floors/`, `assets/sounds/`, `fonts/`, `index.html` |
 
 Racine : `start.cmd` (lancer le jeu), `dev.cmd` (développer), `package.json`, [README.md](README.md) (présentation et commandes pour un humain).

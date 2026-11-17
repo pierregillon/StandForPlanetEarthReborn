@@ -15,7 +15,8 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "convert-rooms": "node tools/convert-rooms.ts",
     "extract-assets": "node tools/extract-assets.ts",
-    "make-sprites": "node tools/make-sprites.ts"
+    "make-sprites": "node tools/make-sprites.ts",
+    "level-map": "node tools/level-map.ts rm_world2 rm_world2_1"
   },
   "dependencies": {
     "phaser": "3.90.0",
