@@ -212,7 +212,7 @@ export class Hud {
       const nameOf = (o: { id: number; def: { name: string } }): string => this.playerNames[o.id] ?? o.def.name;
       if (h.ultiPhase > 0) hint = '';
       else if (ultiReady(h)) hint = 'ULTIMATE READY - press F';
-      else if (h.reviving >= 0) hint = `Reviving... ${Math.ceil((CONFIG.revive.steps - h.reviveSteps) / 60)}`;
+      else if (h.reviving >= 0) hint = `Reviving... ${Math.ceil((h.def.reviveSteps - h.reviveSteps) / 60)}`;
       else if (fallen) hint = h.energy >= CONFIG.revive.energyCost ? 'Hold E to revive your teammate' : `${CONFIG.revive.energyCost} energy needed to revive`;
       else if (linkedTo) hint = `Giving your energy to ${nameOf(linkedTo)} - A to unlink`;
       else if (donors.length > 0) hint = `Receiving energy from ${donors.map(nameOf).join(', ')}`;

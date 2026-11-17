@@ -16,6 +16,9 @@ export interface HeroDef {
   /** Rayon de collision (masque elliptique du sprite d'origine). */
   radius: number;
   maxHealth: number;
+  /** Nombre de dashs en réserve, et steps pour relever un coéquipier à terre : ils dépendent du rôle (GD-056). */
+  dashCharges: number;
+  reviveSteps: number;
   rotateSpeedDeg: number;
   shotsPerSecond: number;
   precisionDeg: number;
@@ -115,7 +118,6 @@ export const CONFIG = {
     // Dans l'original : -1 toutes les 2 s, sans délai.
     overchargeHoldSteps: s(15),
     overchargeDecaySteps: s(5),
-    dashCharges: 2,
     dashDistance: 500,
     dashSpeedFactor: 3,
     dashRechargeSteps: s(2),
@@ -153,6 +155,8 @@ export const CONFIG = {
       walkSpeed: 11.5, // 10 dans l'original ; +15 % (GD-031)
       radius: 40,
       maxHealth: 12,
+      dashCharges: 2,
+      reviveSteps: s(1.5), // le soigneur relève deux fois plus vite (GD-056)
       rotateSpeedDeg: 15,
       shotsPerSecond: 3,
       precisionDeg: 3,
@@ -172,9 +176,11 @@ export const CONFIG = {
     EngiBot: {
       kind: 'EngiBot',
       name: 'EngiBot',
-      walkSpeed: 15, // 13 dans l'original ; +15 % (GD-031)
+      walkSpeed: 14, // 13 dans l'original ; tireur léger, le plus rapide (GD-056)
       radius: 40,
-      maxHealth: 12,
+      maxHealth: 10, // rapide et fort en dégâts, donc fragile (GD-056)
+      dashCharges: 2,
+      reviveSteps: s(3),
       rotateSpeedDeg: 15,
       shotsPerSecond: 5,
       precisionDeg: 10,
@@ -194,9 +200,11 @@ export const CONFIG = {
     BatBot: {
       kind: 'BatBot',
       name: 'BatBot',
-      walkSpeed: 11.5, // 10 dans l'original ; +15 % (GD-031)
+      walkSpeed: 13, // 10 dans l'original ; il doit aller au contact (GD-056)
       radius: 40,
-      maxHealth: 12,
+      maxHealth: 14, // il encaisse pour arriver au contact (GD-056)
+      dashCharges: 3, // il entre dans la mêlée et en sort (GD-056)
+      reviveSteps: s(3),
       rotateSpeedDeg: 15,
       shotsPerSecond: 3,
       precisionDeg: 2,
@@ -216,9 +224,11 @@ export const CONFIG = {
     BadaBot: {
       kind: 'BadaBot',
       name: 'BadaBot',
-      walkSpeed: 11.5, // 10 dans l'original ; +15 % (GD-031)
+      walkSpeed: 10.5, // 10 dans l'original ; le tank est lourd, mais reste plus rapide que le boss (GD-056)
       radius: 44,
-      maxHealth: 12,
+      maxHealth: 16, // le tank (GD-056)
+      dashCharges: 1, // lourd : il tient sa position derrière son bouclier (GD-056)
+      reviveSteps: s(3),
       rotateSpeedDeg: 15,
       shotsPerSecond: 2.5, // 10 dans le code de 2019 ; 0,4 s entre deux tirs (GD-055)
       precisionDeg: 3,
@@ -276,7 +286,7 @@ export const CONFIG = {
     },
     batBot: {
       swingSteps: 10,
-      swingDamage: 1,
+      swingDamage: 2, // 1 dans le code de 2019 ; le corps à corps doit payer son risque (GD-056)
       /** Zone du coup de batte dans le repère du héros (masque de spr_bullet_BatBot_d). */
       swingBox: { x0: 32, y0: -98, x1: 126, y1: 95 },
       holdStepsForRecall: 15,
@@ -344,7 +354,8 @@ export const CONFIG = {
     engiBot: { range: 760, flySteps: 34, pulseSteps: 45, radius: 750, stunSteps: s(6) },
   },
   /** Résurrection d'un coéquipier à terre (scr_resurectAllie de l'original ; l'invulnérabilité au réveil est ajoutée). */
-  revive: { range: 100, steps: s(3), energyCost: 3, hp: 3, invulnSteps: s(1.5) },
+  // La durée (3 s, 1,5 s pour PetBot) est propre à chaque robot : `reviveSteps` dans `heroes` (GD-056).
+  revive: { range: 100, energyCost: 3, hp: 3, invulnSteps: s(1.5) },
   outlet: {
     range: 280, // 110 à l'étape 1 : jugé trop court par l'utilisateur (GD-022)
     // GD-029 : une recharge complète (0 à 12) prend 3 secondes

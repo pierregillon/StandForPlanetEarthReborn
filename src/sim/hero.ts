@@ -61,9 +61,9 @@ export function stepHero(world: World, h: Hero, input: Input): void {
   steerHero(world, h, input);
 
   // --- récupération du dash : +1 charge toutes les 2 s tant qu'il en manque ---
-  if (h.dashCharges < CONFIG.hero.dashCharges && h.dashRechargeTimer > 0 && --h.dashRechargeTimer === 0) {
+  if (h.dashCharges < h.def.dashCharges && h.dashRechargeTimer > 0 && --h.dashRechargeTimer === 0) {
     h.dashCharges++;
-    if (h.dashCharges < CONFIG.hero.dashCharges) h.dashRechargeTimer = CONFIG.hero.dashRechargeSteps;
+    if (h.dashCharges < h.def.dashCharges) h.dashRechargeTimer = CONFIG.hero.dashRechargeSteps;
   }
 
   stepEnergy(world, h);
@@ -84,7 +84,7 @@ export function stepHero(world: World, h: Hero, input: Input): void {
 
 /**
  * Résurrection d'un coéquipier (scr_resurectAllie) : « utiliser » maintenu près d'un robot à terre, 3 énergies
- * dépensées par tiers du compte à rebours. Relâcher annule ; l'énergie déjà dépensée est perdue.
+ * dépensées par tiers du compte à rebours. Sa durée dépend du sauveteur : PetBot relève deux fois plus vite (GD-056). Relâcher annule ; l'énergie déjà dépensée est perdue.
  * Retourne true tant que le héros est occupé à relever quelqu'un.
  */
 function stepRevive(world: World, h: Hero, input: Input): boolean {
@@ -106,11 +106,11 @@ function stepRevive(world: World, h: Hero, input: Input): boolean {
   h.reviveSteps++;
   h.energyPause = CONFIG.hero.energyPauseSteps;
   h.angle = rotateToward(h.angle, Math.atan2(ally.y - h.y, ally.x - h.x), h.def.rotateSpeedDeg * DEG);
-  if (h.reviveSteps % Math.round(cfg.steps / cfg.energyCost) === 0 && h.energy > 0) {
+  if (h.reviveSteps % Math.round(h.def.reviveSteps / cfg.energyCost) === 0 && h.energy > 0) {
     h.energy--;
     world.stats.energyUsed++;
   }
-  if (h.reviveSteps >= cfg.steps) {
+  if (h.reviveSteps >= h.def.reviveSteps) {
     world.raiseHero(ally, cfg.hp);
     world.emit({ type: 'revived', x: ally.x, y: ally.y });
     h.reviving = -1;

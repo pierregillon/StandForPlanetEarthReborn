@@ -1188,3 +1188,36 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** En cliquant, on lâche environ 2,3 boules par seconde ; en chargeant, 3 boules toutes les 1,4 s : les deux se valent en débit, et la charge retrouve son intérêt, qui est de tout lâcher d'un coup. BadaBot fait ainsi environ 4,5 points par seconde sur une cible, entre PetBot (3) et EngiBot (5), ce qui convient à un tank qui a déjà un bouclier et des dégâts de zone.
 
 **Conséquences.** `explosionDamage` dans `CONFIG.abilities.badaBot` et `shotsPerSecond` de BadaBot dans `CONFIG.heroes`. Une salve chargée enlève 6 PV au boss au lieu de 60 ; un chargeur complet (25 boules) vaut 50 points. Le clic à vide (chargeur vide) est lui aussi espacé de 0,4 s. Un test dans `abilities.test.ts`. Contrôlé dans la page en solo : une salve chargée de 3 boules enlève 6 PV à un ennemi.
+
+## GD-056 — Des stats propres au rôle de chaque robot
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — équilibrage à ajuster après essai
+- **Décidée par** : l'utilisateur, sur la proposition en deux paliers faite à sa demande (« mieux équilibrer les stats, en cohérence avec le rôle de chaque bot ») ; il a retenu les deux paliers
+
+**Contexte.** Les quatre robots avaient la même vie (12) et, sauf EngiBot, la même vitesse (11,5) : ils ne différaient que par leur arme. BadaBot, le tank, n'était ni plus solide ni plus lent que les autres, et le coup de batte de BatBot, donné au contact, ne faisait pas plus qu'une balle de PetBot tirée de loin.
+
+**Décision.** Chaque robot reçoit une force nette et une faiblesse nette.
+
+| | PetBot | EngiBot | BatBot | BadaBot |
+|---|---|---|---|---|
+| Rôle | soigneur | tireur léger | cogneur au contact | tank |
+| Vie (12 partout avant) | 12 | 10 | 14 | 16 |
+| Vitesse de marche (11,5 / 15 / 11,5 / 11,5 avant) | 11,5 | 14 | 13 | 10,5 |
+| Dégât du tir principal | 1 | 1 | 2 (1 avant) | 2 (GD-055) |
+| Dashs en réserve (2 partout avant) | 2 | 2 | 3 | 1 |
+| Temps pour relever un coéquipier (3 s partout avant) | 1,5 s | 3 s | 3 s | 3 s |
+
+- **BadaBot** : le plus de vie, le plus lent, un seul dash. Il tient sa position derrière son bouclier. 10,5 et non 10, pour rester plus rapide que le boss à quatre joueurs (GD-054).
+- **BatBot** : il doit aller au contact, donc il encaisse plus, court plus vite et a trois dashs pour entrer dans la mêlée et en sortir. Son coup de batte passe à 2 : avec 6 points par seconde, il devient le meilleur en dégâts, ce qui paie le risque.
+- **EngiBot** : rapide et fort en dégâts, donc fragile. Il reste le plus rapide.
+- **PetBot** : la référence, moyen partout, le plus faible en dégâts. Il relève un coéquipier deux fois plus vite, toujours pour 3 énergies.
+
+**Pourquoi.** Des rôles qui se lisent dans les chiffres donnent une raison de choisir un robot plutôt qu'un autre et de jouer ensemble : le tank devant, le cogneur dans la mêlée, le tireur à distance, le soigneur près de ceux qui tombent.
+
+**Conséquences.**
+
+- En solo, le choix du robot change la difficulté : EngiBot (10 PV) est plus dur, BadaBot (16 PV) plus facile. Chaque projectile ennemi enlève 1 PV.
+- Les soins de PetBot ont un débit fixe : remettre BadaBot à neuf prend plus de temps.
+- L'affichage de la vie est un rapport à la vie maximale : il s'adapte sans changement.
+- `maxHealth`, `walkSpeed`, `dashCharges` et `reviveSteps` dans `CONFIG.heroes` ; `swingDamage` dans `CONFIG.abilities.batBot`. Le nombre de dashs et la durée de la résurrection, jusque-là communs, sont maintenant propres à chaque robot. Deux tests dans `team.test.ts`. Contrôlé dans la page en solo avec BadaBot (16 PV, un dash, vitesse 630 px/s) ; les autres robots et le multijoueur ne sont couverts que par les tests.

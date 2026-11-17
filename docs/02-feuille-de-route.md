@@ -173,3 +173,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | L'onde de BadaBot fait 14 points de dégâts, comme le bond de BatBot (GD-053). |
 | 2026-11-17 | Boss plus coriace à plusieurs : +40 PV et +1 de vitesse par joueur en plus, charge sur un héros au hasard parmi ceux en vue (GD-054). 74 tests. |
 | 2026-11-17 | Tir principal de BadaBot rééquilibré : 2 points par boule au lieu de 20, 0,4 s entre deux tirs (GD-055). 75 tests. |
+| 2026-11-17 | Stats par rôle : vie 12/10/14/16, vitesse 11,5/14/13/10,5, batte de BatBot à 2, dashs 2/2/3/1, PetBot relève en 1,5 s (GD-056). 77 tests. |

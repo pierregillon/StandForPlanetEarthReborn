@@ -50,7 +50,7 @@ test('la partie n\'est perdue que quand toute l\'équipe est à terre', () => {
 });
 
 test('résurrection : E maintenu 3 s près d\'un robot à terre, pour 3 énergies', () => {
-  const w = team('PetBot', 'BatBot');
+  const w = team('EngiBot', 'BatBot');
   const [medic, fallen] = w.heroes;
   w.damageHero(fallen, 99);
   medic.x = fallen.x - 90;
@@ -69,7 +69,7 @@ test('résurrection : E maintenu 3 s près d\'un robot à terre, pour 3 énergie
   assert.equal(medic.reviving, -1);
   medic.energy = 3;
   const x = medic.x;
-  for (let i = 0; i < CONFIG.revive.steps; i++) w.step([{ ...hold, moveX: 1 }]);
+  for (let i = 0; i < medic.def.reviveSteps; i++) w.step([{ ...hold, moveX: 1 }]);
   assert.equal(medic.x, x, 'le sauveteur ne bouge pas');
   assert.equal(fallen.state, 'standing');
   assert.equal(fallen.hp, CONFIG.revive.hp);
@@ -171,4 +171,41 @@ test('un joueur qui part ne compte plus', () => {
   w.damageHero(w.heroes[0], 99);
   for (let i = 0; i < CONFIG.hero.deathMenuDelaySteps + 5; i++) w.step([]);
   assert.equal(w.gameOver, true, 'le seul joueur restant est à terre');
+});
+
+test('rôles (GD-056) : vie, vitesse, dashs et résurrection propres à chaque robot', () => {
+  const w = team('PetBot', 'EngiBot', 'BatBot', 'BadaBot');
+  const [pet, engi, bat, bada] = w.heroes;
+  assert.deepEqual(w.heroes.map((h) => h.hp), [12, 10, 14, 16]);
+  assert.deepEqual(w.heroes.map((h) => h.def.walkSpeed), [11.5, 14, 13, 10.5]);
+  assert.deepEqual(w.heroes.map((h) => h.dashCharges), [2, 2, 3, 1]);
+  assert.equal(CONFIG.abilities.batBot.swingDamage, 2);
+  // le tank reste plus rapide que le boss à quatre joueurs
+  assert.ok(bada.def.walkSpeed > CONFIG.boss.speed + 3 * CONFIG.boss.speedPerExtraPlayer);
+  // PetBot relève un coéquipier en 1,5 s, toujours pour 3 énergies ; les autres en 3 s
+  assert.equal(pet.def.reviveSteps, 90);
+  assert.equal(engi.def.reviveSteps, 180);
+  w.damageHero(bat, 99);
+  pet.x = bat.x - 90;
+  pet.y = bat.y;
+  pet.energy = 3;
+  const hold: Input[] = [{ ...NO_INPUT, use: true }, NO_INPUT, NO_INPUT, NO_INPUT];
+  for (let i = 0; i < 89; i++) w.step(hold);
+  assert.equal(bat.state, 'dead');
+  w.step(hold);
+  assert.equal(bat.state, 'standing', 'relevé en 1,5 s');
+  assert.equal(pet.energy, 0);
+  assert.equal(bada.hp, 16);
+});
+
+test('dashs : BadaBot n\'en a qu\'un, BatBot en recharge trois', () => {
+  const w = team('BatBot', 'BadaBot');
+  const [bat, bada] = w.heroes;
+  bat.dashCharges = 0;
+  bat.dashRechargeTimer = CONFIG.hero.dashRechargeSteps;
+  bada.dashCharges = 0;
+  bada.dashRechargeTimer = CONFIG.hero.dashRechargeSteps;
+  for (let i = 0; i < CONFIG.hero.dashRechargeSteps * 4; i++) w.step([NO_INPUT, NO_INPUT]);
+  assert.equal(bat.dashCharges, 3);
+  assert.equal(bada.dashCharges, 1);
 });
