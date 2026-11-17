@@ -186,13 +186,33 @@ const PETS = {
   },
 };
 
-/** Couleur de l'énergie de chaque robot quand il lance son ulti : teinte principale et reflet. */
+/**
+ * Couleur de l'énergie de chaque robot quand il lance son ulti (GD-049) : teinte principale et reflet. Violet
+ * pour BatBot, vert pour PetBot, bleu pour BadaBot, orange pour EngiBot. L'impulsion de la grenade d'EngiBot
+ * (`emp`) reste bleu électrique.
+ */
 const ULTI_COLORS: Record<string, { main: number; light: number }> = {
   BatBot: { main: 0xfe00d1, light: 0xff84e8 },
   PetBot: { main: 0x3dff7a, light: 0xc4ffd6 },
-  BadaBot: { main: 0x8a6cff, light: 0xd9c8ff },
-  EngiBot: { main: 0x4fb8ff, light: 0xd4f0ff },
+  BadaBot: { main: 0x5b78ff, light: 0xc9d4ff },
+  EngiBot: { main: 0xff8a2b, light: 0xffd9b0 },
+  emp: { main: 0x4fb8ff, light: 0xd4f0ff },
 };
+
+/** Bleu clair de l'énergie en surcharge (GD-031). */
+const OVERCHARGE_COLOR = 0x4fb8ff;
+
+/** Mélange deux couleurs 0xRRGGBB : `t` = 0 donne `from`, 1 donne `to`. */
+function mixColor(from: number, to: number, t: number): number {
+  const k = Math.max(0, Math.min(1, t));
+  const channel = (shift: number): number => Math.round(((from >> shift) & 255) + (((to >> shift) & 255) - ((from >> shift) & 255)) * k) << shift;
+  return channel(16) | channel(8) | channel(0);
+}
+
+/** Lancement d'un ulti, de 0 à 1 (0 en dehors). */
+function castProgress(h: Hero): number {
+  return h.ultiPhase === ULTI_CAST ? Math.min(1, h.ultiSteps / CONFIG.ulti.castSteps) : 0;
+}
 
 /** Brins d'un arc d'énergie, du plus large (halo) au plus fin (cœur). */
 interface BeamStrand {
@@ -527,9 +547,10 @@ export class WorldView {
   }
 
   /**
-   * Ulti (GD-043). Lancement : le robot est immobile (GD-048), c'est l'énergie qui s'anime autour de lui : une
-   * lueur enfle sous lui, des croissants se resserrent, des arcs électriques courent sur lui. Bond de BatBot :
-   * le robot grossit et s'élève, son ombre reste au sol.
+   * Ulti (GD-043). Lancement : le robot est immobile (GD-048), c'est l'énergie qui s'anime autour de lui, en
+   * trois temps (GD-049) : son énergie de surcharge prend la couleur du robot (`syncAura`), un léger halo de
+   * cette couleur la souligne, puis ce halo s'étend un peu. Des croissants se resserrent et des arcs électriques
+   * courent autour de lui. Bond de BatBot : le robot grossit et s'élève, son ombre reste au sol.
    */
   private syncUlti(h: Hero, p: HeroParts): void {
     const scene = this.scene;
@@ -547,10 +568,18 @@ export class WorldView {
       const scale = Math.max(0.8, h.def.radius / 62);
       this.setFrame(p.chargeUnder, 'spr_ulti_charge', frame);
       this.setFrame(p.chargeTop, 'spr_ulti_charge_top', frame);
-      p.chargeUnder.setVisible(true).setPosition(h.x, h.y).setScale(scale);
-      p.chargeTop.setVisible(true).setPosition(h.x, h.y).setScale(scale);
-      p.glow.setVisible(true).setPosition(h.x, h.y).setScale(0.9 + 2.6 * k + 0.14 * Math.sin(scene.time.now / 45)).setAlpha(0.25 + 0.55 * k);
-      this.drawChargeArcs(h, k, colors);
+      // comme l'enveloppe de surcharge, toute l'énergie part du bleu clair et prend la couleur du robot
+      const tint = { main: mixColor(OVERCHARGE_COLOR, colors.main, k * 3), light: mixColor(ULTI_COLORS.emp.light, colors.light, k * 3) };
+      p.chargeUnder.setVisible(true).setPosition(h.x, h.y).setScale(scale).setTint(tint.main);
+      p.chargeTop.setVisible(true).setPosition(h.x, h.y).setScale(scale).setTint(tint.light);
+      // le halo reste près du robot : une charge d'énergie, pas une lampe. Il apparaît au deuxième tiers du
+      // lancement et s'étend un peu au troisième.
+      const appear = Math.max(0, Math.min(1, k * 3 - 1));
+      const spread = Math.max(0, Math.min(1, k * 3 - 2));
+      p.glow.setVisible(appear > 0).setPosition(h.x, h.y)
+        .setScale((0.6 + 0.28 * spread * spread * (3 - 2 * spread)) * (1 + 0.03 * Math.sin(scene.time.now / 45)))
+        .setAlpha(0.3 * appear + 0.2 * spread);
+      this.drawChargeArcs(h, k, tint);
     } else {
       p.glow?.setVisible(false);
       p.chargeUnder?.setVisible(false);
@@ -1086,7 +1115,7 @@ export class WorldView {
         const fly = CONFIG.ulti.engiBot.flySteps;
         parts ??= {
           main: this.image('spr_EngiBot_ulti_grenade', 0, e.x, e.y, DEPTH.fx + 4),
-          extra: this.image('spr_EngiBot_ulti_pulse', 0, e.x, e.y, DEPTH.fx + 3).setTint(ULTI_COLORS.EngiBot.main).setBlendMode(Phaser.BlendModes.ADD).setVisible(false),
+          extra: this.image('spr_EngiBot_ulti_pulse', 0, e.x, e.y, DEPTH.fx + 3).setTint(ULTI_COLORS.emp.main).setBlendMode(Phaser.BlendModes.ADD).setVisible(false),
         };
         const flying = e.steps < fly;
         const grenade = this.info('spr_EngiBot_ulti_grenade');
@@ -1288,19 +1317,27 @@ export class WorldView {
   /**
    * Surcharge d'énergie (GD-031) : une enveloppe lumineuse à la forme du robot, en 3 niveaux (4 à 6, 7 à 9,
    * 10 à 12), avec quelques étincelles. Plus discrète que le cercle d'avant.
+   *
+   * Lancement d'un ulti (GD-049) : le robot était en pleine surcharge, son enveloppe reste donc au plus fort
+   * (alors que l'énergie est déjà dépensée) et passe, dans le premier tiers du lancement, du bleu clair à la
+   * couleur du robot.
    */
   private syncAura(h: Hero, p: HeroParts): void {
     const body = p.body;
-    const level = h.state === 'dead' || h.deploySteps > 0 ? 0 : Math.max(0, Math.min(3, Math.ceil((h.energy - CONFIG.hero.naturalEnergy) / 3)));
+    const casting = h.ultiPhase === ULTI_CAST;
+    const level = h.state === 'dead' || h.deploySteps > 0 ? 0 : casting ? 3 : Math.max(0, Math.min(3, Math.ceil((h.energy - CONFIG.hero.naturalEnergy) / 3)));
+    const colors = ULTI_COLORS[h.def.kind] ?? ULTI_COLORS.BatBot;
+    const shift = casting ? castProgress(h) * 3 : 0;
+    const color = mixColor(OVERCHARGE_COLOR, colors.main, shift);
     while (p.auras.length < 2) {
-      p.auras.push(this.scene.add.image(h.x, h.y, body.texture.key).setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x4fb8ff).setDepth(DEPTH.character - 0.5));
+      p.auras.push(this.scene.add.image(h.x, h.y, body.texture.key).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.character - 0.5));
     }
     const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 160);
     p.auras.forEach((aura, i) => {
       aura.setVisible(level > 0);
       if (level === 0) return;
       if (aura.texture.key !== body.texture.key) aura.setTexture(body.texture.key);
-      aura.setOrigin(body.originX, body.originY).setPosition(h.x, h.y).setRotation(h.angle)
+      aura.setTintFill(color).setOrigin(body.originX, body.originY).setPosition(h.x, h.y).setRotation(h.angle)
         .setScale(1.06 + i * 0.07 + 0.015 * pulse)
         .setAlpha((0.1 + 0.07 * level) * (i === 0 ? 1 : 0.55) * (0.8 + 0.2 * pulse));
     });
@@ -1310,7 +1347,7 @@ export class WorldView {
       if (Math.random() < 0.45) continue;
       let a = Math.random() * Math.PI * 2;
       let r = h.def.radius * (0.7 + Math.random() * 0.35);
-      g.lineStyle(2, Math.random() < 0.5 ? 0xffffff : 0x8fdcff, 0.85).beginPath();
+      g.lineStyle(2, Math.random() < 0.5 ? 0xffffff : mixColor(0x8fdcff, colors.light, shift), 0.85).beginPath();
       g.moveTo(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r);
       for (let j = 0; j < 3; j++) {
         a += 0.1 + Math.random() * 0.16;

@@ -1038,3 +1038,28 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Un robot qui se concentre est une machine à l'arrêt ; c'est l'énergie qui doit montrer la montée en puissance.
 
 **Conséquences.** Sprites `spr_<Robot>_ulti_cast` régénérés (`castPose` dans `tools/make-sprites.ts`). Arcs : `drawChargeArcs` dans `WorldView.ts`. Liste des sprites : `UI_SPRITES` dans `src/client/assets.ts`. Affichage seulement, rien ne change pour la simulation ni le réseau. Vu à l'écran en solo pour PetBot et BatBot (robot immobile, énergie, arcs, nuage de poussière) ; BadaBot et EngiBot jugés sur la planche-contact de leurs images.
+
+## GD-049 — Lancement d'un ulti : l'énergie de surcharge prend la couleur du robot, halo discret
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (les trois temps, les couleurs, la taille du halo) ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** Le halo du lancement (GD-048, visible depuis la correction du chargement des sprites) était trop grand : il faisait « lumière » plutôt que charge d'énergie. Or un robot qui lance son ulti est en pleine surcharge : il a déjà autour de lui une enveloppe d'énergie bleu clair (GD-031), qui disparaissait dès le début du lancement puisque l'énergie est dépensée à ce moment-là.
+
+**Décision.** Le lancement se lit en trois temps, un par tiers des 2 s :
+
+1. L'enveloppe de surcharge reste autour du robot et passe du bleu clair à la couleur du robot : **violet (magenta) pour BatBot, vert pour PetBot, bleu pour BadaBot, orange pour EngiBot**.
+2. Un léger halo de la même couleur apparaît sous le robot et souligne cette énergie.
+3. Le halo s'étend un peu : au plus large, il fait le quart de sa taille d'avant (225 px de diamètre au lieu de 900).
+
+*Par défaut* :
+
+- l'enveloppe reste à son niveau le plus fort pendant tout le lancement, bien que l'énergie soit déjà dépensée, puis disparaît quand le coup part ;
+- les croissants et les arcs électriques du lancement (GD-048) suivent le même passage du bleu clair à la couleur du robot ;
+- BatBot garde le magenta de ses battes ; BadaBot passe du violet au bleu et EngiBot du bleu à l'orange, ce qui change aussi la couleur des anneaux et de l'éclat de départ de leur ulti ;
+- l'impulsion de la grenade d'EngiBot et les arcs sur les robots désactivés restent bleu électrique : c'est une décharge électromagnétique, pas l'énergie du robot.
+
+**Pourquoi.** L'ulti prolonge la surcharge : c'est la même énergie qui change de nature, pas une lumière qui s'allume.
+
+**Conséquences.** Affichage seulement (`ULTI_COLORS`, `syncAura` et `syncUlti` dans `WorldView.ts`). Vu à l'écran en solo avec EngiBot : enveloppe bleue avant le lancement, passage à l'orange, halo resserré autour du robot.
