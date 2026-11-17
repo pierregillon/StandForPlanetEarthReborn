@@ -197,3 +197,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Tirs : une fumée chaude prend la place de la flamme, avance et s'efface en 0,4 s (GD-065). |
 | 2026-11-17 | Tirs : fumée redessinée en petits nuages cartoon cernés, avec ombre, reflet et volute, d'opacités variées (GD-065). |
 | 2026-11-17 | Tirs : fumée redessinée d'après le brouillard du jeu (spr_fog), nappes en aplats sans contour ; le dessin cartoon cerné est abandonné (GD-065). |
+| 2026-11-17 | Tirs : panache de fumée un peu plus court et plus ramassé (GD-065). |

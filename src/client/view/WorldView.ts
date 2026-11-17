@@ -145,7 +145,7 @@ const TRACER_STYLE = {
    * seconde).
    */
   smoke: {
-    at: 0.4, puffs: 6, spread: 100, speed: 320, drag: 6, radius: 20, grow: 2.5, life: 0.55,
+    at: 0.4, puffs: 6, spread: 78, speed: 250, drag: 6, radius: 20, grow: 2.5, life: 0.55,
     alpha: 1, thin: 0.6, hold: 0.35, spin: 0.5, hot: 0xffe9c4, cold: 0xdcdce0,
   },
 };
