@@ -1092,8 +1092,13 @@ export class WorldView {
     if (def.kind === 'EngiBot' && h.fire2Anim >= 0 && def.sprites.fire2) {
       return { sprite: def.sprites.fire2, frame: (h.fire2Anim / CONFIG.abilities.engiBot.placeAnimSteps) * this.info(def.sprites.fire2).frames };
     }
-    if (h.state === 'firing1' && h.sinceShot < period) {
-      return { sprite: def.sprites.shot, frame: (h.sinceShot / period) * this.info(def.sprites.shot).frames };
+    // Tant qu'il tire, il garde la posture de tir, même en courant : entre deux coups, l'animation reste sur sa
+    // dernière image au lieu de repasser à celle de la marche. Sinon, dès que le compteur du dernier tir dépassait
+    // la cadence (cela arrive en réseau, où il n'est recalé que par les instantanés), les deux postures
+    // alternaient : l'arme balancée de la marche, puis l'arme droite du tir.
+    if (h.state === 'firing1') {
+      const frames = this.info(def.sprites.shot).frames;
+      return { sprite: def.sprites.shot, frame: Math.min(frames - 1, (h.sinceShot / period) * frames) };
     }
     return h.moving ? walkCycle(def.sprites.move) : { sprite: def.sprites.stand, frame: 0 };
   }

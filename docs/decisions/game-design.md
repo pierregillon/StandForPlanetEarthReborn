@@ -1355,3 +1355,15 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 - *Par défaut* : les mini-bots de PetBot (tir secondaire, 900 px/s au plus) ne sont pas concernés : ce sont des drones, pas des balles.
 
 **Conséquences.** `speed` de la balle de PetBot dans `CONFIG.heroes` ; traînée dans `syncBullets` (`WorldView.ts`). PetBot touche plus facilement une cible en mouvement. La proposition de ralentir les balles ennemies pour les rendre esquivables n'a pas été retenue. Contrôlé dans la page en solo : des balles d'EngiBot ralenties par un rebond ont une traînée courte.
+
+## GD-063 — Correction : la posture de tir est tenue tant que le robot tire
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée (correction de bogue)
+- **Décidée par** : signalé par l'utilisateur (EngiBot qui tire en courant : la course et le tir semblaient se mélanger), qui a ensuite constaté que le défaut ne se reproduisait pas à chaque fois et l'a attribué au réseau
+
+**Contexte.** Le corps d'un robot montre soit sa marche (EngiBot balance son arme de gauche à droite), soit son tir (arme droite). Pendant qu'il tirait, la posture de tir n'était gardée que tant que le compteur « steps depuis le dernier tir » restait sous la cadence ; au-delà, on repassait à la marche. En solo ce compteur est remis à zéro à chaque coup, donc il ne dépasse jamais. En partie réseau, le client le fait avancer lui-même et ne le recale qu'à l'arrivée des instantanés du serveur (toutes les 50 ms, plus le délai du réseau) : entre deux coups il dépassait la cadence pendant quelques images, et les deux postures alternaient.
+
+**Décision.** Tant que le robot est en train de tirer, il garde sa posture de tir ; entre deux coups, l'animation reste sur sa dernière image. Vaut pour PetBot et EngiBot.
+
+**Conséquences.** `heroPose` dans `WorldView.ts`, affichage seulement. La cause est établie par la lecture du code et confirmée en solo (120 images sur 120 en posture de tir, avant comme après) ; l'essai en partie réseau n'a pas pu être fait pendant cette session.
