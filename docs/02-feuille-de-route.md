@@ -186,3 +186,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Tirs : la flamme part de la bouche du canon et s'éteint en s'en éloignant ; traînée des balles plus nette (GD-065). |
 | 2026-11-17 | Tirs : la flamme s'éteint sur place, tout entière en même temps (GD-065). |
 | 2026-11-17 | Tirs : la flamme jaillit du canon puis s'étire en s'éteignant, pour ne plus paraître y rentrer (GD-065). |
+| 2026-11-17 | Tirs : toute la flamme avance de 80 px en s'estompant (GD-065). |
