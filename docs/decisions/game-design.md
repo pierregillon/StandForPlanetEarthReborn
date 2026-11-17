@@ -1404,7 +1404,7 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 
 **Décision.**
 
-- **Déflagration** : au tir, une flamme de lumière en forme de goutte s'étend vers l'avant sur 190 px, environ deux fois la longueur de l'arme. Elle est blanche en son centre et jaune autour.
+- **Déflagration** : au tir, une flamme jaillit du canon vers l'avant, sur environ deux fois la longueur de l'arme. Son corps est une langue de feu effilée ; des pointes fines en sortent, une grande dans l'axe (jusqu'à 300 px) et de plus courtes autour, dans un cône de 20° de part et d'autre ; quelques étincelles sont projetées vers l'avant. Elle est blanche en son centre et jaune autour. (Premier essai : une goutte lisse, jugée trop ronde ; la forme en flamme suit une seconde capture de référence fournie par l'utilisateur.)
 - **Elle éclaire ce qui est devant le canon** : une lueur jaune en cône, étroite mais intense, porte sur 250 px vers l'avant et teinte le décor, y compris dans une salle sombre. Elle n'éclaire presque rien vers l'arrière : un canon qui tire n'éclaire pas derrière lui. (Premier essai : une lueur ronde de 340 px de rayon autour de l'arme, jugée trop ronde et trop étendue par l'utilisateur.)
 - **Extinction** : pleine force pendant 30 ms, puis extinction exponentielle (constante de 75 ms), vive au début et de plus en plus lente. Le blanc s'éteint le premier, la flamme jaunit puis rougeoie. Le tout dure moins de 0,3 s.
 - **Balles et traînées** : à la sortie du canon elles ont la même lumière que la déflagration, avec un halo autour de la balle. Elles restent chaudes sur 450 px de vol, puis refroidissent : la traînée s'amincit, pâlit et vire au gris, et à 1 150 px on ne voit plus que la balle elle-même (son sprite d'origine).

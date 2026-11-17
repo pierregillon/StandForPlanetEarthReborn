@@ -114,9 +114,10 @@ const TRACER_STYLE = {
    * Déflagration à la bouche du canon : une flamme de lumière vers l'avant, longue comme deux fois l'arme,
    * tenue `hold` secondes à pleine force puis éteinte selon une exponentielle de constante `decay`. Elle
    * éclaire ce qui est devant le canon, sur `light` pixels : une zone étroite mais intense, et presque rien
-   * vers l'arrière (un canon n'éclaire pas derrière lui).
+   * vers l'arrière (un canon n'éclaire pas derrière lui). La flamme est une gerbe de `rays` rayons pointus
+   * serrés dans un cône de `spread` radians de part et d'autre de l'axe du tir.
    */
-  blast: { length: 190, width: 46, hold: 0.03, decay: 0.075, light: 250, lightAlpha: 0.95 },
+  blast: { length: 190, width: 46, hold: 0.03, decay: 0.075, light: 250, lightAlpha: 0.95, rays: 9, spread: 0.36 },
 };
 
 /** Trait de lumière d'une balle en vol : début de sa ligne droite en cours (départ ou dernier ricochet) et dernier tracé. */
@@ -154,6 +155,10 @@ interface MuzzleFlash {
   enemy: boolean;
   age: number;
   light: Img;
+  /** Rayons de la gerbe : écart à l'axe du tir, longueur et demi-largeur à la base. */
+  rays: { offset: number; length: number; width: number }[];
+  /** Étincelles projetées vers l'avant : direction, distance de départ et vitesse. */
+  sparks: { offset: number; from: number; speed: number; size: number }[];
 }
 
 type Img = Phaser.GameObjects.Image;
@@ -1229,7 +1234,17 @@ export class WorldView {
     const light = this.scene.add.image(x, y, cone.key).setOrigin(cone.focusX, 0.5).setRotation(angle)
       .setBlendMode(Phaser.BlendModes.ADD).setTint((enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero).glow)
       .setScale(blast.light / cone.reach).setDepth(DEPTH.darkness + 1);
-    this.flashes.push({ x, y, angle, enemy, age: 0, light });
+    // la gerbe est tirée au sort une fois : elle garde sa forme pendant qu'elle s'éteint
+    const rays = Array.from({ length: blast.rays }, (_, i) => {
+      // un grand rayon dans l'axe, les autres plus courts à mesure qu'ils s'en écartent
+      const offset = i === 0 ? (Math.random() - 0.5) * 0.06 : (Math.random() * 2 - 1) * blast.spread;
+      const side = 1 - Math.abs(offset) / blast.spread;
+      return { offset, length: i === 0 ? 1.45 + Math.random() * 0.25 : 0.4 + 0.75 * side * (0.6 + Math.random() * 0.6), width: i === 0 ? 7 : 3 + Math.random() * 3.5 };
+    });
+    const sparks = Array.from({ length: 7 }, () => ({
+      offset: (Math.random() * 2 - 1) * blast.spread * 1.5, from: 30 + Math.random() * 110, speed: 500 + Math.random() * 900, size: 6 + Math.random() * 10,
+    }));
+    this.flashes.push({ x, y, angle, enemy, age: 0, light, rays, sparks });
   }
 
   /**
@@ -1267,35 +1282,66 @@ export class WorldView {
   }
 
   /**
-   * La déflagration à la force `k` (1 à l'instant du tir, puis vers 0) : une flamme de lumière en goutte,
-   * tournée vers l'avant, blanche en son centre et jaune autour, et la lueur qu'elle jette sur la pièce. Le
-   * blanc s'éteint le premier : en mourant, la flamme jaunit puis rougeoie.
+   * La déflagration à la force `k` (1 à l'instant du tir, puis vers 0) : une flamme. Son corps est une langue
+   * de feu effilée qui sort du canon ; des pointes plus fines en jaillissent, une grande dans l'axe et de plus
+   * courtes autour ; un cœur chauffé à blanc à la bouche du canon, quelques étincelles projetées vers l'avant,
+   * et la lueur jetée sur le décor. Le blanc s'éteint le premier : en mourant, la flamme jaunit puis rougeoie,
+   * et elle raccourcit.
    */
   private drawMuzzleFlash(f: MuzzleFlash, k: number): void {
     const g = this.shotLights;
     const blast = TRACER_STYLE.blast;
     const hot = f.enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
-    const c = Math.cos(f.angle);
-    const s = Math.sin(f.angle);
     f.light.setAlpha(blast.lightAlpha * k);
-    /** Goutte allongée : pointue aux deux bouts, la plus large au premier tiers. */
-    const drop = (length: number, width: number): Phaser.Geom.Point[] => {
+    /** Rayon pointu : un triangle très allongé, de la bouche du canon à sa pointe. */
+    const ray = (angle: number, length: number, width: number): Phaser.Geom.Point[] => {
+      const c = Math.cos(angle);
+      const s = Math.sin(angle);
+      return [
+        new Phaser.Geom.Point(f.x - c * 6 + s * width, f.y - s * 6 - c * width),
+        new Phaser.Geom.Point(f.x + c * length, f.y + s * length),
+        new Phaser.Geom.Point(f.x - c * 6 - s * width, f.y - s * 6 + c * width),
+      ];
+    };
+    // elle frémit d'une image à l'autre
+    const reach = blast.length * (0.55 + 0.45 * k) * (0.94 + Math.random() * 0.12);
+    /** Langue de feu : ventrue près du canon, effilée vers l'avant. */
+    const tongue = (length: number, width: number): Phaser.Geom.Point[] => {
+      const c = Math.cos(f.angle);
+      const s = Math.sin(f.angle);
       const side: { along: number; across: number }[] = [];
       const steps = 9;
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
-        side.push({ along: -10 + length * t, across: width * Math.sin(Math.PI * Math.pow(t, 0.55)) });
+        side.push({ along: -8 + length * t, across: width * Math.sin(Math.PI * Math.pow(t, 0.42)) * (1 - 0.35 * t) });
       }
-      const points = [...side.map((p) => ({ along: p.along, across: p.across })), ...side.reverse().map((p) => ({ along: p.along, across: -p.across }))];
+      const points = [...side, ...side.slice().reverse().map((p) => ({ along: p.along, across: -p.across }))];
       return points.map((p) => new Phaser.Geom.Point(f.x + c * p.along - s * p.across, f.y + s * p.along + c * p.across));
     };
-    // elle frémit d'une image à l'autre
-    const reach = blast.length * (0.7 + 0.3 * k) * (0.94 + Math.random() * 0.12);
-    g.fillStyle(hot.glow, 0.4 * k).fillPoints(drop(reach, blast.width * 1.25), true);
-    g.fillStyle(hot.core, 0.7 * k).fillPoints(drop(reach * 0.82, blast.width * 0.8), true);
-    g.fillStyle(0xffffff, Math.min(1, 1.3 * k * k)).fillPoints(drop(reach * 0.55, blast.width * 0.42), true);
-    g.fillStyle(hot.core, 0.5 * k).fillCircle(f.x, f.y, 30);
-    g.fillStyle(0xffffff, Math.min(1, k * k)).fillCircle(f.x, f.y, 14);
+    g.fillStyle(hot.glow, 0.45 * k).fillPoints(tongue(reach * 0.95, blast.width * 0.62), true);
+    g.fillStyle(hot.core, 0.75 * k).fillPoints(tongue(reach * 0.75, blast.width * 0.4), true);
+    g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillPoints(tongue(reach * 0.5, blast.width * 0.2), true);
+    for (const r of f.rays) {
+      const angle = f.angle + r.offset;
+      // trois épaisseurs : halo orangé, corps jaune, fil blanc
+      g.fillStyle(hot.glow, 0.5 * k).fillPoints(ray(angle, reach * r.length, r.width * 2.2), true);
+      g.fillStyle(hot.core, 0.8 * k).fillPoints(ray(angle, reach * r.length * 0.86, r.width * 1.2), true);
+      g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillPoints(ray(angle, reach * r.length * 0.6, r.width * 0.55), true);
+    }
+    // étincelles : de courts traits qui s'éloignent du canon
+    for (const p of f.sparks) {
+      const angle = f.angle + p.offset;
+      const c = Math.cos(angle);
+      const s = Math.sin(angle);
+      const d = p.from + p.speed * f.age;
+      g.lineStyle(2, hot.core, 0.9 * k).lineBetween(f.x + c * d, f.y + s * d, f.x + c * (d + p.size), f.y + s * (d + p.size));
+    }
+    // le cœur, chauffé à blanc, à la bouche du canon
+    const cx = f.x + Math.cos(f.angle) * 10;
+    const cy = f.y + Math.sin(f.angle) * 10;
+    g.fillStyle(hot.glow, 0.45 * k).fillCircle(cx, cy, 26);
+    g.fillStyle(hot.core, 0.7 * k).fillCircle(cx, cy, 16);
+    g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillCircle(cx, cy, 9);
   }
 
   /** Sprite et image du corps du héros selon son état. */
