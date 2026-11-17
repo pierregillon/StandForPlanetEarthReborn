@@ -117,7 +117,12 @@ const TRACER_STYLE = {
    * vers l'arrière (un canon n'éclaire pas derrière lui). La flamme est une gerbe de `rays` rayons pointus
    * serrés dans un cône de `spread` radians de part et d'autre de l'axe du tir.
    */
-  blast: { length: 190, width: 46, hold: 0.03, decay: 0.075, light: 250, lightAlpha: 0.95, rays: 9, spread: 0.36 },
+  blast: {
+    length: 190, width: 46, hold: 0.03, decay: 0.075, light: 250, lightAlpha: 0.95, rays: 9, spread: 0.36,
+    /** Elle jaillit : secondes pour atteindre sa longueur, puis part dont elle s'étire encore en s'éteignant. */
+    burst: 0.045,
+    stretch: 0.22,
+  },
 };
 
 /** Trait de lumière d'une balle en vol : début de sa ligne droite en cours (départ ou dernier ricochet) et dernier tracé. */
@@ -1289,15 +1294,24 @@ export class WorldView {
    * La déflagration à la force `k` (1 à l'instant du tir, puis vers 0) : une flamme. Son corps est une langue
    * de feu effilée ; des pointes plus fines en jaillissent, une grande dans l'axe et de plus courtes autour ; un
    * cœur chauffé à blanc, quelques étincelles projetées vers l'avant, et la lueur jetée sur le décor.
-   * Elle naît exactement à la bouche du canon, sans jamais le recouvrir, et s'éteint sur place, tout entière
-   * en même temps : elle ne raccourcit pas, ne se détache pas du canon, et ses couleurs pâlissent ensemble.
+   * Elle naît exactement à la bouche du canon, sans jamais le recouvrir, et s'éteint sans s'en détacher.
+   * Elle doit se lire comme sortant du canon : elle jaillit (elle s'allonge très vite sur ses premières images),
+   * puis continue de s'étirer un peu vers l'avant en pâlissant. Sans ce mouvement elle paraissait rentrer dans
+   * le canon : ses pointes, fines et pâles, disparaissent à l'œil avant sa base, épaisse et vive, si bien que
+   * la partie visible se resserrait vers l'embouchure. Pour la même raison, le point chaud à la bouche du
+   * canon s'éteint un peu plus vite que le reste, et les pointes un peu moins vite.
    */
   private drawMuzzleFlash(f: MuzzleFlash, k: number): void {
     const g = this.shotLights;
     const blast = TRACER_STYLE.blast;
     const hot = f.enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
     // elle frémit d'une image à l'autre
-    const reach = blast.length * (0.94 + Math.random() * 0.12);
+    const born = Math.min(1, f.age / blast.burst);
+    const grow = born < 1 ? 0.35 + 0.65 * (1 - (1 - born) ** 2) : 1 + blast.stretch * (1 - k);
+    const reach = blast.length * grow * (0.97 + Math.random() * 0.06);
+    /** Force des pointes, qui tiennent un peu plus longtemps, et du point chaud du canon, qui s'éteint plus tôt. */
+    const far = Math.pow(k, 0.75);
+    const near = Math.pow(k, 1.7);
     // la flamme reste accrochée à la bouche du canon pendant toute son extinction
     const lift = 0;
     const left = (reach - lift) / reach;
@@ -1317,7 +1331,7 @@ export class WorldView {
     };
     const span = reach - lift;
     const girth = blast.width * (0.45 + 0.55 * left);
-    g.fillStyle(hot.glow, 0.45 * k).fillPoints(tongue(lift, lift + span * 0.95, girth * 0.62), true);
+    g.fillStyle(hot.glow, 0.45 * far).fillPoints(tongue(lift, lift + span * 0.95, girth * 0.62), true);
     g.fillStyle(hot.core, 0.75 * k).fillPoints(tongue(lift, lift + span * 0.75, girth * 0.4), true);
     g.fillStyle(0xffffff, k).fillPoints(tongue(lift, lift + span * 0.5, girth * 0.2), true);
     /** Pointe : un losange très allongé, pointu à sa base (à `from` pixels du canon) comme à son sommet. */
@@ -1338,8 +1352,8 @@ export class WorldView {
       const run = tip - lift;
       if (run < 12) continue; // la base de la flamme l'a déjà dépassée
       // trois épaisseurs : halo orangé, corps jaune, fil blanc
-      g.fillStyle(hot.glow, 0.5 * k).fillPoints(spike(angle, lift, tip, r.width * 2.2), true);
-      g.fillStyle(hot.core, 0.8 * k).fillPoints(spike(angle, lift, lift + run * 0.86, r.width * 1.2), true);
+      g.fillStyle(hot.glow, 0.5 * far).fillPoints(spike(angle, lift, tip, r.width * 2.2), true);
+      g.fillStyle(hot.core, 0.8 * far).fillPoints(spike(angle, lift, lift + run * 0.86, r.width * 1.2), true);
       g.fillStyle(0xffffff, k).fillPoints(spike(angle, lift, lift + run * 0.6, r.width * 0.55), true);
     }
     // étincelles : de courts traits qui s'éloignent du canon
@@ -1353,8 +1367,8 @@ export class WorldView {
     // le cœur, chauffé à blanc, juste devant la base de la flamme : il ne recouvre jamais le canon
     const cx = f.x + ax * (lift + 13);
     const cy = f.y + ay * (lift + 13);
-    g.fillStyle(hot.core, 0.7 * k).fillCircle(cx, cy, 13);
-    g.fillStyle(0xffffff, k).fillCircle(cx, cy, 7);
+    g.fillStyle(hot.core, 0.7 * near).fillCircle(cx, cy, 13);
+    g.fillStyle(0xffffff, near).fillCircle(cx, cy, 7);
   }
 
   /** Sprite et image du corps du héros selon son état. */
