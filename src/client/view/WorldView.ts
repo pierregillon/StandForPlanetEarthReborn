@@ -117,8 +117,8 @@ const TRACER_STYLE = {
   /** Gris d'une balle refroidie. */
   cold: 0x8f949c,
   /** La balle reste chaude sur `hotUntil` pixels de vol, puis refroidit jusqu'à `coldAt`. */
-  hotUntil: 450,
-  coldAt: 1150,
+  hotUntil: 1000,
+  coldAt: 2000,
   /**
    * Déflagration à la bouche du canon : une flamme de lumière vers l'avant, longue comme deux fois l'arme,
    * tenue `hold` secondes à pleine force puis éteinte selon une exponentielle de constante `decay`. Elle
