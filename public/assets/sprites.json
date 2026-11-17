@@ -34,6 +34,7 @@
   "spr_EngiBot_move": { "w": 168, "h": 168, "ox": 59, "oy": 83, "frames": 12, "bbox": [19, 43, 99, 123], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_EngiBot_pointingArrow": { "w": 360, "h": 360, "ox": 176, "oy": 177, "frames": 1, "bbox": [136, 137, 216, 217], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 10, "speedType": 0 },
   "spr_EngiBot_preShot": { "w": 168, "h": 168, "ox": 77, "oy": 83, "frames": 3, "bbox": [20, 44, 98, 124], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 24, "speedType": 0 },
+  "spr_EngiBot_reload": { "w": 192, "h": 192, "ox": 71, "oy": 95, "frames": 28, "bbox": [0, 0, 191, 191], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 20, "speedType": 0 },
   "spr_EngiBot_shot": { "w": 168, "h": 168, "ox": 59, "oy": 83, "frames": 3, "bbox": [19, 43, 99, 123], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_EngiBot_shotTuret": { "w": 168, "h": 168, "ox": 59, "oy": 83, "frames": 14, "bbox": [19, 43, 99, 123], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_EngiBot_ulti_cast": { "w": 192, "h": 192, "ox": 71, "oy": 95, "frames": 16, "bbox": [0, 0, 191, 191], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 8, "speedType": 0 },

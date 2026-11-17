@@ -1774,9 +1774,12 @@ export class WorldView {
       const frame = p < fold ? last - (p / fold) * (last - first) : first + ((p - fold) / (1 - fold)) * (last - first);
       return { sprite: 'spr_PetBot_deploy', frame };
     }
-    // rechargement d'EngiBot : son canon tourne à vide (animation « preShot » d'origine)
-    if (def.kind === 'EngiBot' && h.reloadTimer > 0 && this.scene.textures.exists(frameKey('spr_EngiBot_preShot', 0))) {
-      return { sprite: 'spr_EngiBot_preShot', frame: Math.floor(h.reloadTimer / 3) % this.info('spr_EngiBot_preShot').frames };
+    // rechargement d'EngiBot (GD-071) : son fusil en accordéon se comprime, chauffe, puis se détend ; l'animation,
+    // fabriquée (ADR-015), est jouée une fois sur toute la durée du rechargement
+    if (def.kind === 'EngiBot' && h.reloadTimer > 0 && this.scene.textures.exists(frameKey('spr_EngiBot_reload', 0))) {
+      const frames = this.info('spr_EngiBot_reload').frames;
+      const done = 1 - h.reloadTimer / Math.max(1, def.reloadSteps);
+      return { sprite: 'spr_EngiBot_reload', frame: Math.min(frames - 1, done * frames) };
     }
     if (def.kind === 'EngiBot' && h.fire2Anim >= 0 && def.sprites.fire2) {
       return { sprite: def.sprites.fire2, frame: (h.fire2Anim / CONFIG.abilities.engiBot.placeAnimSteps) * this.info(def.sprites.fire2).frames };
@@ -2150,7 +2153,7 @@ export class WorldView {
     const reloading = h.reloadTimer > 0;
     const progress = reloading ? 1 - h.reloadTimer / Math.max(1, def.reloadSteps) : 0;
 
-    if (reloading) this.drawReload(h, progress, at);
+    if (reloading) this.drawReload(h, progress);
 
     // jauge masquée quand le chargeur est plein : moins de choses à l'écran (GD-032)
     // (seulement sur son propre robot : celle des coéquipiers ne ferait qu'encombrer l'écran)
@@ -2486,14 +2489,12 @@ export class WorldView {
   }
 
   /**
-   * Rechargement dessiné sur le robot, propre à chacun (GD-032) : PetBot engage une fiole neuve, EngiBot un
-   * tambour ; l'orbe de BadaBot se reforme en aspirant de l'énergie.
+   * Rechargement dessiné sur le robot (GD-032) : l'orbe de BadaBot se reforme en aspirant de l'énergie. Ceux de
+   * PetBot (GD-034) et d'EngiBot (GD-071) sont des animations de sprites.
    */
-  private drawReload(h: Hero, progress: number, at: (lx: number, ly: number) => Phaser.Geom.Point): void {
+  private drawReload(h: Hero, progress: number): void {
     const g = this.heroFx;
-    const kind = h.def.kind;
-    const slot = RELOAD_SLOT[kind] ?? { x: 30, y: 0 };
-    if (kind === 'BadaBot') {
+    if (h.def.kind === 'BadaBot') {
       // filaments d'énergie aspirés vers l'orbe
       const p = this.weaponSlot(h);
       for (let k = 0; k < 6; k++) {
@@ -2504,18 +2505,7 @@ export class WorldView {
       g.lineStyle(3, 0xc060ff, 0.5).strokeCircle(p.x, p.y, 10 + 22 * progress);
       return;
     }
-    if (kind === 'PetBot') return; // son rechargement est joué par ses sprites (voir heroPose)
-    // EngiBot : le tambour neuf part du corps du robot et vient s'engager sur le canon
-    const travel = Math.min(1, Math.max(0, (progress - 0.25) / 0.6));
-    const from = { x: slot.x - 46, y: slot.y - 26 };
-    const lx = from.x + (slot.x - from.x) * travel;
-    const ly = from.y + (slot.y - from.y) * travel;
-    if (progress < 0.25) return;
-    const c = at(lx, ly);
-    const spin = progress * 14;
-    g.fillStyle(0x1c1c1c, 1).fillCircle(c.x, c.y, 12);
-    g.lineStyle(2, 0xff5a5a, 1).strokeCircle(c.x, c.y, 12);
-    for (let k = 0; k < 6; k++) g.fillStyle(0xffd23c, 1).fillCircle(c.x + Math.cos(spin + k * 1.047) * 7, c.y + Math.sin(spin + k * 1.047) * 7, 2.4);
+    // PetBot et EngiBot : leur rechargement est joué par leurs sprites (voir heroPose)
   }
 
   /** Bouclier des robots à bouclier : un arc devant eux, un segment par coup encore encaissable (GD-029). */

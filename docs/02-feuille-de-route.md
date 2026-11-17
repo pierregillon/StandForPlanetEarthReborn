@@ -201,3 +201,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Civils en fuite plus rapides (GD-066) ; mort des humains : explosion plus forte, flaque, gouttes projetées, personnages éclaboussés (GD-067) ; viseurs laser retirés (GD-068). |
 | 2026-11-17 | Même explosion pour tous les humains (GD-067) ; traces de pas après une flaque de sang ou d'huile (GD-069) ; plus d'invulnérabilité après un dégât (GD-070). |
 | 2026-11-17 | Traces de pas moins nettes : bords grignotés, manques, traînées, usure croissante (GD-069). |
+| 2026-11-17 | Rechargement d'EngiBot : nouveau sprite fabriqué, le fusil en accordéon se comprime, chauffe et se détend (GD-071). |

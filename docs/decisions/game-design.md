@@ -1503,3 +1503,22 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 **Décision.** Chaque coup compte. Un héros touché par plusieurs balles au même instant perd autant de points de vie. Restent intouchables, comme avant : le dash (GD-031), le déploiement, le bond de BatBot, et la seconde et demie qui suit une résurrection.
 
 **Conséquences.** Écart voulu avec le jeu d'origine, et net durcissement : une salve de ShotBot bien placée ou une rafale de LightBot peut coûter quatre à cinq points de vie d'un coup, sur 10 à 16. Le clignotement d'invulnérabilité ne se voit plus qu'au réveil ; un coup reçu fait rougir le robot un bref instant. `damageHero` dans `src/sim/world.ts`.
+
+## GD-071 — Rechargement d'EngiBot : le fusil en accordéon se comprime et se détend
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (refaire le sprite de rechargement : EngiBot secouait son bras ; son fusil étant en accordéon, imaginer par exemple une compression puis un retour, avec de vrais nouveaux sprites) ; le déroulé précis est un choix par défaut
+
+**Contexte.** Le remake jouait en boucle, pendant le rechargement, les trois images de l'animation « preShot » d'origine : le bras et l'arme tressautaient pendant 1,4 s. Un tambour dessiné par-dessus venait se poser sur le canon (GD-032).
+
+**Décision.** Une animation propre, de 28 images, jouée une fois sur toute la durée du rechargement :
+
+1. **Compression** : le fusil claque vers l'arrière. Son soufflet (les blocs et les anneaux entre la crosse et le canon) s'écrase à un peu moins des deux tiers de sa longueur et gonfle légèrement ; le canon recule de 18 px ; un petit rebond contre la butée.
+2. **Mise en pression** : le fusil reste comprimé, immobile. Le soufflet chauffe en trois crans, du rouge vers l'orange puis le jaune.
+3. **Détente** : il se relâche d'un coup, dépasse sa longueur de 5 px, blanchit un instant, crache de la vapeur de part et d'autre et un anneau de lumière au bout du canon.
+4. **Retour** : il oscille en s'amortissant et reprend sa place, un peu avant la fin du rechargement.
+
+Le bras droit, qui tient le canon, suit le mouvement en pivotant à l'épaule. Le reste du robot ne bouge pas (GD-048 : un robot ne respire pas). Le tambour dessiné par-dessus est retiré ; le chargeur vide éjecté au début du rechargement est conservé.
+
+**Conséquences.** Sprite `spr_EngiBot_reload`, fabriqué par `npm run make-sprites` (ADR-015) à partir de la posture de tir d'origine, redessinée image par image : aucun dessin à la main, mêmes couleurs et mêmes traits que l'original. Les images « preShot » d'origine ne servent plus au rechargement. Affichage seulement : la durée du rechargement ne change pas.

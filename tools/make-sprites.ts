@@ -550,9 +550,185 @@ function engiBotPulse(): Made {
   return { name: 'spr_EngiBot_ulti_pulse', width: size, height: size, ox: mid, oy: mid, fps: 30, frames };
 }
 
+// ---------- EngiBot : le rechargement ----------
+
+/**
+ * Rechargement d'EngiBot (GD-071) : son fusil en accordéon se comprime puis se détend. Tout est tiré de sa
+ * posture de tir d'origine (`spr_EngiBot_shot`, image 0), redessinée image par image :
+ *  - le soufflet (les blocs et les anneaux entre la crosse et le canon) est écrasé vers la crosse, et gonfle un
+ *    peu en hauteur ; le canon, rigide, recule d'autant ;
+ *  - le bras droit, qui tient le canon, suit le mouvement : il pivote autour de l'épaule ;
+ *  - le reste du robot ne bouge pas (un robot ne respire pas, GD-048).
+ * Déroulé : le fusil claque en arrière, tient comprimé pendant que le soufflet chauffe par crans, puis se
+ * détend d'un coup en dépassant sa longueur, crache de la vapeur et un anneau de lumière au canon, et se
+ * stabilise.
+ */
+function engiBotReload(): Made {
+  const base = loadFrame('spr_EngiBot_shot', 0);
+  const body = { size: 168, ox: 59, oy: 83 };
+  const pad = 12;
+  const size = body.size + pad * 2;
+  const count = 28;
+  // repères relevés sur le sprite, en pixels de l'image d'origine
+  const fold0 = 52; // début du soufflet, contre la crosse : ce point ne bouge pas
+  const fold1 = 96; // fin du soufflet : au-delà, le canon rigide
+  const mid = 140.5; // axe du fusil
+  const muzzle = 121;
+  const HEAT: Rgb = [255, 214, 120];
+  const STEAM: Rgb = [236, 236, 242];
+  const SPARK: Rgb = [255, 240, 190];
+
+  /** Le fusil : crosse, soufflet et canon. Les anneaux du soufflet dépassent un peu plus haut que les blocs. */
+  const isGun = (x: number, y: number): boolean => {
+    if (x < 51 || x > 122 || y > 153) return false;
+    if (x <= 60) return y >= 128;
+    return y >= (x <= 98 ? 127 : 129);
+  };
+  /** Le bras droit : l'avant-bras, à droite du corps, et le bout du bras qui passe sous lui. */
+  const isArm = (x: number, y: number): boolean =>
+    (x >= 99 && y >= 72 && y <= 128) || (x >= 91 && x <= 98 && y >= 99 && y <= 108 && Math.hypot(x - 58, y - 84) > 41.5);
+  /** Le trait commun au corps et au bras, le long du disque : il reste aussi avec le corps. */
+  const shared = (x: number, y: number): boolean => x === 99 && y <= 97;
+
+  /** Couleur de l'image d'origine en (u, v), interpolée, en ne gardant que les pixels de `part`. */
+  const sample = (u: number, v: number, part: (x: number, y: number) => boolean): [number, number, number, number] => {
+    const x = Math.floor(u);
+    const y = Math.floor(v);
+    const fx = u - x;
+    const fy = v - y;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let a = 0;
+    for (const [px, py, w] of [[x, y, (1 - fx) * (1 - fy)], [x + 1, y, fx * (1 - fy)], [x, y + 1, (1 - fx) * fy], [x + 1, y + 1, fx * fy]]) {
+      if (w <= 0 || px < 0 || py < 0 || px >= base.width || py >= base.height || !part(px, py)) continue;
+      const i = (py * base.width + px) * 4;
+      const wa = (base.data[i + 3] / 255) * w;
+      r += base.data[i] * wa;
+      g += base.data[i + 1] * wa;
+      b += base.data[i + 2] * wa;
+      a += wa;
+    }
+    return a > 0 ? [r / a, g / a, b / a, a] : [0, 0, 0, 0];
+  };
+
+  /** Longueur du soufflet (1 au repos) à l'instant t, de 0 à 1. */
+  const squeeze = (t: number): number => {
+    if (t < 0.1) return 1 - 0.42 * (t / 0.1) ** 2; // il claque en arrière, de plus en plus vite
+    if (t < 0.18) {
+      const u = (t - 0.1) / 0.08;
+      return 0.62 - 0.04 * Math.cos(u * TAU) * (1 - u); // petit rebond contre la butée
+    }
+    if (t < 0.6) return 0.62 - 0.04 * ((t - 0.18) / 0.42); // tenu : la pression monte encore un peu
+    if (t < 0.68) {
+      const u = (t - 0.6) / 0.08;
+      return 0.58 + 0.54 * (1 - (1 - u) ** 3); // il se détend d'un coup et dépasse sa longueur
+    }
+    if (t < 0.9) {
+      const u = (t - 0.68) / 0.22;
+      return 1 + 0.12 * Math.exp(-4 * u) * Math.cos(u * TAU * 1.5); // puis oscille en s'amortissant
+    }
+    return 1;
+  };
+  /** Chaleur du soufflet : elle monte par trois crans pendant qu'il est comprimé, puis retombe. */
+  const heat = (t: number): number => {
+    if (t < 0.14) return 0;
+    if (t < 0.6) {
+      const u = (t - 0.14) / 0.46;
+      const step = Math.min(2, Math.floor(u * 3));
+      const within = u * 3 - step;
+      return (step + Math.min(1, within / 0.35)) / 3;
+    }
+    return Math.max(0, 1 - (t - 0.6) / 0.2);
+  };
+
+  const frames = Array.from({ length: count }, (_, index) => {
+    const t = index / (count - 1);
+    const c = squeeze(t);
+    const shift = (fold1 - fold0) * (1 - c); // recul du canon
+    const bulge = 1 + 0.1 * Math.max(0, 1 - c) / 0.42; // le soufflet écrasé gonfle en hauteur
+    const hot = heat(t);
+    const flash = t >= 0.6 && t < 0.68 ? 1 - (t - 0.6) / 0.08 : 0;
+    const img = canvas(size, size);
+
+    // 1. le bras droit, dessous : il pivote pour que la main reste sur le canon
+    for (let y = 70; y <= 129; y++) {
+      const k = Math.max(0, Math.min(1, (y - 76) / 50));
+      for (let x = 70; x <= 128; x++) {
+        const [r, g, b, a] = sample(x + shift * k, y, isArm);
+        if (a > 0) over(img, x + pad, y + pad, [r, g, b], a);
+      }
+    }
+    // 2. le corps, inchangé, sans le bras ni le fusil
+    for (let y = 0; y < base.height; y++) {
+      for (let x = 0; x < base.width; x++) {
+        if (isGun(x, y) || (isArm(x, y) && !shared(x, y))) continue;
+        const i = (y * base.width + x) * 4;
+        const a = base.data[i + 3] / 255;
+        if (a > 0) over(img, x + pad, y + pad, [base.data[i], base.data[i + 1], base.data[i + 2]], a);
+      }
+    }
+    // 3. le fusil : crosse fixe, soufflet écrasé, canon reculé
+    const foldEnd = fold0 + (fold1 - fold0) * c;
+    for (let y = 122; y <= 158; y++) {
+      for (let x = 50; x <= 130; x++) {
+        let u = x;
+        let v = y;
+        const folded = x >= fold0 && x < foldEnd;
+        if (folded) {
+          u = fold0 + (x - fold0) / c;
+          v = mid + (y + 0.5 - mid) / bulge - 0.5;
+        } else if (x >= foldEnd) {
+          u = x + shift;
+        }
+        let [r, g, b, a] = sample(u, v, isGun);
+        if (a <= 0) continue;
+        // le métal du soufflet rougit puis blanchit ; les traits noirs restent noirs
+        if (folded && r + g + b > 300) {
+          const k = hot * 0.6;
+          r += (HEAT[0] - r) * k;
+          g += (HEAT[1] - g) * k;
+          b += (HEAT[2] - b) * k;
+          r += (255 - r) * flash * 0.5;
+          g += (255 - g) * flash * 0.5;
+          b += (255 - b) * flash * 0.5;
+        }
+        over(img, x + pad, y + pad, [r, g, b], a);
+      }
+    }
+    // 4. la détente : vapeur chassée du soufflet, de part et d'autre, et anneau de lumière au canon
+    const sinceRelease = (t - 0.6) / 0.3;
+    if (sinceRelease >= 0 && sinceRelease < 1) {
+      const next = random(71);
+      for (let i = 0; i < 8; i++) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const along = fold0 + 6 + next() * (fold1 - fold0 - 10);
+        const reach = 9 + next() * 12;
+        const drift = -4 - next() * 9; // la vapeur part aussi un peu vers l'arrière
+        const life = 0.55 + next() * 0.45;
+        const u = sinceRelease / life;
+        if (u >= 1) continue;
+        const e = 1 - (1 - u) ** 2;
+        disc(img, along + drift * e + pad, mid + side * (13 + reach * e) + pad, 2.5 + 6 * e, STEAM, 0.6 * (1 - u) ** 1.3);
+      }
+    }
+    const ring = (t - 0.62) / 0.14;
+    if (ring >= 0 && ring < 1) {
+      const cx = muzzle - shift + 5 + pad;
+      const cy = mid + pad;
+      const radius = 4 + 13 * ring;
+      const half = 2.4 * (1 - ring) + 0.6;
+      fill(img, [cx - radius - 4, cy - radius - 4, cx + radius + 4, cy + radius + 4],
+        (x, y) => Math.abs(Math.hypot((x - cx) * 1.5, y - cy) - radius) - half, SPARK, 0.9 * (1 - ring));
+    }
+    return img;
+  });
+  return { name: 'spr_EngiBot_reload', width: size, height: size, ox: body.ox + pad, oy: body.oy + pad, fps: 20, frames };
+}
+
 export function makeSprites(): void {
   write([
-    batBotCast(), petBotCast(), engiBotCast(),
+    batBotCast(), petBotCast(), engiBotCast(), engiBotReload(),
     ...ultiCharge(), dustCloud(),
     batBotLeap(), batBotBlast(), batBotCrater(),
     petBotNanos(), engiBotGrenade(), engiBotPulse(),
