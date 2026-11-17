@@ -1187,7 +1187,9 @@ export class WorldView {
     }
     let img = this.bulletImgs.get(b.id);
     if (!img) {
-      img = this.image(b.def.sprite, 0, b.x, b.y, DEPTH.bullet).setScale(b.def.scale ?? (enemy ? BULLET_STYLE.enemyScale : BULLET_STYLE.heroScale));
+      // la balle a l'épaisseur de sa traînée en tête : elle en est le bout, pas un objet plus gros posé dessus
+      const box = this.info(b.def.sprite).bbox;
+      img = this.image(b.def.sprite, 0, b.x, b.y, DEPTH.bullet).setScale(TRACER_STYLE.width / Math.max(1, box[3] - box[1] + 1));
       this.bulletImgs.set(b.id, img);
     }
     if (streak.done || b.spent) {
