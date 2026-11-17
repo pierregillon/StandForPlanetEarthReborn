@@ -184,3 +184,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Lueur des tirs : un cône étroit et intense vers l'avant au lieu d'un halo rond (GD-065). |
 | 2026-11-17 | Déflagration des tirs redessinée en flamme : langue de feu, pointes fines et étincelles (GD-065). |
 | 2026-11-17 | Tirs : la flamme part de la bouche du canon et s'éteint en s'en éloignant ; traînée des balles plus nette (GD-065). |
+| 2026-11-17 | Tirs : la flamme s'éteint sur place, tout entière en même temps (GD-065). |

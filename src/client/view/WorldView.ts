@@ -1289,9 +1289,8 @@ export class WorldView {
    * La déflagration à la force `k` (1 à l'instant du tir, puis vers 0) : une flamme. Son corps est une langue
    * de feu effilée ; des pointes plus fines en jaillissent, une grande dans l'axe et de plus courtes autour ; un
    * cœur chauffé à blanc, quelques étincelles projetées vers l'avant, et la lueur jetée sur le décor.
-   * Elle naît exactement à la bouche du canon, sans jamais le recouvrir, et s'éteint en partant de lui : sa base
-   * s'éloigne du canon pendant que sa pointe reste en place. Le blanc s'éteint le premier : en mourant, la
-   * flamme jaunit puis rougeoie.
+   * Elle naît exactement à la bouche du canon, sans jamais le recouvrir, et s'éteint sur place, tout entière
+   * en même temps : elle ne raccourcit pas, ne se détache pas du canon, et ses couleurs pâlissent ensemble.
    */
   private drawMuzzleFlash(f: MuzzleFlash, k: number): void {
     const g = this.shotLights;
@@ -1299,8 +1298,8 @@ export class WorldView {
     const hot = f.enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
     // elle frémit d'une image à l'autre
     const reach = blast.length * (0.94 + Math.random() * 0.12);
-    // distance entre le canon et le début de la flamme : nulle au tir, elle grandit à mesure que la flamme meurt
-    const lift = reach * 0.8 * (1 - k);
+    // la flamme reste accrochée à la bouche du canon pendant toute son extinction
+    const lift = 0;
     const left = (reach - lift) / reach;
     const ax = Math.cos(f.angle);
     const ay = Math.sin(f.angle);
@@ -1320,7 +1319,7 @@ export class WorldView {
     const girth = blast.width * (0.45 + 0.55 * left);
     g.fillStyle(hot.glow, 0.45 * k).fillPoints(tongue(lift, lift + span * 0.95, girth * 0.62), true);
     g.fillStyle(hot.core, 0.75 * k).fillPoints(tongue(lift, lift + span * 0.75, girth * 0.4), true);
-    g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillPoints(tongue(lift, lift + span * 0.5, girth * 0.2), true);
+    g.fillStyle(0xffffff, k).fillPoints(tongue(lift, lift + span * 0.5, girth * 0.2), true);
     /** Pointe : un losange très allongé, pointu à sa base (à `from` pixels du canon) comme à son sommet. */
     const spike = (angle: number, from: number, to: number, width: number): Phaser.Geom.Point[] => {
       const c = Math.cos(angle);
@@ -1341,7 +1340,7 @@ export class WorldView {
       // trois épaisseurs : halo orangé, corps jaune, fil blanc
       g.fillStyle(hot.glow, 0.5 * k).fillPoints(spike(angle, lift, tip, r.width * 2.2), true);
       g.fillStyle(hot.core, 0.8 * k).fillPoints(spike(angle, lift, lift + run * 0.86, r.width * 1.2), true);
-      g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillPoints(spike(angle, lift, lift + run * 0.6, r.width * 0.55), true);
+      g.fillStyle(0xffffff, k).fillPoints(spike(angle, lift, lift + run * 0.6, r.width * 0.55), true);
     }
     // étincelles : de courts traits qui s'éloignent du canon
     for (const p of f.sparks) {
@@ -1355,7 +1354,7 @@ export class WorldView {
     const cx = f.x + ax * (lift + 13);
     const cy = f.y + ay * (lift + 13);
     g.fillStyle(hot.core, 0.7 * k).fillCircle(cx, cy, 13);
-    g.fillStyle(0xffffff, Math.min(1, 1.2 * k * k)).fillCircle(cx, cy, 7);
+    g.fillStyle(0xffffff, k).fillCircle(cx, cy, 7);
   }
 
   /** Sprite et image du corps du héros selon son état. */
