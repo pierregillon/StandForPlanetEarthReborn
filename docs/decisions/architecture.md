@@ -295,6 +295,6 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 
 **Conséquences.** Les ajouts suivent les règles des instances d'origine (collisions, PNJ, décor). `npm run level-map` les dessine aussi.
 
-**Étendu par GD-081** (même jour). Le mécanisme sait aussi ajouter des pièces de mur et leurs rectangles de collision, des sols et des décalques, et retirer ou modifier un élément d'origine : une fonction reçoit chaque instance et la rend telle quelle, déplacée, ou la supprime ; deux autres désignent les décalques et les pièces de mur à retirer. Le fichier s'appelle toujours `additions.ts`, bien qu'il fasse plus qu'ajouter.
+**Étendu par GD-081** (même jour). Le mécanisme sait aussi ajouter des pièces de mur et leurs rectangles de collision, des sols et des décalques, et retirer ou modifier un élément d'origine : une fonction reçoit chaque instance et la rend telle quelle, déplacée, ou la supprime ; d'autres désignent les décalques, les pièces de mur et (depuis GD-083) les rectangles de collision à retirer. Le fichier s'appelle toujours `additions.ts`, bien qu'il fasse plus qu'ajouter.
 
 **Sprites du studio.** `tools/make-studio.ts` suit ADR-015 (de vrais sprites, produits par un outil rejouable), mais dessine ses formes au lieu de recomposer des images du jeu : il n'existait rien à recomposer pour un pupitre ou un projecteur. Seul le logo de la chaîne est repris d'un sprite d'origine. Comme pour `make-sprites`, il faut relancer l'outil après un `npm run extract-assets`, qui réécrit les manifestes.

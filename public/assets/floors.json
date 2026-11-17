@@ -1,5 +1,6 @@
 {
   "til_sol_accueil": { "image": "floors/til_sol_accueil.png", "srcX": 0, "srcY": 0, "periodW": 512, "periodH": 256, "cellSize": 16 },
+  "til_sol_asphalte": { "image": "floors/til_sol_asphalte.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
   "til_sol_beton": { "image": "floors/til_sol_beton.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },
   "til_sol_cafet": { "image": "floors/til_sol_cafet.png", "srcX": 0, "srcY": 0, "periodW": 512, "periodH": 256, "cellSize": 16 },
   "til_sol_carrelage": { "image": "floors/til_sol_carrelage.png", "srcX": 0, "srcY": 0, "periodW": 336, "periodH": 336, "cellSize": 16 },

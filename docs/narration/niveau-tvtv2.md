@@ -29,7 +29,7 @@ Proposé. Aucune salle n'est à construire : les pièces du monde 2 se lisent d�
 | Salle des serveurs | Étage, pièce 21 | 7 écrans, 4 serveurs, une baie |
 | Bureau de la direction | Étage, pièce 27 | La carte violette, un aquarium, des fauteuils |
 | **Régie** | Rez-de-chaussée, moitié ouest de la pièce 29 (x 6800 à 8224) | Une salle moquettée : une rangée de 6 écrans avec tables et sièges, 4 techniciens assis, 3 policiers, une baie de serveurs derrière une cloison vitrée, et un bouton |
-| **Plateau** | Rez-de-chaussée, moitié est de la pièce 29 : une pièce fermée de 2688 × 928 px (x 8256 à 10944, y 3392 à 4320), aménagée par GD-081 | Sol de résine sombre ; côté régie, trois caméras, l'estrade au logo, le pupitre courbe, le présentateur, quatre projecteurs, le mur d'écrans ; derrière la cloison, les coulisses. Aucun garde à l'intérieur au départ (GD-082) : deux policiers et un robot bouclier attendent dehors, devant les portes |
+| **Plateau** | Rez-de-chaussée, moitié est de la pièce 29 : une pièce fermée de 2688 × 1792 px (x 8256 à 10944, y 3072 à 4864), de la hauteur de la régie (GD-081, agrandie par GD-083) | Sol de résine sombre ; côté régie, trois caméras, l'estrade au logo, le pupitre courbe, le présentateur, quatre projecteurs, le mur d'écrans ; derrière la cloison, les coulisses. Aucun garde à l'intérieur au départ (GD-082) : deux policiers et un robot bouclier attendent dehors, devant les portes |
 | Quais de livraison | Rez-de-chaussée, pièces 30 et 31, de part et d'autre de l'alcôve | Deux fourgons, deux portails à bouton vers l'extérieur |
 
 **La régie est mitoyenne du plateau** (demande de l'utilisateur), et elle l'est déjà dans le niveau d'origine. La pièce 29 du plan est une seule zone de brouillard, mais ce sont deux salles séparées par une baie vitrée de 1800 px de long : d'un côté la rangée d'écrans, tournée vers la vitre ; de l'autre le hall de béton. Détail : [plan de l'aile est](plans/rm_world2-aile-est.svg). Et le bouton qui se trouve dans la régie est celui qui ouvre les deux portes du hall : prendre la régie ouvre le plateau.
@@ -45,6 +45,26 @@ Le parcours existant mène au plateau en dernier (vérifié avec les collisions 
 
 **Aménagé** (GD-081, tout est dans `src/sim/additions.ts`) : le plateau est une pièce fermée, entre la vitre de la régie et le mur extérieur, avec une porte automatique au nord et une au sud. Le reste du hall de béton, de part et d'autre, reste une aire de livraison. Première idée, remplacée : le pupitre du présentateur devant l'alcôve, vers x 9450, face à la vitre ; trois caméras entre le pupitre et la vitre ; l'alcôve sert de fond de décor, ses caisses sont poussées sur les côtés. Ainsi un seul plan de 1920 px de large montre la rangée d'écrans de la régie, la vitre et le présentateur.
 
+## 2 bis. L'aile est réorganisée (GD-083)
+
+Décidé par l'utilisateur le 2026-11-17. Le rectangle du niveau ne change pas ; la régie et tout ce qui est à l'ouest restent tels quels. L'aile est s'organise autour du trajet d'un invité de la chaîne, du nord vers le sud.
+
+| Zone | Où | Rôle |
+|---|---|---|
+| **Dépose-minute** | Angle nord-est, derrière les portails 3 | Les voitures entrent, déposent les invités (des personnalités, des ministres) et repartent. Un vrai parking : bitume, marquages, trottoir |
+| **Salon d'attente** | Au nord du plateau, côté régie | Canapés, fauteuils, de quoi patienter. On y entre depuis le dépose-minute par une porte, ou depuis le couloir par la porte à bouton |
+| **Maquillage** | Dans le décrochement du salon, sous le bouton 3 | Coiffeuses à miroir, portants à vêtements |
+| **Plateau** | Au centre, de la même hauteur que la régie : ses murs nord et sud sont dans l'alignement des siens | Le studio de GD-081, agrandi. On y entre par la porte nord, on en sort par la porte sud |
+| **Salon de sortie** | Au sud du plateau | Le pendant du salon d'attente : les invités y reprennent leurs affaires avant de partir |
+| **Parking sud** | Angle sud-est, derrière les portails 4 | Le pendant du dépose-minute : les voitures y attendent les invités qui repartent |
+
+**Ce qui se passe après la diffusion du message** (à réaliser, étape suivante) :
+
+1. Le message est diffusé depuis la place du présentateur, derrière le pupitre.
+2. La police intervient en grand nombre, par le sud : des fourgons entrent par les portails 4 et déploient 40 à 50 ennemis sur le parking sud. Leur point de ralliement est le plateau : ils remontent par le salon de sortie, entrent dans le studio et cherchent les robots.
+3. Le plan d'exfiltration des robots était de revenir au point de largage, donc par le sud. Ils s'y engagent, tombent nez à nez avec cette armée, et changent de plan.
+4. Ils s'exfiltrent par le nord : le salon d'attente, le dépose-minute, puis les portails 3.
+
 ## 3. La suite d'objectifs
 
 Proposé, à détailler quand on réécrira le niveau (étape 4). L'introduction n'a besoin que de la première consigne, qui ne change pas.
@@ -56,8 +76,11 @@ Proposé, à détailler quand on réécrira le niveau (étape 4). L'introduction
 | 3 | Go back to ground floor | Escalier | Inchangée |
 | 4 | Take the control room | Régie, par l'aile est | Nouvelle ; elle se termine en appuyant sur le bouton de la régie, déjà en place |
 | 5 | Reach the studio | Plateau, par l'une des deux portes que le bouton a ouvertes | Remplace la sortie vers la zone de forage |
-| 6 | Broadcast the message | Plateau | Nouvelle ; cinématique de l'ultimatum |
-| 7 | Leave the building | Portails des quais de livraison | Remplace SallyBot ; l'armée attend dehors |
+| 6 | Broadcast the message | Plateau, à la place du présentateur | Nouvelle ; cinématique de l'ultimatum |
+| 7 | Get back to the drop point | Vers le sud | Nouvelle ; la police arrive en masse par les portails 4 (section 2 bis) |
+| 8 | Too many of them. Take the north gate | Salon d'attente, dépose-minute, portails 3 | Remplace SallyBot ; fin du niveau |
+
+Les consignes 7 et 8 sont une proposition de formulation pour le scénario décidé par l'utilisateur (section 2 bis).
 
 Les portes, les cartes et les boutons restent où ils sont : seules les consignes et la fin changent.
 

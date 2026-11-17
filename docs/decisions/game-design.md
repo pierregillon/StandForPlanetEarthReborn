@@ -88,6 +88,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-080 | Introduction, deuxième livraison : le journal de TvTv² et le plateau | 2026-11-17 | Acceptée — à ajuster après essai |
 | GD-081 | Le plateau de TvTv² devient une vraie pièce de studio | 2026-11-17 | Acceptée — à ajuster après essai ; précise et corrige GD-080 |
 | GD-082 | Plateau : des projecteurs qui éclairent vraiment, et aucun garde au départ | 2026-11-17 | Acceptée — à ajuster après essai ; corrige deux points de GD-081 |
+| GD-083 | L'aile est se réorganise autour du trajet des invités ; la police arrivera par le sud | 2026-11-17 | Acceptée — aménagement réalisé, scénario de fin à réaliser |
 
 ---
 
@@ -1827,3 +1828,27 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Conséquences.** Une lampe du niveau accepte `coneAngle` et `coneHalf` ; un meuble accepte `shadow`, sa hauteur. `bakeLamp` et `drawSpotShadows` dans `WorldView.ts`, réglages dans `LIGHTING.shadow`. Les ombres sont dessinées au sol, sous le mobilier. Ces lampes et ces ombres sont utilisables ailleurs dans le niveau.
 
 **Points ouverts.** Les ombres sont discrètes sur le sol sombre du plateau, plus lisibles sur l'estrade : intensité et longueur à régler en jouant.
+
+## GD-083 — L'aile est se réorganise autour du trajet des invités ; la police arrivera par le sud
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — aménagement réalisé, scénario de fin à réaliser
+- **Décidée par** : l'utilisateur (après avoir vu le plan du rez-de-chaussée avec le studio de GD-081) ; le détail du mobilier, des marquages et des sprites est laissé à Claude
+
+**Contexte.** Dans le niveau d'origine, l'aile est est un hall de béton entre deux quais de livraison aux décors hors d'échelle : une route et des fourgons sept fois trop grands. Les salles n'y ont pas de fonction claire. Le studio de GD-081 en occupait le centre ; le reste était resté tel quel.
+
+**Décision.**
+
+- **Ce qui ne bouge pas** : le rectangle du niveau, la régie, et tout ce qui est à l'ouest, au nord et au sud de la régie. Le studio garde son aménagement.
+- **Le plateau a la hauteur de la régie.** Ses murs nord et sud sont dans l'alignement de ceux de la régie. L'espace gagné est meublé : coin d'attente des invités, rangement de matériel, gradin pour le public, coin d'interview.
+- **Le pupitre est avancé vers les caméras** et les projecteurs de contre-jour écartés : un robot doit pouvoir passer derrière le pupitre et prendre la place du présentateur pour diffuser le message.
+- **Au nord, l'arrivée des invités** : un dépose-minute derrière les portails 3, où les voitures laissent les personnalités ; une porte mène au salon d'attente, avec son coin maquillage dans le décrochement sous le bouton 3 ; de là, la porte nord du plateau.
+- **Au sud, le départ** : le pendant du nord. Un salon de sortie, puis un parking derrière les portails 4.
+- **Les deux parkings sont refaits** : bitume, marquages au sol, trottoir, à l'échelle des personnages. Pas de véhicules pour l'instant.
+- **Fin de mission** (à réaliser) : dès le message diffusé, 40 à 50 policiers arrivent par les portails 4, en fourgons, et remontent vers le plateau. Les robots, qui comptaient regagner le point de largage par le sud, tombent sur eux et s'exfiltrent par le nord, par les portails 3.
+- *Par défaut* : le brouillard de guerre de l'aile est ne se lève plus d'un bloc. La régie et le plateau se découvrent ensemble, comme avant ; chaque salon et chaque parking se découvre quand on y entre.
+- *Par défaut* : comme sur le plateau (GD-082), les gardes d'origine de ces zones sont replacés sur les parkings et devant les portes du plateau, côté salons ; les salons eux-mêmes n'ont que des civils, dont quelques invités et une maquilleuse ajoutés.
+
+**Pourquoi.** Demande de l'utilisateur : des salles qui ont une fonction lisible, et un décor crédible pour la pièce où le niveau commence et finit. Le sens de circulation nord → plateau → sud donne aussi son sens au retournement final : la sortie prévue est celle par où l'ennemi arrive.
+
+**Conséquences.** `src/sim/additions.ts` porte tout l'aménagement (ADR-016), qui sait maintenant retirer des rectangles de mur d'origine. Nouveaux sprites et sol par `npm run make-studio`. `docs/narration/niveau-tvtv2.md`, section 2 bis. Le parcours ne change pas pour le joueur : la carte violette ouvre l'aile est, le bouton de la régie ouvre les deux portes à bouton, qui donnent désormais sur les salons.

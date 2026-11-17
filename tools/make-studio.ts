@@ -1,5 +1,5 @@
-// Fabrique les sprites du plateau de TvTv² que le jeu d'origine n'avait pas (GD-081, ADR-015) : le portrait
-// du présentateur, le mobilier du studio et son sol. Tout est dessiné par le code, dans le style du jeu :
+// Fabrique les sprites de l'aile est de TvTv² que le jeu d'origine n'avait pas (GD-081, GD-083, ADR-015) : le
+// portrait du présentateur, le mobilier du studio et son sol, le maquillage, le bitume et les marquages des parkings. Tout est dessiné par le code, dans le style du jeu :
 // aplats, contour à l'encre, usure mouchetée ; le logo de la chaîne est repris du sprite d'origine.
 // Usage : npm run make-studio
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -153,7 +153,7 @@ function riser(): Made {
   line(img, arc(c, c, 284, 284, 0, TAU, 120), 4, [240, 200, 90], 1, true);
   polygon(img, arc(c, c, 268, 268, 0, TAU, 120), [72, 58, 104]);
   wear(img, 23, 5200);
-  paste(img, sprite('spr_accueil_tapis'), c - 96, c, 0.66);
+  paste(img, sprite('spr_accueil_tapis'), c - 150, c, 0.66);
   return { name: 'spr_tv_riser', image: img, ox: c, oy: c };
 }
 
@@ -247,6 +247,164 @@ function cables(): Made {
   return { name: 'spr_tv_cables', image: img, ox: w / 2, oy: h / 2 };
 }
 
+// ---------- Le salon de maquillage ----------
+
+/** Coiffeuse vue du dessus : un plateau clair, et le long du mur un miroir bordé d'ampoules. */
+function makeupTable(): Made {
+  const w = 250, h = 100;
+  const img = canvas(w, h);
+  shape(img, roundRect(2, 14, w - 4, h - 16, 6), [232, 222, 206], LINE, 2.4);
+  // le miroir, contre le mur : une bande argentée et sa rangée d'ampoules
+  shape(img, roundRect(8, 2, w - 16, 20, 4), [190, 200, 214], LINE, 2);
+  polygon(img, rect(14, 6, w - 28, 5), [236, 244, 252]);
+  for (let i = 0; i < 9; i++) {
+    const x = 24 + i * 25.2;
+    polygon(img, arc(x, 16, 5.2, 5.2, 0, TAU, 14), [255, 232, 150]);
+    polygon(img, arc(x - 1, 15, 2.2, 2.2, 0, TAU, 10), [255, 255, 236]);
+    line(img, arc(x, 16, 5.2, 5.2, 0, TAU, 14), 1.4, LINE, 1, true);
+  }
+  wear(img, 71, 420);
+  // la palette, les pinceaux, les flacons, la houppette
+  shape(img, roundRect(34, 46, 62, 34, 4), [60, 58, 70], LINE, 1.8);
+  const tones: Rgb[] = [[226, 120, 120], [236, 160, 130], [200, 110, 150], [150, 110, 180], [236, 196, 150], [180, 90, 90], [240, 140, 170], [120, 130, 190]];
+  tones.forEach((tone, i) => polygon(img, arc(46 + (i % 4) * 13, 56 + Math.floor(i / 4) * 14, 4.6, 4.6, 0, TAU, 12), tone));
+  for (const [x, y, a, tip] of [[118, 44, 0.5, [226, 120, 140]], [130, 50, 0.2, [90, 60, 40]], [140, 44, -0.2, [60, 60, 70]]] as [number, number, number, Rgb][]) {
+    line(img, rotate([[x, y], [x, y + 34]], x, y + 17, a), 3.4, [70, 60, 60]);
+    polygon(img, rotate(rect(x - 3, y - 6, 6, 9), x, y + 17, a), tip);
+  }
+  shape(img, arc(176, 62, 12, 12, 0, TAU, 20), [246, 214, 222], LINE, 1.8);
+  polygon(img, arc(176, 62, 6, 6, 0, TAU, 14), [255, 240, 244]);
+  for (const [x, c] of [[204, [110, 170, 200]], [220, [220, 180, 110]], [234, [170, 120, 190]]] as [number, Rgb][]) {
+    shape(img, roundRect(x - 6, 44, 12, 26, 3), c, LINE, 1.6);
+    polygon(img, rect(x - 3, 40, 6, 6), [60, 60, 70]);
+  }
+  line(img, roundRect(2, 14, w - 4, h - 16, 6), 2.4, LINE, 1, true);
+  return { name: 'spr_tv_makeup', image: img, ox: w / 2, oy: h / 2 };
+}
+
+/** Portant à vêtements vu du dessus : une barre sur deux pieds, et les habits serrés sur leurs cintres. */
+function clothesRack(): Made {
+  const w = 240, h = 76;
+  const img = canvas(w, h);
+  for (const x of [14, w - 14]) {
+    line(img, [[x, 8], [x, h - 8]], 7, LINE);
+    line(img, [[x, 8], [x, h - 8]], 3.6, [150, 154, 166]);
+  }
+  line(img, [[14, h / 2], [w - 14, h / 2]], 6, LINE);
+  line(img, [[14, h / 2], [w - 14, h / 2]], 2.8, [176, 180, 192]);
+  const rng = random(83);
+  const cloth: Rgb[] = [[58, 98, 184], [196, 62, 70], [236, 232, 222], [70, 74, 86], [226, 180, 80], [110, 150, 110], [150, 96, 160], [40, 44, 56], [214, 130, 150], [236, 232, 222]];
+  cloth.forEach((tone, i) => {
+    const x = 34 + i * 19.2 + (rng() - 0.5) * 3;
+    const half = 22 + rng() * 9;
+    shape(img, roundRect(x - 7.5, h / 2 - half, 15, half * 2, 5), tone, LINE, 1.6);
+    polygon(img, rect(x - 4.5, h / 2 - half + 4, 3, half * 2 - 8), [255, 255, 255], 0.16);
+  });
+  return { name: 'spr_tv_rack', image: img, ox: w / 2, oy: h / 2, bbox: [8, 20, w - 9, h - 21] };
+}
+
+// ---------- Les parkings ----------
+
+/** Peinture au sol usée par les pneus : des manques dans la couleur, quelques éclats nets. */
+function erode(img: Image, seed: number, strength: number): void {
+  const rng = random(seed);
+  for (let i = 3; i < img.data.length; i += 4) {
+    if (img.data[i] === 0) continue;
+    const r = rng();
+    img.data[i] = Math.round(img.data[i] * (r < strength * 0.35 ? 0.15 + rng() * 0.3 : 0.8 + rng() * 0.2));
+  }
+  // quelques griffures plus larges
+  for (let k = 0; k < (img.width * img.height * strength) / 900; k++) {
+    const x = Math.floor(rng() * img.width), y = Math.floor(rng() * img.height), len = 3 + Math.floor(rng() * 9);
+    for (let d = 0; d < len; d++) {
+      const px = x + d, py = y + Math.floor(d * (rng() - 0.5));
+      if (px < img.width && py >= 0 && py < img.height) img.data[(py * img.width + px) * 4 + 3] = Math.round(img.data[(py * img.width + px) * 4 + 3] * 0.25);
+    }
+  }
+}
+
+const PAINT: Rgb = [236, 236, 228];
+
+/** Ligne blanche : une limite de place, un bord de voie. Se teinte en jaune ou en gris au besoin. */
+function parkingLine(): Made {
+  const w = 400, h = 14;
+  const img = canvas(w, h);
+  polygon(img, rect(0, 1, w, h - 2), PAINT);
+  erode(img, 91, 0.5);
+  return { name: 'spr_pk_line', image: img, ox: 0, oy: h / 2 };
+}
+
+/** Flèche de sens de circulation, pointe vers le haut du sprite. */
+function parkingArrow(): Made {
+  const w = 130, h = 300;
+  const img = canvas(w, h);
+  polygon(img, [[w / 2, 4], [w - 6, 112], [w / 2 + 22, 112], [w / 2 + 22, h - 6], [w / 2 - 22, h - 6], [w / 2 - 22, 112], [6, 112]], PAINT);
+  erode(img, 93, 0.55);
+  return { name: 'spr_pk_arrow', image: img, ox: w / 2, oy: h / 2 };
+}
+
+/** Passage piéton : des bandes blanches, à franchir dans le sens de la largeur du sprite. */
+function crosswalk(): Made {
+  const w = 420, h = 250;
+  const img = canvas(w, h);
+  for (let i = 0; i < 6; i++) polygon(img, rect(8 + i * 70, 6, 42, h - 12), PAINT);
+  erode(img, 95, 0.5);
+  return { name: 'spr_pk_zebra', image: img, ox: w / 2, oy: h / 2 };
+}
+
+/** Zone de dépose : un cadre jaune zébré où l'on ne stationne pas. */
+function hatchBox(): Made {
+  const w = 430, h = 260;
+  const img = canvas(w, h);
+  const yellow: Rgb = [236, 198, 62];
+  for (let x = -h; x < w; x += 44) polygon(img, [[x, h], [x + h, 0], [x + h + 16, 0], [x + 16, h]], yellow);
+  // on ne garde que l'intérieur du cadre, puis on trace le cadre
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (x < 8 || y < 8 || x >= w - 8 || y >= h - 8) img.data[(y * w + x) * 4 + 3] = 0;
+  }
+  line(img, rect(6, 6, w - 12, h - 12), 10, yellow, 1, true);
+  erode(img, 97, 0.5);
+  return { name: 'spr_pk_hatch', image: img, ox: w / 2, oy: h / 2 };
+}
+
+/** Potelet vu du dessus : il sépare le trottoir de la chaussée. */
+function bollard(): Made {
+  const s = 46, c = s / 2;
+  const img = canvas(s, s);
+  polygon(img, arc(c + 4, c + 5, 15, 15, 0, TAU, 24), [0, 0, 0], 0.28);
+  shape(img, arc(c, c, 15, 15, 0, TAU, 28), [236, 198, 62], LINE, 2.4);
+  polygon(img, arc(c, c, 11, 11, 0, TAU, 28), [44, 44, 52]);
+  polygon(img, arc(c, c, 6.5, 6.5, 0, TAU, 20), [250, 226, 120]);
+  polygon(img, arc(c - 2, c - 2, 2, 2, 0, TAU, 10), [255, 250, 220]);
+  return { name: 'spr_pk_bollard', image: img, ox: c, oy: c, bbox: [8, 8, 37, 37] };
+}
+
+/**
+ * Bitume : un gris sombre au grain serré, semé de gravillons clairs, avec quelques reprises plus foncées.
+ * Il remplace les pavés et la route hors d'échelle des deux quais.
+ */
+function asphalt(): Image {
+  const size = 336;
+  const img = canvas(size, size);
+  const rng = random(67);
+  polygon(img, rect(0, 0, size, size), [66, 66, 72]);
+  // le grain : chaque pixel s'écarte un peu du gris de base
+  for (let i = 0; i < size * size; i++) {
+    const d = Math.round((rng() - 0.5) * 16);
+    for (let k = 0; k < 3; k++) img.data[i * 4 + k] = Math.max(0, Math.min(255, img.data[i * 4 + k] + d));
+  }
+  speckle(img, rng, 2600, [210, 210, 214], 0.3);
+  speckle(img, rng, 1800, [20, 20, 24], 0.35);
+  // reprises de bitume, plus sombres, qui se raccordent d'un bord à l'autre de la texture
+  for (let k = 0; k < 3; k++) {
+    const x = rng() * size, y = rng() * size, rx = 30 + rng() * 40, ry = 12 + rng() * 18, a = rng() * Math.PI;
+    for (const [ox, oy] of [[0, 0], [size, 0], [-size, 0], [0, size], [0, -size]]) {
+      polygon(img, rotate(arc(x + ox, y + oy, rx, ry, 0, TAU, 20), x + ox, y + oy, a), [34, 34, 40], 0.22);
+    }
+  }
+  return img;
+}
+
 // ---------- Le sol du plateau ----------
 
 /**
@@ -313,8 +471,13 @@ function writeFloor(name: string, image: Image): void {
 }
 
 export function makeStudio(): void {
-  write([anchorPortrait(), desk(), riser(), spot(), ledWall(), onAir(), cables()]);
+  write([
+    anchorPortrait(), desk(), riser(), spot(), ledWall(), onAir(), cables(),
+    makeupTable(), clothesRack(),
+    parkingLine(), parkingArrow(), crosswalk(), hatchBox(), bollard(),
+  ]);
   writeFloor('til_sol_studio', studioFloor());
+  writeFloor('til_sol_asphalte', asphalt());
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) makeStudio();

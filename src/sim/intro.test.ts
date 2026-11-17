@@ -65,8 +65,16 @@ test('le plateau de TvTv² est une pièce fermée, avec son sol, ses deux portes
   assert.ok(blocked(9000, r.y1 - 120, 9000, r.y1 + 120), 'mur sud');
   assert.ok(blocked(r.x0 + 40, r.y0 - 120, r.x0 + 40, r.y0 + 120), 'le mur nord rejoint la vitre');
   assert.ok(blocked(9560, 3856, 9740, 3856), 'cloison du fond de décor');
-  assert.ok(!blocked(9580, r.y0 + 80, 9860, r.y0 + 80), 'passage nord vers les coulisses');
-  assert.ok(!blocked(9580, r.y1 - 80, 9860, r.y1 - 80), 'passage sud vers les coulisses');
+  assert.ok(!blocked(9580, r.y0 + 300, 9860, r.y0 + 300), 'passage nord vers les coulisses');
+  assert.ok(!blocked(9580, r.y1 - 300, 9860, r.y1 - 300), 'passage sud vers les coulisses');
+  // la pièce a la hauteur de la régie : ses murs nord et sud prolongent ceux de la régie (GD-083)
+  assert.ok(blocked(7700, r.y0 - 120, 7700, r.y0 + 120) && blocked(7700, r.y1 - 120, 7700, r.y1 + 120), 'murs de la régie au même niveau');
+  // derrière le pupitre, un robot a la place de se tenir là où est le présentateur
+  const behind = new World(ground, sprites, 'BadaBot', 2);
+  behind.npcs = [];
+  assert.ok(behind.collision.circleFree(TV_STUDIO.anchor.x, TV_STUDIO.anchor.y, behind.hero.def.radius + 12, 1), 'la place du présentateur est libre pour un robot');
+  assert.ok(!blocked(TV_STUDIO.anchor.x, TV_STUDIO.anchor.y, TV_STUDIO.anchor.x - 20, r.y0 + 300), 'on y accède en contournant le pupitre par le nord');
+  assert.ok(!blocked(TV_STUDIO.anchor.x, TV_STUDIO.anchor.y, TV_STUDIO.anchor.x - 20, r.y1 - 300), 'ou par le sud');
   // deux portes automatiques : fermées elles arrêtent, et un robot qui approche les ouvre
   const doors = w.doors.filter((d) => d.kind === 'auto' && Math.abs(d.x - 8480) < 2 && (Math.abs(d.y - (r.y0 - 16)) < 2 || Math.abs(d.y - (r.y1 + 16)) < 2));
   assert.equal(doors.length, 2);
@@ -81,11 +89,11 @@ test('le plateau de TvTv² est une pièce fermée, avec son sol, ses deux portes
   assert.ok(!w.level.decals.some((d) => d.sprite === 'spr_ventilation'));
   assert.ok(w.level.decals.some((d) => d.sprite === 'spr_tv_riser'));
   assert.ok(!w.level.instances.some((i) => i.object === 'obj_container' && i.x >= r.x0 && i.x < r.x1 && i.y >= r.y0 && i.y < r.y1));
-  // au départ, aucun garde sur le plateau : seulement le présentateur et les deux techniciens des caméras
+  // au départ, aucun garde sur le plateau : seulement le présentateur et des techniciens
   const fresh = new World(ground, sprites, 'PetBot', 2);
   const inside = fresh.npcs.filter((n) => n.x >= r.x0 && n.x < r.x1 && n.y >= r.y0 && n.y < r.y1);
-  assert.deepEqual(inside.map((n) => n.def.kind), ['civil', 'civil', 'civil']);
-  for (const n of fresh.npcs.filter((o) => o.x > 8256 && o.y > 3000 && o.y < 4700)) assert.ok(fresh.collision.circleFree(n.x, n.y, n.def.radius * 0.5, 1), `personnage dans un obstacle en ${Math.round(n.x)}, ${Math.round(n.y)}`);
+  assert.ok(inside.length >= 3 && inside.every((n) => n.def.kind === 'civil'), `sur le plateau : ${inside.map((n) => n.def.kind).join(', ')}`);
+  for (const n of fresh.npcs.filter((o) => o.x > 8256)) assert.ok(fresh.collision.circleFree(n.x, n.y, n.def.radius * 0.5, 1), `personnage dans un obstacle en ${Math.round(n.x)}, ${Math.round(n.y)}`);
   // quatre projecteurs, chacun avec son faisceau braqué sur le présentateur
   const beams = w.level.instances.filter((i) => i.object === 'obj_lumiere' && i.props.coneAngle !== undefined);
   assert.equal(beams.length, 4);
@@ -100,6 +108,57 @@ test('le plateau de TvTv² est une pièce fermée, avec son sol, ses deux portes
     assert.ok(w.decor.some((d) => d.sprite === sprite), sprite);
     assert.ok(sprites[sprite], `${sprite} est dans le manifeste des sprites`);
   }
+});
+
+test('l\'aile est : salons, maquillage, vestiaire et parkings se suivent du nord au sud (GD-083)', () => {
+  const w = new World(ground, sprites, 'PetBot', 2);
+  w.npcs = [];
+  const open = (x1: number, y1: number, x2: number, y2: number): boolean => !w.collision.segmentBlocked(x1, y1, x2, y2, 1);
+  const { north, south } = TV_STUDIO.lounges;
+  // chaque salon communique avec son décrochement, et une porte automatique mène au parking
+  assert.ok(open(8600, 2350, 9100, 2350), 'salon d\'attente et maquillage ne font qu\'une pièce');
+  assert.ok(open(8600, 5150, 9100, 5150), 'salon de sortie et vestiaire aussi');
+  for (const [name, y] of [['nord', 2848], ['sud', 5088]] as [string, number][]) {
+    const door = w.doors.find((d) => d.kind === 'auto' && Math.abs(d.x - 9584) < 2 && Math.abs(d.y - y) < 2);
+    assert.ok(door, `porte du salon ${name} vers son parking`);
+    assert.ok(!open(9400, y, 9760, y), 'fermée, elle arrête');
+    assert.ok(!open(9400, y - 300, 9760, y - 300) || name === 'sud', 'la cloison est pleine ailleurs');
+  }
+  // les parkings sont refaits : bitume, marquages, plus de fourgons géants ni de route hors d'échelle
+  for (const p of [TV_STUDIO.parkings.north, TV_STUDIO.parkings.south]) {
+    assert.ok(w.level.floors.some((f) => f.tileset === 'til_sol_asphalte' && f.x <= p.x0 && f.x + f.w >= p.x1), 'bitume');
+  }
+  assert.ok(!w.level.instances.some((i) => i.object === 'obj_car_van'));
+  assert.ok(!w.level.decals.some((d) => /^spr_route/.test(d.sprite)));
+  assert.ok(w.level.decals.filter((d) => d.sprite === 'spr_pk_line').length >= 20);
+  assert.equal(w.level.decals.filter((d) => d.sprite === 'spr_pk_zebra').length, 2);
+  // le mobilier propre à chaque zone
+  const has = (object: string, zone: { x0: number; x1: number; y0: number; y1: number }): number =>
+    w.level.instances.filter((i) => i.object === object && i.x >= zone.x0 && i.x < zone.x1 && i.y >= zone.y0 && i.y < zone.y1).length;
+  assert.equal(has('obj_tv_makeup', north), 3, 'trois coiffeuses au nord');
+  assert.ok(has('obj_canape', north) >= 2 && has('obj_canape', south) >= 2, 'des canapés dans les deux salons');
+  assert.ok(has('obj_tv_rack', south) >= 2 && has('obj_casierModulable', south) >= 3, 'portants et casiers du vestiaire');
+  // aucun garde dans les salons au départ, sauf un policier devant chaque porte du plateau
+  const fresh = new World(ground, sprites, 'PetBot', 2);
+  // (un salon est en L : sa grande pièce à l'ouest de x = 8960, et son décrochement contre le plateau ; le
+  // reste du rectangle appartient au parking)
+  for (const zone of [north, south]) {
+    const notch = (y: number): boolean => (zone === north ? y >= 1952 : y < 5632);
+    const guards = fresh.npcs.filter((n) => n.def.kind === 'soldier' && n.x >= zone.x0 && n.x < zone.x1 && n.y >= zone.y0 && n.y < zone.y1
+      && (n.x < 8960 || notch(n.y)));
+    assert.equal(guards.length, 1, `gardes du salon : ${guards.map((n) => `${Math.round(n.x)},${Math.round(n.y)}`).join(' ')}`);
+    assert.ok(Math.abs(guards[0].x - 8480) < 2, 'devant la porte du plateau');
+  }
+  // les portails d'origine sont toujours là : la sortie par le nord (3) et l'arrivée de la police par le sud (4)
+  assert.equal(fresh.doors.filter((d) => d.kind === 'button' && (d.doorId === 3 || d.doorId === 4)).length, 4);
+  // le brouillard se lève zone par zone : entrer dans la régie ne découvre plus les salons ni les parkings
+  const fogs = fresh.fogs.filter((f) => f.x + f.w > 8240 && f.x < 10976);
+  assert.ok(fogs.length >= 8);
+  fresh.hero.x = 7400;
+  fresh.hero.y = 3968;
+  for (let i = 0; i < 30; i++) fresh.step(NO_INPUT);
+  assert.ok(fresh.fogs.some((f) => f.x === 8240 && f.y === 1392 && !f.enabled), 'le salon d\'attente reste caché');
+  assert.ok(fresh.fogs.some((f) => f.x === 8976 && f.y === 1392 && !f.enabled), 'le dépose-minute aussi');
 });
 
 test('pendant le journal, personne ne bouge : ni les gardes en ronde, ni les civils (GD-081)', () => {
