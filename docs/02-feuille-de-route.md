@@ -195,3 +195,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Tirs : traînée en pleine couleur sur 800 px au lieu de 1 000 ; jaune des héros éclairci vers le blanc (GD-065). |
 | 2026-11-17 | Tirs : le sprite de chaque balle est réduit à l'épaisseur de sa traînée, 7,5 px (GD-065). |
 | 2026-11-17 | Tirs : une fumée chaude prend la place de la flamme, avance et s'efface en 0,4 s (GD-065). |
+| 2026-11-17 | Tirs : fumée redessinée en petits nuages cartoon cernés, avec ombre, reflet et volute, d'opacités variées (GD-065). |

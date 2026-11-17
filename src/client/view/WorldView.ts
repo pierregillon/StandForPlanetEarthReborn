@@ -138,9 +138,15 @@ const TRACER_STYLE = {
    * flamme se trouve alors, puis reste dans l'air (elle ne suit plus le canon). `puffs` bouffées, étalées sur
    * `spread` pixels devant le canon, partent vers l'avant à `speed` px/s, freinées par `drag` ; chacune
    * gonfle de `radius` à `radius × grow` pixels et s'efface en `life` secondes. Chaude à sa naissance
-   * (`hot`), elle vire au gris (`cold`) : c'est elle qui dit que le canon vient de chauffer.
+   * (`hot`), elle vire au gris (`cold`) : c'est elle qui dit que le canon vient de chauffer. Chaque bouffée
+   * est un petit nuage dessiné comme le reste du jeu, cerné d'un trait ; elles n'ont pas toutes la même
+   * opacité (de `thin` à `alpha`), restent pleines pendant la part `hold` de leur vie puis s'effacent, et
+   * tournent lentement sur elles-mêmes (`spin`, en radians par seconde).
    */
-  smoke: { at: 0.4, puffs: 5, spread: 80, speed: 320, drag: 6, radius: 18, grow: 2.6, life: 0.45, alpha: 0.85, hot: 0xffe9c4, cold: 0xdcdcdc },
+  smoke: {
+    at: 0.4, puffs: 6, spread: 100, speed: 320, drag: 6, radius: 20, grow: 2.5, life: 0.55,
+    alpha: 1, thin: 0.55, hold: 0.4, spin: 2, hot: 0xffe9c4, cold: 0xe4e4e4,
+  },
 };
 
 /**
@@ -226,6 +232,9 @@ interface Smoke {
   age: number;
   life: number;
   radius: number;
+  /** Opacité au plus fort, et vitesse à laquelle elle tourne sur elle-même. */
+  peak: number;
+  spin: number;
 }
 
 interface PlayingAnim {
@@ -1202,29 +1211,32 @@ export class WorldView {
   private addSmoke(f: MuzzleFlash, k: number): void {
     const smoke = TRACER_STYLE.smoke;
     const size = TRACER_STYLE.blast.size;
-    const key = this.smokeTexture();
+    const { keys } = this.smokeTextures();
     // la base de la flamme à cet instant : elle a déjà un peu avancé
     const lift = TRACER_STYLE.blast.drift * size * (1 - k);
     for (let i = 0; i < smoke.puffs; i++) {
       // les bouffées s'échelonnent du canon vers l'avant ; les plus lointaines sont les plus rapides
       const t = (i + Math.random() * 0.6) / smoke.puffs;
-      const angle = f.angle + (Math.random() - 0.5) * 0.24;
+      const angle = f.angle + (Math.random() - 0.5) * 0.3;
       const along = lift + 6 + t * smoke.spread * size;
-      const across = (Math.random() - 0.5) * 8;
+      const across = (Math.random() - 0.5) * 12;
       const x = f.x + Math.cos(f.angle) * along - Math.sin(f.angle) * across;
       const y = f.y + Math.sin(f.angle) * along + Math.cos(f.angle) * across;
       const speed = smoke.speed * size * (0.6 + 0.7 * t) * (0.85 + Math.random() * 0.3);
-      const img = this.scene.add.image(x, y, key).setDepth(DEPTH.bullet + 0.5).setAlpha(0).setRotation(Math.random() * Math.PI * 2);
+      const img = this.scene.add.image(x, y, keys[Math.floor(Math.random() * keys.length)])
+        .setDepth(DEPTH.bullet + 0.5).setAlpha(0).setRotation(Math.random() * Math.PI * 2);
       this.smokes.push({
         img, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, age: 0,
-        life: smoke.life * (0.8 + Math.random() * 0.4), radius: smoke.radius * size * (0.8 + Math.random() * 0.5),
+        life: smoke.life * (0.8 + Math.random() * 0.4), radius: smoke.radius * size * (0.75 + Math.random() * 0.5),
+        peak: smoke.thin + Math.random() * (smoke.alpha - smoke.thin), spin: (Math.random() < 0.5 ? -1 : 1) * smoke.spin * (0.4 + Math.random() * 0.6),
       });
     }
   }
 
-  /** Fait vivre la fumée des tirs : elle avance en ralentissant, gonfle, refroidit et s'efface. */
+  /** Fait vivre la fumée des tirs : elle avance en ralentissant, gonfle, tourne, refroidit et s'efface. */
   private syncSmoke(dt: number): void {
     const smoke = TRACER_STYLE.smoke;
+    const { reach } = this.smokeTextures();
     const slow = Math.exp(-smoke.drag * dt);
     for (let i = this.smokes.length - 1; i >= 0; i--) {
       const p = this.smokes[i];
@@ -1239,31 +1251,97 @@ export class WorldView {
       p.y += p.vy * dt;
       p.vx *= slow;
       p.vy *= slow;
-      // elle gonfle vite puis de moins en moins ; elle apparaît en un instant et s'efface en douceur
+      // elle gonfle vite puis de moins en moins ; elle apparaît d'un coup, reste pleine un moment, puis s'efface
       const swell = 1 + (smoke.grow - 1) * (1 - (1 - t) * (1 - t));
-      const strength = Math.min(1, p.age / 0.035) * Math.pow(1 - t, 1.2);
-      p.img.setPosition(p.x, p.y).setScale((p.radius * swell) / 32).setAlpha(smoke.alpha * strength)
+      const fade = t < smoke.hold ? 1 : Math.pow(1 - (t - smoke.hold) / (1 - smoke.hold), 1.3);
+      p.img.setPosition(p.x, p.y).setScale((p.radius * swell) / reach).setRotation(p.img.rotation + p.spin * dt)
+        .setAlpha(p.peak * Math.min(1, p.age / 0.03) * fade)
         .setTint(mixColor(smoke.cold, smoke.hot, Math.max(0, 1 - t * 3)));
     }
   }
 
-  /** Bouffée de fumée : un disque blanc aux bords fondus, de 32 px de rayon, à teinter. */
-  private smokeTexture(): string {
-    const key = 'shotSmoke';
-    if (!this.scene.textures.exists(key)) {
-      const canvas = this.scene.textures.createCanvas(key, 64, 64);
-      if (canvas) {
-        const ctx = canvas.context;
-        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-        gradient.addColorStop(0, 'rgba(255,255,255,1)');
-        gradient.addColorStop(0.45, 'rgba(255,255,255,0.6)');
-        gradient.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 64, 64);
-        canvas.refresh();
+  /**
+   * Bouffées de fumée, dessinées comme le reste du jeu : un petit nuage en aplats, cerné d'un trait. Chacune
+   * est faite de lobes ronds autour d'un cœur, avec une ombre sur un bord, un reflet sur l'autre et une volute
+   * tracée à l'intérieur. Elles sont en blanc et gris, à teinter. `reach` : rayon du nuage dans son image.
+   */
+  private smokeTextures(): { keys: string[]; reach: number } {
+    const reach = 56;
+    const keys = [0, 1, 2, 3].map((i) => `shotSmoke${i}`);
+    if (this.scene.textures.exists(keys[0])) return { keys, reach };
+    // un tirage fixe : les mêmes nuages à chaque partie
+    let seed = 20261117;
+    const random = (): number => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    const centre = 64;
+    for (const key of keys) {
+      const canvas = this.scene.textures.createCanvas(key, 128, 128);
+      if (!canvas) continue;
+      const ctx = canvas.context;
+      const lobes = [{ x: 0, y: 0, r: 30 }];
+      const count = 5 + Math.floor(random() * 3);
+      const turn = random() * Math.PI * 2;
+      for (let i = 0; i < count; i++) {
+        const a = turn + (i / count) * Math.PI * 2 + (random() - 0.5) * 0.5;
+        const r = 14 + random() * 11;
+        const d = reach - 4 - r - random() * 7;
+        lobes.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r });
       }
+      /** Trace le nuage : ses lobes grossis de `grow` pixels, décalés de (dx, dy) et ramenés à l'échelle `scale`. */
+      const trace = (grow: number, dx = 0, dy = 0, scale = 1): void => {
+        ctx.beginPath();
+        for (const l of lobes) {
+          const r = Math.max(1, l.r * scale + grow);
+          const x = centre + l.x * scale + dx;
+          const y = centre + l.y * scale + dy;
+          ctx.moveTo(x + r, y);
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+        }
+      };
+      // le cerne, puis l'ombre qui remplit tout le nuage
+      ctx.fillStyle = '#56565e';
+      trace(4);
+      ctx.fill();
+      ctx.fillStyle = '#aeaeb8';
+      trace(0);
+      ctx.fill();
+      // tout le reste est dessiné à l'intérieur du nuage
+      ctx.save();
+      trace(0);
+      ctx.clip();
+      // le corps clair, décalé : il laisse l'ombre en croissant sur un bord
+      ctx.fillStyle = '#e6e6ea';
+      trace(-1, -6, -6);
+      ctx.fill();
+      // le reflet, plus petit, du côté opposé à l'ombre
+      ctx.fillStyle = '#ffffff';
+      trace(-2, -13, -13, 0.62);
+      ctx.fill();
+      // la volute : une spirale qui s'enroule vers le cœur
+      const sx = centre + (random() - 0.5) * 14 + 4;
+      const sy = centre + (random() - 0.5) * 14 + 4;
+      const from = random() * Math.PI * 2;
+      const way = random() < 0.5 ? -1 : 1;
+      ctx.strokeStyle = '#8a8a94';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= 30; i++) {
+        const u = i / 30;
+        const a = from + way * u * Math.PI * 2.6;
+        const r = 5 + u * 19;
+        const x = sx + Math.cos(a) * r;
+        const y = sy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+      canvas.refresh();
     }
-    return key;
+    return { keys, reach };
   }
 
   /**
