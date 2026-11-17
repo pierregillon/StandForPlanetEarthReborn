@@ -556,13 +556,23 @@ export const CONFIG = {
     radioSeconds: 3.5,
   },
 
+  /** Le face-à-face avec le barrage de police, sur le parking sud (GD-088). Ses répliques suivent les règles de `arrival`. */
+  standoff: {
+    /** Fermeture des bandes et trajet de la caméra jusqu'au barrage, puis réouverture. */
+    inSteps: s(1.1),
+    outSteps: s(0.4),
+    /** Décalage du cadre vers le barrage, et part de l'image cachée par les bandes en haut et en bas. */
+    shotShift: 110,
+    shotMargin: 130,
+  },
+
   /** La riposte de la police après l'ultimatum (GD-086). */
   wave: {
     /** Numéro des portails par où elle entre, au sud. */
     gates: 4,
     /**
      * Trois groupes de plus en plus nombreux, 10 puis 15 puis 20 (GD-087, demande de l'utilisateur). Le premier
-     * attend à pied devant les fourgons ; l'horloge part quand l'équipe arrive sur le parking, et les suivants
+     * tient le barrage devant les fourgons ; l'horloge part à la fin du face-à-face (GD-088), et les suivants
      * entrent alors de dehors par les portails. 45 soldats en tout.
      */
     groups: [
@@ -572,7 +582,10 @@ export const CONFIG = {
     ] as { atSteps: number; units: Record<string, number> }[],
     /** Ensuite, des renforts à intervalle régulier, tant que la troupe compte moins de `maxAlive` soldats debout. */
     reinforce: { everySteps: s(10), maxAlive: 45, units: { obj_npc_human_pistol: 4, obj_npc_robot_shield: 1, obj_npc_robot_lightBot: 1 } as Record<string, number> },
-    /** Temps entre l'arrivée de l'équipe sur le parking et le changement de plan : la voix du véhicule a vu ce qui vient. */
+    /**
+     * Quand la riposte part sans face-à-face (l'équipe a quitté l'aile par l'ouest) : temps avant que la voix
+     * du véhicule annonce le changement de plan.
+     */
     planChangeSteps: s(3),
     /** Un robot à plus de cette distance à l'ouest du plateau a quitté l'aile est : la riposte part sans l'attendre. */
     leftWingMargin: 100,

@@ -80,7 +80,7 @@ Proposé, à détailler quand on réécrira le niveau (étape 4). L'introduction
 | 5 | Reach the studio | Plateau, par l'une des deux portes que le bouton a ouvertes | Remplace la sortie vers la zone de forage |
 | 6 | Broadcast the message | Plateau, à la place du présentateur | Nouvelle ; cinématique de l'ultimatum |
 | 7 | Leave by the south parking lot | Vers le sud : salon de sortie, local technique, parking | Nouvelle ; la police y attend, puis arrive en masse par les portails 4 (section 2 bis). D'abord « Get back to the drop point », reformulée pour nommer le sud (GD-087) |
-| 8 | Too many of them. Take the north gate | Salon d'attente, dépose-minute, portails 3 | Remplace SallyBot ; fin du niveau |
+| 8 | Plan B: leave by the north garage | Retour par le plateau, salon d'attente, dépose-minute (le « garage nord »), portails 3 | Remplace SallyBot ; fin du niveau. D'abord « Too many of them. Take the north gate » ; reformulée avec les mots de l'utilisateur (GD-088) |
 
 Les consignes 7 et 8 sont une proposition de formulation pour le scénario décidé par l'utilisateur (section 2 bis). Le déroulé détaillé des consignes 4 à 8, avec les textes, est en section 10.
 
@@ -189,7 +189,7 @@ Les points 3, 4 et 5 sont appliqués tels quels dans la première livraison (GD-
 
 ## 10. Script de la fin de mission
 
-> **Statut** (2026-11-17) : le scénario est celui de l'utilisateur (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé. **Les temps A à E sont livrés (livraisons C1 et C2, GD-085 et GD-086)**. Après essai, l'utilisateur a revu les temps D et E (GD-087) : la riposte attend l'équipe sur le parking sud, elle grossit par paliers, et « Retry » rend le monde de la sauvegarde. Les temps F et G restent à faire.
+> **Statut** (2026-11-17) : le scénario est celui de l'utilisateur (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé. **Les temps A à E sont livrés (livraisons C1 et C2, GD-085 et GD-086)**. Après essai, l'utilisateur a revu les temps D et E (GD-087) : la riposte attend l'équipe sur le parking sud, elle grossit par paliers, et « Retry » rend le monde de la sauvegarde. Il a ensuite demandé une cinématique à l'arrivée sur le parking, le face-à-face avec le barrage (GD-088). Les temps F et G restent à faire.
 
 Ce que la fin doit faire comprendre, d'après l'arc narratif (acte II) : les robots ont parlé à toute la population ; ils ont laissé une dernière chance ; la réponse des humains est la force ; les robots s'échappent, et ils sont désormais une menace majeure. Elle ne dit toujours rien du virus ni de SFHB.
 
@@ -201,7 +201,8 @@ Ce que la fin doit faire comprendre, d'après l'arc narratif (acte II) : les rob
 | B | Reach the studio | Il entre sur le plateau et va derrière le pupitre | Le bouton de la régie | Jeu |
 | C | Broadcast the message | Il lit l'ultimatum | La moitié de l'équipe derrière le pupitre, compte à rebours | **Cinématique** |
 | D | Leave by the south parking lot | Il part vers le sud, jusqu'au parking | Fin de l'ultimatum | Jeu |
-| E | Too many of them. Take the north gate | Il se replie vers le nord en combattant | Trois secondes après son arrivée sur le parking sud | Jeu, deux répliques radio |
+| D bis | — | Il tombe sur le barrage de police | Son arrivée sur le parking sud | **Cinématique** (GD-088) |
+| E | Plan B: leave by the north garage | Il fait demi-tour et se replie vers le nord en combattant | Fin du face-à-face | Jeu |
 | F | Hold on. The gate is opening | Il tient devant le portail 3 | Le bouton du portail 3 | Jeu, une réplique radio |
 | G | — | Il sort ; le véhicule le récupère | La moitié de l'équipe dehors | **Cinématique**, puis l'écran de fin |
 
@@ -252,10 +253,9 @@ Notes sur le texte :
 
 | Moment | Qui | D'où |
 |---|---|---|
-| À l'arrivée de l'équipe | 10 policiers | Déjà à pied devant trois fourgons garés, à plus de 400 px des portes du local technique ; ils marquent le temps de surprise de n'importe quel soldat |
-| + 3 secondes | — | Le changement de plan (ci-dessous) |
-| + 6 secondes | 15 de plus : 10 policiers, 3 robots boucliers, 2 robots fusils à pompe | Par les portails 4, qui se sont ouverts à l'arrivée de l'équipe |
-| + 14 secondes | 20 de plus : 13 policiers, 4 robots légers, 3 robots boucliers | Par les portails 4 |
+| À l'arrivée de l'équipe | 10 policiers | En ligne devant les fourgons qui barrent le parking, à plus de 400 px des portes du local technique. Le face-à-face se joue (ci-dessous) ; à sa fin ils tirent sans attendre |
+| + 6 secondes après le face-à-face | 15 de plus : 10 policiers, 3 robots boucliers, 2 robots fusils à pompe | Par les portails 4, qui se sont ouverts à l'arrivée de l'équipe |
+| + 14 secondes après le face-à-face | 20 de plus : 13 policiers, 4 robots légers, 3 robots boucliers | Par les portails 4 |
 | Ensuite, tant que l'équipe n'est pas sortie | 6 renforts toutes les 10 secondes, sans dépasser 45 ennemis vivants à la fois | Par les portails 4 |
 
 - **Leur trajet** : chaque soldat va droit là où se trouve le robot le plus proche, et le suit si l'équipe se replie : le local technique, le salon de sortie, le plateau, puis le nord. Dès qu'il voit un robot, il se bat comme les autres soldats. Il n'y a plus de point de ralliement sur le plateau.
@@ -265,12 +265,19 @@ Notes sur le texte :
 
 **Consigne 7, « Leave by the south parking lot ».** Elle nomme le sud, pour que l'équipe aille jusqu'au parking : c'est là qu'elle doit voir la troupe arriver. Sa première formulation, « Get back to the drop point », ne disait pas par où passer (le point de largage est sur le parvis, à l'autre bout du bâtiment). La réplique 8 de l'ultimatum garde « Pick-up at the drop point, as planned » : la consigne dit le chemin, la radio le but. C'est une fausse piste voulue.
 
-**Le changement de plan** se déclenche trois secondes après le début de la riposte : l'équipe a vu les policiers, la voix du véhicule annonce ce qui vient, et les groupes suivants entrent après elle. Radio en jeu, deux répliques à la suite :
+**Le face-à-face** (GD-088, scène demandée par l'utilisateur). Quand un robot arrive sur le parking, une cinématique se joue, bandes de cinéma comprises, avec les règles de l'introduction (Espace pour la suite, Espace tenu pour passer, l'hôte seul). Le monde se fige. La caméra glisse vers le barrage : les portes du local technique à gauche, la ligne de police et les fourgons à droite, gyrophares allumés ; la pénombre se lève le temps de la scène, comme sous les phares. La ligne tient les robots en joue.
 
-- La voix du véhicule : « The south side is crawling with them. Forty, maybe fifty. Forget the drop point. »
-- Un robot au sol (le premier de la liste BadaBot, BatBot, PetBot, EngiBot ; un autre que la voix du véhicule si possible) : « Then we leave through the north gate. »
+| Qui | Texte |
+|---|---|
+| POLICE (portrait d'un policier, dessiné pour le remake) | « Stand For Planet Earth unit! You are surrounded. Drop your weapons and surrender! » |
+| Le robot arrivé devant le barrage | « Team... I think we are going to be late for dinner. » |
+| Le même | « No way out through here. We go back and leave by the north garage. Plan B. » |
 
-Consigne 8 : « Too many of them. Take the north gate ». Le trajet : la porte nord du plateau, le salon d'attente, le dépose-minute, le bouton du portail 3.
+- **Qui répond** : le robot le plus proche du barrage, celui qui vient d'arriver. La blague s'adresse à l'équipe ; seul, le robot la dit à ceux qui sont restés dans le véhicule.
+- **À la fin** : les bandes se rouvrent, la police ouvre le feu sans temps de surprise, les portails 4 s'ouvrent, et l'horloge des groupes suivants part. Le joueur n'a d'autre choix que de faire demi-tour.
+- **Sans face-à-face** : si l'équipe a quitté l'aile par l'ouest (filet de sécurité), la police se lance quand même. Trois secondes plus tard, la radio annonce le plan B : la voix du véhicule, « The south side is crawling with them. Forty, maybe fifty. Forget the drop point. », puis un robot au sol, « Then it is plan B. We leave by the north garage. »
+
+Consigne 8 : « Plan B: leave by the north garage ». Le trajet : retour par le local technique et le salon de sortie, le plateau, la porte nord, le salon d'attente, le dépose-minute (le « garage nord »), le bouton du portail 3.
 
 ### 10.5 F — tenir devant le portail
 
@@ -322,3 +329,4 @@ Trois livraisons jouables, à essayer l'une après l'autre.
 7. **La fin** : le communiqué d'urgence, puis les trois répliques des robots.
 8. **Le point de sauvegarde** après l'ultimatum : gardé par l'utilisateur, qui a demandé qu'il rende le monde tel qu'il était (GD-087).
 9. **La consigne 7, « Leave by the south parking lot »**, et les dix policiers déjà en place devant les fourgons quand l'équipe arrive (proposés pour répondre à GD-087).
+10. **Le texte du face-à-face** (GD-088) : la scène et ses trois répliques sont de l'utilisateur, en français ; leur mise en anglais, le choix du robot qui répond et le nom « north garage » dans la consigne 8 sont proposés.

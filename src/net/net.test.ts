@@ -342,6 +342,15 @@ test('l\'ultimatum en réseau : les miroirs le suivent, l\'hôte le mène, Retry
   for (let i = 0; i < 8; i++) step();
   assert.equal(b.mirror.world.npcs.length, world.npcs.length, 'ceux qui tombent disparaissent du miroir');
 
+  // le barrage a perdu des hommes : le face-à-face commence (GD-088), chez tout le monde, et l'hôte le passe
+  assert.ok(world.cast >= 0 && world.castScene === 1);
+  assert.deepEqual([b.mirror.world.cast >= 0, b.mirror.world.castScene, b.mirror.world.castReader], [true, 1, world.castReader]);
+  for (let i = 0; i < 80 && world.cast >= 0; i++) step({ ...NO_INPUT, dash: true });
+  for (let i = 0; i < 8; i++) step();
+  assert.equal(world.cast, -1);
+  assert.equal(b.mirror.world.cast, -1);
+  assert.equal(b.mirror.world.session.objective, OBJ.northGate);
+
   // toute l'équipe tombe : Retry reprend sur le plateau, après le message
   for (const h of world.heroes) world.damageHero(h, 99, true);
   for (let i = 0; i < 200; i++) step();

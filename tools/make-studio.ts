@@ -107,6 +107,80 @@ function anchorPortrait(): Made {
   return { name: 'spr_cadre_anchor', image: img, ox: 71, oy: 97 };
 }
 
+/**
+ * Le policier qui somme les robots de se rendre devant le barrage (GD-088). Même format et même trait que le
+ * présentateur : uniforme bleu nuit, casquette à écusson, lunettes noires, la bouche ouverte sur un ordre.
+ */
+function policePortrait(): Made {
+  const img = canvas(143, 167);
+  const skin: Rgb = [232, 186, 150], skinShade: Rgb = [200, 148, 116], skinDeep: Rgb = [168, 116, 92];
+  const navy: Rgb = [40, 56, 104], navyShade: Rgb = [28, 40, 78], navyDark: Rgb = [18, 26, 54];
+  const shirt: Rgb = [170, 202, 236], shirtShade: Rgb = [128, 160, 204];
+  const gold: Rgb = [246, 204, 78], goldShade: Rgb = [196, 146, 40];
+  const lens: Rgb = [26, 28, 40], lensShine: Rgb = [120, 150, 200];
+
+  // l'uniforme, épaules larges, et ses pattes d'épaule
+  shape(img, [[-6, 172], [-6, 132], [8, 118], [30, 108], [50, 100], [60, 106], [71, 112], [82, 106], [92, 100], [113, 108], [135, 118], [149, 132], [149, 172]], navy, INK, 3.4);
+  polygon(img, [[92, 100], [113, 108], [135, 118], [149, 132], [149, 172], [102, 172], [108, 140], [100, 120]], navyShade);
+  polygon(img, [[-6, 150], [20, 138], [36, 172], [-6, 172]], navyShade);
+  shape(img, [[14, 116], [40, 105], [45, 113], [20, 125]], navyDark, INK, 2.2);
+  shape(img, [[129, 116], [103, 105], [98, 113], [123, 125]], navyDark, INK, 2.2);
+  // la chemise, la cravate noire
+  shape(img, [[58, 100], [71, 146], [84, 100], [78, 94], [64, 94]], shirt, INK, 2.4);
+  polygon(img, [[72, 104], [84, 100], [72, 144]], shirtShade);
+  shape(img, [[68, 112], [74, 112], [79, 150], [71, 162], [63, 150]], navyDark, INK, 2.2);
+  shape(img, [[65, 104], [77, 104], [75, 113], [67, 113]], navyDark, INK, 2.2);
+  // les revers et le col
+  shape(img, [[50, 100], [60, 106], [70, 142], [57, 152], [43, 122]], navyShade, INK, 2.6);
+  shape(img, [[92, 100], [82, 106], [72, 142], [85, 152], [99, 122]], navyDark, INK, 2.6);
+  shape(img, [[56, 97], [66, 104], [61, 116], [53, 104]], shirt, INK, 2.2);
+  shape(img, [[86, 97], [76, 104], [81, 116], [89, 104]], shirtShade, INK, 2.2);
+  // l'insigne sur la poitrine, la radio d'épaule
+  shape(img, [[100, 124], [112, 124], [112, 134], [106, 141], [100, 134]], gold, INK, 2);
+  polygon(img, [[106, 125], [112, 124], [112, 134], [106, 140]], goldShade);
+  shape(img, rect(28, 122, 12, 18), INK, INK, 0);
+  line(img, [[34, 122], [32, 110]], 2, INK);
+
+  // le cou
+  shape(img, [[59, 78], [83, 78], [84, 100], [71, 110], [58, 100]], skinShade, INK, 2.6);
+  polygon(img, [[60, 84], [82, 84], [80, 94], [71, 98], [62, 94]], skinDeep);
+
+  // les oreilles, puis le visage, mâchoire carrée
+  shape(img, [[41, 50], [47, 47], [48, 65], [43, 63]], skin, INK, 2.4);
+  shape(img, [[96, 47], [102, 50], [100, 63], [95, 65]], skinShade, INK, 2.4);
+  const face: Pt[] = [[47, 40], [50, 30], [60, 24], [82, 24], [92, 30], [96, 42], [96, 66], [92, 80], [83, 90], [71, 93], [59, 90], [50, 80], [46, 66]];
+  polygon(img, face, skin);
+  polygon(img, [[87, 26], [92, 30], [96, 42], [96, 66], [92, 80], [83, 90], [71, 93], [78, 84], [86, 72], [89, 54], [87, 40]], skinShade);
+  line(img, face, 3.2, INK, 1, true);
+
+  // la casquette : la coiffe, le bandeau, l'écusson, puis la visière qui ombre le front
+  const crown: Pt[] = [[40, 36], [36, 20], [46, 7], [71, 2], [96, 7], [106, 20], [102, 36]];
+  shape(img, crown, navy, INK, 3.2);
+  polygon(img, [[90, 6], [96, 7], [106, 20], [102, 36], [92, 36], [96, 22]], navyShade);
+  shape(img, [[41, 33], [101, 33], [100, 43], [42, 43]], navyDark, INK, 2.4);
+  shape(img, [[65, 12], [77, 12], [79, 22], [71, 30], [63, 22]], gold, INK, 2);
+  polygon(img, [[71, 13], [77, 12], [79, 22], [71, 29]], goldShade);
+  shape(img, [[38, 42], [104, 42], [110, 50], [71, 54], [32, 50]], INK, INK, 2);
+  line(img, [[44, 46], [70, 49], [98, 46]], 1.6, [70, 80, 110]);
+
+  // les lunettes noires
+  shape(img, [[50, 56], [68, 56], [67, 66], [58, 69], [51, 64]], lens, INK, 2.4);
+  shape(img, [[74, 56], [92, 56], [91, 64], [84, 69], [75, 66]], lens, INK, 2.4);
+  line(img, [[68, 58], [74, 58]], 2.4, INK);
+  line(img, [[54, 59], [60, 59]], 1.8, lensShine);
+  line(img, [[78, 59], [84, 59]], 1.8, lensShine);
+  // le nez, et la bouche ouverte sur l'ordre
+  line(img, [[71, 62], [69, 72], [74, 74]], 2, INK);
+  shape(img, [[61, 78], [82, 78], [79, 87], [64, 87]], [70, 22, 26], INK, 2.2);
+  polygon(img, [[63, 79], [80, 79], [79, 82], [64, 82]], [255, 255, 255]);
+  line(img, [[55, 72], [58, 80]], 1.6, skinShade);
+  line(img, [[87, 72], [84, 80]], 1.6, skinDeep);
+
+  // le bas du buste s'inscrit dans le disque, comme chez les robots
+  clipDisc(img, 71.5, 97, 70.5, 97);
+  return { name: 'spr_cadre_police', image: img, ox: 71, oy: 97 };
+}
+
 // ---------- Le mobilier du plateau, vu du dessus ----------
 
 /** Usure d'un meuble : petites taches claires et sombres, comme sur le mobilier d'origine. */
@@ -530,7 +604,7 @@ function writeFloor(name: string, image: Image): void {
 
 export function makeStudio(): void {
   write([
-    anchorPortrait(), desk(), riser(), spot(), ledWall(), onAir(), cables(),
+    anchorPortrait(), policePortrait(), desk(), riser(), spot(), ledWall(), onAir(), cables(),
     makeupTable(), clothesRack(),
     parkingLine(), parkingArrow(), crosswalk(), hatchBox(), bollard(), policeVan(),
   ]);

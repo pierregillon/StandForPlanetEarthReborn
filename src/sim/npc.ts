@@ -141,7 +141,7 @@ function heardHero(world: World, x: number, y: number): Hero | null {
 }
 
 /** Le soldat retient où se trouve le héros (vu ou entendu) ; la première fois, il marque un temps de surprise. */
-export function alertSoldier(npc: Npc, x: number, y: number): void {
+function alertSoldier(npc: Npc, x: number, y: number): void {
   if (!npc.alerted) {
     npc.alerted = true;
     npc.surpriseTimer = (npc.def.kind === 'soldier' ? npc.def.reactionSteps : undefined) ?? N.reactionSteps;

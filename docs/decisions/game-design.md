@@ -92,7 +92,8 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-084 | Aile est, retouches : toilettes, local technique à deux portes, places de parking | 2026-11-17 | Acceptée ; modifie GD-083 |
 | GD-085 | Fin de TvTv², première partie : la régie, le plateau, l'ultimatum | 2026-11-17 | Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) ; modifiée par GD-087 (texte de la consigne 7, état de la salle retrouvé après un Retry) |
 | GD-086 | Fin de TvTv², deuxième partie : la riposte de la police | 2026-11-17 | Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord) ; modifiée par GD-087 (déclenchement, tailles des groupes, trajet, consigne, Retry) |
-| GD-087 | La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde | 2026-11-17 | Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) |
+| GD-087 | La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde | 2026-11-17 | Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) ; modifiée par GD-088 (le changement de plan passe par une cinématique, consigne 8) |
+| GD-088 | Le face-à-face avec le barrage de police | 2026-11-18 | Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 |
 
 ---
 
@@ -1938,7 +1939,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 ## GD-087 — La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde
 
 - **Date** : 2026-11-17
-- **Statut** : Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau)
+- **Statut** : Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) ; modifiée par GD-088 (le changement de plan passe par une cinématique, consigne 8)
 - **Décidée par** : l'utilisateur, après avoir joué C2, pour les trois demandes : retrouver « exactement le même monde » après un Retry, faire arriver la vague quand l'équipe arrive sur le parking avec une consigne qui l'envoie au sud, et des groupes de 10, 15 puis 20 avec 45 ennemis au plus à la fois. Le reste est un choix par défaut, à confirmer : les dix premiers déjà en place devant les fourgons, les délais, le texte de la consigne, le filet de sécurité, ce que la sauvegarde retient
 
 **Contexte.** Deux défauts à l'essai. Un : à peine sorti du plateau, le joueur avait toute la troupe sur lui, puisqu'elle partait à la fin de l'ultimatum et ralliait le plateau. Deux : après un échec, « Retry » reconstruisait le rez-de-chaussée à neuf ; tous les gardes tués avant l'ultimatum revenaient, en plus de la riposte, et il y avait trop d'ennemis.
@@ -1960,3 +1961,31 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** Les traces laissées au sol avant la sauvegarde (carcasses, sang, éclats de verre) ne sont pas redessinées après un Retry : une vitre brisée revient brisée, sans ses éclats. Les survivants reprennent calmes, même ceux qui étaient en plein combat à la fin de l'ultimatum. Si l'équipe part au nord sans passer par le sud, rien ne déclenche la riposte : à régler avec la sortie par le portail nord (C3). La difficulté de la nouvelle montée en charge n'a pas été éprouvée en jouant.
 
 **Conséquences.** `RoomSave` et `checkpoint.save` dans `src/sim/session.ts` ; `World.saveRoom` et `World.restoreRoom` (`src/sim/world.ts`), appelés par `endCast` et par le constructeur. `src/sim/wave.ts` : `stageWave`, `found`, `launch`, états `HOLDING` et `HUNTING` ; `World.waveSteps` vaut 0 tant que la police attend. Réglages : `CONFIG.wave.groups`, `planChangeSteps`, `leftWingMargin` ; lieux : `TV_STUDIO.wave.hold` (à la place de `rally` et `parking`) et `outside`, élargi pour un groupe de vingt. Consigne dans `OBJECTIVES`. Affichage : `WorldView.ts` dessine brisée une vitre qui l'est déjà quand la salle s'affiche. Tests : `src/sim/wave.test.ts` réécrit (dix tests), un test du Retry dans `src/sim/broadcast.test.ts`, le test réseau étendu.
+
+---
+
+## GD-088 — Le face-à-face avec le barrage de police
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086
+- **Décidée par** : l'utilisateur pour la scène et ses répliques, données en français : une cinématique à l'arrivée sur le parking, bandes noires comprises, qui montre le barrage face aux robots ; un policier qui dit « rendez-vous, vous êtes cernés, lâchez vos armes » ; un robot qui répond par une blague à l'équipe, « je crois qu'on sera en retard pour le dîner », puis « impossible de sortir ici, il faut passer par le garage nord, le plan B » ; à la fin les ennemis tirent et forcent le demi-tour. Choix par défaut, à confirmer : la mise en anglais, le robot qui répond, la disposition du barrage, l'éclairage de la scène, le portrait du policier, le texte de la consigne 8
+
+**Contexte.** Avec GD-087, l'équipe découvrait la police en arrivant sur le parking, et trois secondes plus tard deux répliques radio annonçaient le changement de plan pendant le combat. L'utilisateur veut que ce moment soit une scène : on tombe nez à nez avec les voitures de police et la première vague, et cela se dit.
+
+**Décision.**
+
+- **Un barrage** : les fourgons ne sont plus garés mais en travers du parking, deux de front et un en retrait ; les dix policiers sont en ligne devant eux, tournés vers le bâtiment, à plus de 400 px des portes du local technique. Le bas du parking reste libre, pour les groupes qui entrent ensuite par les portails 4.
+- **Le déclencheur** est celui de GD-087 : un robot met le pied sur le parking sud, un policier de la ligne le voit ou l'entend, ou l'un d'eux tombe.
+- **La cinématique** suit les règles de l'introduction et de l'ultimatum (GD-079) : bandes de cinéma, monde figé, Espace pour la réplique suivante, Espace tenu pour tout passer, l'hôte seul, défilement automatique sinon. La caméra glisse vers le barrage ; la pénombre se lève le temps de la scène ; la ligne tient les robots en joue.
+- **Trois répliques** : POLICE, « Stand For Planet Earth unit! You are surrounded. Drop your weapons and surrender! » ; puis le robot, « Team... I think we are going to be late for dinner. » et « No way out through here. We go back and leave by the north garage. Plan B. »
+- **Qui répond** : le robot vivant le plus proche du barrage, c'est-à-dire celui qui vient d'arriver. Les deux répliques sont de lui.
+- **À la fin**, lue ou passée : la police tire sans temps de surprise, les portails 4 s'ouvrent, et les groupes de 15 et de 20 arrivent 6 et 14 secondes plus tard (GD-087). La consigne devient « Plan B: leave by the north garage », à la place de « Too many of them. Take the north gate ».
+- **Les deux répliques radio de GD-086** ne servent plus que dans le cas du filet de sécurité (l'équipe a quitté l'aile par l'ouest, il n'y a personne devant le barrage) ; la seconde devient « Then it is plan B. We leave by the north garage. »
+- **Le policier a un portrait**, dessiné pour le remake dans le format de celui du présentateur (`spr_cadre_police`).
+- **Pas de nouveau point de sauvegarde** : après un échec, on reprend sur le plateau (GD-087) et le face-à-face se rejoue à l'arrivée sur le parking ; l'hôte peut le passer.
+
+**Pourquoi.** La scène donne au joueur la raison du demi-tour au lieu de la lui faire lire en plein combat, et elle montre ce que le scénario promet (« ils tombent nez à nez avec cette armée »). Le robot le plus proche du barrage est celui que la caméra montre : c'est lui qui doit parler. « North garage » reprend le mot de l'utilisateur pour le dépose-minute. La pénombre est levée parce que le halo du robot (460 px) n'atteint pas la ligne de police : sans cela on ne voyait que les gyrophares.
+
+**Limites connues.** En partie à plusieurs, les robots restés loin du parking sont figés où ils sont pendant la scène et n'apparaissent pas à l'image. Les policiers ne bougent pas pendant la sommation. La scène n'a ni voix ni bruitage propre, seulement une reprise des sirènes.
+
+**Conséquences.** `src/sim/scenes.ts` (nouveau : répliques, cadre, répartition entre les séquences qui partagent `World.cast`), `World.castScene`, `World.startStandoff`, `endCast` ; `src/sim/wave.ts` (`engage`, `found`, barrage, `wavePlanB`) ; `TV_STUDIO.wave.line` et `vans` ; `CONFIG.standoff` ; `OBJECTIVES` ; événements `standoff` et `standoffEnd` ; `castScene` dans l'état transmis aux clients. Affichage : `IntroOverlay.ts` (portrait du policier, répliques par séquence), `GameScene.ts` (cadre), `WorldView.ts` (`sceneLight`). Sprite : `policePortrait` dans `tools/make-studio.ts`. Tests : `src/sim/wave.test.ts` (douze tests), test réseau étendu.

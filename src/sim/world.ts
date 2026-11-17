@@ -17,9 +17,10 @@ import { createBoss } from './boss.ts';
 import type { BossState } from './boss.ts';
 import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
-import { CONTROL_ROOM_TAKEN, castLines, castPhases, castReader } from './broadcast.ts';
+import { CONTROL_ROOM_TAKEN, castReader } from './broadcast.ts';
+import { SCENE, sceneLines, sceneTotal, standoffSpeaker } from './scenes.ts';
 import { TV_STUDIO } from './additions.ts';
-import { stageWave, stepWave } from './wave.ts';
+import { HOLDING, engage, stageWave, stepWave } from './wave.ts';
 import type { RoomSave, Session } from './session.ts';
 import { NO_INPUT } from './types.ts';
 import { clearEffects, stepEffects } from './ulti.ts';
@@ -454,6 +455,7 @@ export class World {
     this.markCountdown = -1;
     const reader = waiting.find((h) => h.def.name === castReader(waiting.map((o) => o.def.name))) ?? waiting[0];
     this.cast = 0;
+    this.castScene = SCENE.ultimatum;
     this.castReader = reader.id;
     this.castSirens = false;
     this.introLine = 0;
@@ -468,7 +470,35 @@ export class World {
     this.emit({ type: 'castStart' });
   }
 
-  /** L'ultimatum : mêmes règles que l'introduction (GD-079), l'hôte lit à son rythme ou passe tout. */
+  /**
+   * Le face-à-face avec le barrage (GD-088) : l'équipe arrive sur le parking sud et tombe sur la police. Le monde
+   * se fige, un policier somme les robots de se rendre, l'un d'eux répond. À la fin, la police ouvre le feu.
+   */
+  startStandoff(): void {
+    if (this.cast >= 0) return;
+    this.cast = 0;
+    this.castScene = SCENE.standoff;
+    this.castReader = standoffSpeaker(this);
+    this.introLine = 0;
+    this.introLineSteps = 0;
+    this.introHold = 0;
+    this.bullets.length = 0;
+    // le brouillard du parking finit de se lever d'un coup : figé à mi-course, il voilerait toute la scène
+    const p = TV_STUDIO.parkings.south;
+    this.fogs = this.fogs.filter((f) => f.x + f.w <= p.x0 || f.x >= p.x1 || f.y + f.h <= p.y0 || f.y >= p.y1);
+    const team = this.living();
+    for (const h of team) h.moving = false;
+    // la ligne de police tient les robots en joue
+    for (const npc of this.npcs) {
+      if (npc.hunt !== HOLDING || team.length === 0) continue;
+      const target = team.reduce((best, h) => (Math.hypot(h.x - npc.x, h.y - npc.y) < Math.hypot(best.x - npc.x, best.y - npc.y) ? h : best));
+      npc.angle = Math.atan2(target.y - npc.y, target.x - npc.x);
+      npc.dir = npc.angle;
+    }
+    this.emit({ type: 'standoff' });
+  }
+
+  /** Séquence en cours : mêmes règles que l'introduction (GD-079), l'hôte lit à son rythme ou passe tout. */
   private stepCast(host: Input | undefined): void {
     const a = CONFIG.arrival;
     if (host?.dash) {
@@ -479,10 +509,9 @@ export class World {
     } else {
       this.introHold = 0;
     }
-    const reader = this.heroes[this.castReader] ?? this.hero;
-    const line = castLines(this.session.heroNames, reader.def.name)[this.introLine];
+    const line = sceneLines(this)[this.introLine];
     if (!line || line.at > this.cast) {
-      if (++this.cast >= castPhases().total) this.endCast(false);
+      if (++this.cast >= sceneTotal(this)) this.endCast(false);
       return;
     }
     const written = typingSteps(line.text);
@@ -508,6 +537,12 @@ export class World {
     this.introLineSteps = 0;
     this.introHold = 0;
     const s = this.session;
+    if (this.castScene === SCENE.standoff) {
+      // le plan B est dit : la police tire, les renforts suivent (GD-088)
+      engage(this);
+      this.emit({ type: 'standoffEnd', skipped });
+      return;
+    }
     s.objective = OBJ.dropPoint;
     s.checkpoint = { room: this.level.name, x: TV_STUDIO.regroup.x - 110, y: TV_STUDIO.regroup.y - 40, objective: OBJ.dropPoint, save: this.saveRoom() };
     s.preOpened[this.level.name] = { buttons: [1, CONFIG.broadcast.controlRoomButton], cards: ['green', 'purple'] };
@@ -516,7 +551,7 @@ export class World {
     this.emit({ type: 'castEnd', skipped });
   }
 
-  /** Passe l'ultimatum en cours (caméra libre). */
+  /** Passe la séquence en cours (caméra libre). */
   skipCast(): void {
     if (this.cast >= 0) this.endCast(true);
   }
@@ -869,7 +904,9 @@ export class World {
    * `introLine`, `introLineSteps` et `introHold` : une seule séquence joue à la fois.
    */
   cast = -1;
-  /** Rang du robot qui lit le message. */
+  /** Laquelle joue : l'ultimatum, ou le face-à-face avec le barrage (`SCENE`). */
+  castScene = 0;
+  /** Rang du robot qui lit le message, ou qui répond à la police. */
   castReader = 0;
   /** Steps restants avant le début de l'ultimatum quand l'équipe est sur la marque, -1 sinon. */
   markCountdown = -1;
@@ -882,6 +919,8 @@ export class World {
   waveGroup = 0;
   /** Soldats du premier groupe posés devant les fourgons. */
   waveHeld = 0;
+  /** Steps avant l'annonce radio du plan B, quand la riposte part sans face-a-face ; 0 sinon. */
+  wavePlanB = 0;
   private vansParked = false;
 
   step(inputs: Input | Input[]): void {

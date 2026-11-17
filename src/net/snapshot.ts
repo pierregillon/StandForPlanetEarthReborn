@@ -73,6 +73,7 @@ function stateOf(w: World): Entity {
   s.introLineSteps = w.introLineSteps;
   s.introHold = w.introHold;
   s.cast = w.cast;
+  s.castScene = w.castScene;
   s.castReader = w.castReader;
   s.markCountdown = w.markCountdown;
   s.wave = w.waveSteps >= 0;
@@ -91,6 +92,7 @@ export function applyState(w: World): void {
   w.introLineSteps = Number(s.introLineSteps ?? 0);
   w.introHold = Number(s.introHold ?? 0);
   w.cast = Number(s.cast ?? -1);
+  w.castScene = Number(s.castScene ?? 0);
   w.castReader = Number(s.castReader ?? 0);
   w.markCountdown = Number(s.markCountdown ?? -1);
   // la riposte a commencé : les fourgons de police sont sur le parking

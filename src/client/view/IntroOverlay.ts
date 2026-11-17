@@ -1,4 +1,5 @@
-// Habillage des séquences du niveau, l'introduction (GD-077 à GD-080) et l'ultimatum (GD-085) : bandes de cinéma, boîte de dialogue où les
+// Habillage des séquences du niveau, l'introduction (GD-077 à GD-080), l'ultimatum (GD-085) et le face-à-face
+// avec le barrage de police (GD-088) : bandes de cinéma, boîte de dialogue où les
 // répliques s'écrivent lettre par lettre avec le portrait de celui qui parle, invite à passer à la suite et
 // jauge de la touche tenue qui passe toute la séquence.
 // Référence : obj_cinematique et obj_textBox, écrits mais jamais activés dans l'original.
@@ -6,7 +7,8 @@ import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import { CONFIG } from '../../sim/config.ts';
 import { ANCHOR, arrivalPhases, introLines, introShot, typingSteps } from '../../sim/intro.ts';
-import { castLines, castShot } from '../../sim/broadcast.ts';
+import { castShot } from '../../sim/broadcast.ts';
+import { POLICE, SCENE, sceneLines } from '../../sim/scenes.ts';
 import type { IntroLine } from '../../sim/intro.ts';
 import type { World } from '../../sim/world.ts';
 
@@ -29,6 +31,8 @@ const STYLE = {
 
 /** Portrait du présentateur de TvTv², au même format que ceux des robots (fabriqué par `npm run make-studio`). */
 const ANCHOR_PORTRAIT = 'spr_cadre_anchor';
+/** Portrait du policier qui somme les robots de se rendre (GD-088), fabriqué de la même façon. */
+const POLICE_PORTRAIT = 'spr_cadre_police';
 
 export class IntroOverlay {
   private readonly scene: Phaser.Scene;
@@ -196,13 +200,14 @@ export class IntroOverlay {
     this.radioShown = null;
     this.panel.setScale(1).setAlpha(1).setX((width - s.box.width) / 2);
     // le journal est coupé par l'arrivée des robots ; l'ultimatum, par ceux qui coupent l'antenne
-    const shot = cast ? castShot(world.cast) : introShot(arrivalPhases(lead!.arrivalTotal), lead!.arrivalTotal - lead!.arrivalSteps).kind;
+    const ultimatum = cast && world.castScene === SCENE.ultimatum;
+    const shot = ultimatum ? castShot(world.cast) : cast ? 'scene' : introShot(arrivalPhases(lead!.arrivalTotal), lead!.arrivalTotal - lead!.arrivalSteps).kind;
     if ((shot === 'exit' && this.lastShot === 'hall') || (shot === 'static' && this.lastShot === 'desk')) {
       this.glitchUntil = now + s.glitch * (cast ? 2 : 1);
       this.onGlitch?.();
     }
     this.lastShot = shot;
-    this.hint.setText(host ? 'SPACE: next      hold SPACE: skip' : cast ? 'The host leads the broadcast' : 'The host leads the briefing');
+    this.hint.setText(host ? 'SPACE: next      hold SPACE: skip' : ultimatum ? 'The host leads the broadcast' : cast ? 'The host leads the scene' : 'The host leads the briefing');
     // jauge de la touche tenue : pleine, la séquence est passée
     const held = Phaser.Math.Clamp(world.introHold / CONFIG.arrival.skipHoldSteps, 0, 1);
     if (held > 0) {
@@ -212,10 +217,10 @@ export class IntroOverlay {
       this.skipBar.fillStyle(0xffe36b, 1).fillRect(x, y, s.skipBar.width * held, s.skipBar.height);
     }
     const reader = world.heroes[world.castReader]?.def.name ?? '';
-    const key = cast ? `cast|${world.session.heroNames.join(',')}|${reader}` : `${team.map((h) => h.def.name).join(',')}|${lead!.arrivalTotal}`;
+    const key = cast ? `cast|${world.castScene}|${world.session.heroNames.join(',')}|${reader}` : `${team.map((h) => h.def.name).join(',')}|${lead!.arrivalTotal}`;
     if (key !== this.linesKey) {
       this.linesKey = key;
-      this.lines = cast ? castLines(world.session.heroNames, reader) : introLines(team.map((h) => h.def.name), lead!.arrivalTotal);
+      this.lines = cast ? sceneLines(world) : introLines(team.map((h) => h.def.name), lead!.arrivalTotal);
     }
     const t = cast ? world.cast : lead!.arrivalTotal - lead!.arrivalSteps;
     const next = this.lines[world.introLine];
@@ -231,7 +236,10 @@ export class IntroOverlay {
       this.shown = null;
       return;
     }
-    if (line !== this.shown) this.show(line, banner, news ? ANCHOR_PORTRAIT : CONFIG.heroes[line.speaker]?.sprites.portrait ?? '');
+    if (line !== this.shown) {
+      const portrait = news ? ANCHOR_PORTRAIT : line.speaker === POLICE ? POLICE_PORTRAIT : CONFIG.heroes[line.speaker]?.sprites.portrait ?? '';
+      this.show(line, banner, portrait);
+    }
     const written = world.introLineSteps >= typingSteps(line.text);
     const letters = written ? this.wrapped.length : Math.floor(world.introLineSteps * CONFIG.arrival.lettersPerStep);
     this.text.setText(this.wrapped.slice(0, Math.max(0, letters)));

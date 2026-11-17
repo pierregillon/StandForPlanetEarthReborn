@@ -11,6 +11,7 @@ import { muzzlePosition } from '../../sim/hero.ts';
 import { ANCHOR, arrivalPhases, clawOf, crewReleased, introLines, introShot } from '../../sim/intro.ts';
 import type { IntroLine } from '../../sim/intro.ts';
 import { castLive } from '../../sim/broadcast.ts';
+import { SCENE } from '../../sim/scenes.ts';
 import { TV_STUDIO } from '../../sim/additions.ts';
 import { GROUND_FLOOR, OBJ } from '../../sim/session.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
@@ -543,6 +544,9 @@ const LINK_BEAM: BeamStrand[] = [
   { width: 2, color: 0xff4a5e, alpha: 0.85, jitter: 26 },
 ];
 
+/** Éclairage du face-à-face : part de la pénombre levée, et temps pour y arriver ou en revenir, en secondes. */
+const STANDOFF_LIGHT = { lift: 0.72, seconds: 0.8 };
+
 export class WorldView {
   private readonly scene: Phaser.Scene;
   private readonly world: World;
@@ -606,6 +610,11 @@ export class WorldView {
   /** Caméra libre (ADR-017) : le brouillard de guerre n'est pas dessiné, et l'éclairage peut être coupé. */
   reveal = false;
   lightsOff = false;
+  /**
+   * Le face-à-face du parking (GD-088) : 0 hors de la séquence, 1 quand la scène est éclairée. Les phares des
+   * fourgons trouent la pénombre, pour que l'on voie le barrage que le halo du robot n'atteint pas.
+   */
+  private sceneLight = 0;
   /** Lueurs des écrans de la chaîne : le journal, la neige du direct coupé, l'ultimatum. */
   private screenGlows: Img[] = [];
   /** Enseignes « ON AIR » du plateau, et marque de l'ultimatum derrière le pupitre (GD-085). */
@@ -802,6 +811,8 @@ export class WorldView {
     this.syncBullets();
     this.syncAbilityObjects();
     this.syncDrills();
+    const standoff = this.world.cast >= 0 && this.world.castScene === SCENE.standoff;
+    this.sceneLight = Phaser.Math.Clamp(this.sceneLight + (standoff ? dt : -dt) / STANDOFF_LIGHT.seconds, 0, 1);
     this.syncLights();
     this.syncFogs();
     for (const door of this.world.doors) this.syncDoor(door);
@@ -2321,7 +2332,7 @@ export class WorldView {
     const world = this.world;
     const ground = world.level.name === GROUND_FLOOR;
     // à l'antenne : le journal de l'introduction, puis les robots pendant l'ultimatum
-    const live = shot === 'studio' || shot === 'hall' || castLive(world.cast);
+    const live = shot === 'studio' || shot === 'hall' || (world.castScene === SCENE.ultimatum && castLive(world.cast));
     // la régie est prise : le direct est coupé, les écrans ne montrent plus que de la neige
     const snow = !live && ground && world.session.objective >= OBJ.studio;
     const on = live || snow;
@@ -2389,7 +2400,7 @@ export class WorldView {
     let any = false;
     rt.clear();
     this.syncScreens();
-    if (this.reveal || this.newsShot() || this.world.cast >= 0) {
+    if (this.reveal || this.newsShot() || (this.world.cast >= 0 && this.world.castScene === SCENE.ultimatum)) {
       // le brouillard de guerre est levé le temps du journal : il revient quand la caméra retrouve les robots
       rt.setVisible(false);
       return;
@@ -3046,7 +3057,7 @@ export class WorldView {
     if (!dark) return;
 
     rt.clear();
-    rt.fill(0x000000, Math.min(0.85, ambient));
+    rt.fill(0x000000, Math.min(0.85, ambient) * (1 - STANDOFF_LIGHT.lift * this.sceneLight));
     const erase = (lamp: Lamp, alpha: number): void => {
       const sx = lamp.x - cam.scrollX;
       const sy = lamp.y - cam.scrollY;

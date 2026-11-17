@@ -130,14 +130,18 @@ export const TV_STUDIO = {
   /** Point de sauvegarde posé à la fin de l'ultimatum : l'équipe y reprend, devant l'estrade. */
   regroup: { x: 8960, y: MID - 60 },
   /**
-   * La riposte (GD-086, GD-087) : la partie du parking sud où le premier groupe attend, autour des fourgons et
-   * loin des portes du local technique par où l'équipe arrive ; l'extérieur des portails 4 d'où viennent les
-   * suivants ; et les trois fourgons (angle en degrés GameMaker, 0 = l'avant vers le nord).
+   * La riposte (GD-086 à GD-088) : le barrage en travers du parking sud. Deux fourgons de front et un troisième
+   * en retrait (angle en degrés GameMaker, 0 = l'avant vers le nord) ; devant eux, la ligne des dix policiers,
+   * à plus de 400 px des portes du local technique par où l'équipe arrive ; et l'extérieur des portails 4,
+   * d'où viennent les groupes suivants. Le bas du parking reste libre : c'est leur passage.
    */
   wave: {
-    hold: { x0: 10020, x1: 10860, y0: 5000, y1: 6180 },
+    line: [
+      { x: 10056, y: 5012 }, { x: 10030, y: 5128 }, { x: 10048, y: 5248 }, { x: 10074, y: 5376 }, { x: 10044, y: 5496 },
+      { x: 10030, y: 5612 }, { x: 10052, y: 5736 }, { x: 10080, y: 5860 }, { x: 10058, y: 5980 }, { x: 10040, y: 6104 },
+    ],
     outside: { x0: 9960, x1: 10650, y0: 6460, y1: 7120 },
-    vans: [{ x: 10420, y: 5880, angle: 8 }, { x: 10130, y: 5470, angle: -16 }, { x: 10440, y: 5130, angle: 5 }],
+    vans: [{ x: 10226, y: 5150, angle: 10 }, { x: 10256, y: 5650, angle: -12 }, { x: 10560, y: 5400, angle: 4 }],
   },
   /** Salon d'attente et maquillage au nord, salon de sortie et vestiaire au sud. */
   lounges: { north: { x0: 8256, x1: 9568, y0: 1408, y1: 3040 }, south: { x0: 8256, x1: 9568, y0: 4896, y1: 6272 } },

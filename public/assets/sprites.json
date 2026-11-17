@@ -107,6 +107,7 @@
   "spr_cadre_EngiBot": { "w": 143, "h": 170, "ox": 71, "oy": 99, "frames": 1, "bbox": [0, 0, 142, 169], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 15, "speedType": 0 },
   "spr_cadre_PetBot": { "w": 143, "h": 167, "ox": 72, "oy": 95, "frames": 1, "bbox": [0, 0, 142, 166], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 15, "speedType": 0 },
   "spr_cadre_anchor": { "w": 143, "h": 167, "ox": 71, "oy": 97, "frames": 1, "bbox": [0, 0, 142, 166], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
+  "spr_cadre_police": { "w": 143, "h": 167, "ox": 71, "oy": 97, "frames": 1, "bbox": [0, 0, 142, 166], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_camera": { "w": 56, "h": 82, "ox": 21, "oy": 42, "frames": 1, "bbox": [0, 0, 55, 81], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 15, "speedType": 0 },
   "spr_canape": { "w": 320, "h": 128, "ox": 160, "oy": 64, "frames": 1, "bbox": [0, 0, 319, 127], "bboxmode": 0, "colkind": 0, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_casier": { "w": 185, "h": 96, "ox": 92, "oy": 48, "frames": 1, "bbox": [1, 1, 183, 94], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 15, "speedType": 0 },

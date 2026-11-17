@@ -60,7 +60,7 @@ function onAir(names: string[]): { w: World; session: Session; events: SimEvent[
 test('les consignes de la fin, dans l\'ordre du script', () => {
   assert.deepEqual(OBJECTIVES, [
     'Go to the upper floor', 'Find the studio pass', 'Go back to ground floor', 'Take the control room',
-    'Reach the studio', 'Broadcast the message', 'Leave by the south parking lot', 'Too many of them. Take the north gate',
+    'Reach the studio', 'Broadcast the message', 'Leave by the south parking lot', 'Plan B: leave by the north garage',
   ]);
   assert.equal(OBJECTIVES[OBJ.controlRoom], 'Take the control room');
   assert.equal(OBJECTIVES[OBJ.dropPoint], 'Leave by the south parking lot');

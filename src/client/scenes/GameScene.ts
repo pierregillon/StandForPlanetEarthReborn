@@ -18,6 +18,7 @@ import type { World } from '../../sim/world.ts';
 import { isFreshStart, openRoom, retrySession, startTeam } from '../../sim/match.ts';
 import { arrivalPhases, clawOf, introShot } from '../../sim/intro.ts';
 import { castShot } from '../../sim/broadcast.ts';
+import { SCENE, standoffShot } from '../../sim/scenes.ts';
 import { TV_STUDIO } from '../../sim/additions.ts';
 import { IntroOverlay } from '../view/IntroOverlay.ts';
 import { createSession } from '../../sim/session.ts';
@@ -267,6 +268,7 @@ export class GameScene extends Phaser.Scene {
   /** Point visé par la caméra : le robot, décalé d'un tiers vers le curseur (GD-029). */
   private cameraGoal(): { x: number; y: number } {
     const h = this.world.hero;
+    if (this.world.cast >= 0 && this.world.castScene === SCENE.standoff) return standoffShot(this.world);
     if (this.world.cast >= 0) {
       // l'ultimatum : le plateau, le hall et ses écrans, puis le pupitre (GD-085)
       const shot = castShot(this.world.cast);
@@ -299,7 +301,8 @@ export class GameScene extends Phaser.Scene {
   /** La caméra montre-t-elle un plan du journal de l'introduction, loin des robots ? */
   private inNewsShot(): boolean {
     const h = this.world.hero;
-    if (this.world.cast >= 0) return true;
+    // l'ultimatum est fait de coupes franches ; le face-à-face du parking, d'un mouvement de caméra
+    if (this.world.cast >= 0) return this.world.castScene === SCENE.ultimatum;
     return h.arrivalSteps > 0 && introShot(arrivalPhases(h.arrivalTotal), h.arrivalTotal - h.arrivalSteps).kind !== 'vehicle';
   }
 
@@ -527,6 +530,10 @@ export class GameScene extends Phaser.Scene {
       }
       else if (e.type === 'castStart') this.synth.newsJingle(true);
       else if (e.type === 'sirens') this.synth.sirens(14);
+      else if (e.type === 'standoff') this.synth.sirens(5);
+      else if (e.type === 'standoffEnd') {
+        if (e.skipped) this.cameras.main.fadeIn(260, 0, 0, 0);
+      }
       else if (e.type === 'castEnd') {
         if (e.skipped) this.cameras.main.fadeIn(260, 0, 0, 0);
         this.hud.notify('Checkpoint saved');

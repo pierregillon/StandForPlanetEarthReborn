@@ -574,6 +574,9 @@ export type SimEvent =
   | { type: 'castStart' }
   /** L'ultimatum est fini, ou l'hôte l'a passé (`skipped`). */
   | { type: 'castEnd'; skipped: boolean }
+  /** Le face-à-face avec le barrage de police commence (GD-088) ; puis il finit, et la police ouvre le feu. */
+  | { type: 'standoff' }
+  | { type: 'standoffEnd'; skipped: boolean }
   /** Les sirènes de la police montent. */
   | { type: 'sirens' }
   /** Radio en jeu : une réplique courte, qui n'arrête pas la partie. */

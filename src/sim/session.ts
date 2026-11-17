@@ -16,7 +16,7 @@ export const OBJECTIVES = [
   'Reach the studio',
   'Broadcast the message',
   'Leave by the south parking lot',
-  'Too many of them. Take the north gate',
+  'Plan B: leave by the north garage',
 ];
 
 /** Rang de chaque consigne dans OBJECTIVES. */
