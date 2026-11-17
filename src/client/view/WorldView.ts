@@ -140,6 +140,9 @@ interface HeroParts {
   /** Ulti de PetBot (GD-047) : traînées des mini-bots en orbite, et horloge lissée de leur ronde. */
   petTrails: Phaser.GameObjects.Graphics | null;
   spinTime: number;
+  /** Centre de leur ronde : il suit PetBot avec le même retard que les mini-bots à ses côtés (GD-050). */
+  swarmX: number;
+  swarmY: number;
 }
 
 interface Pet {
@@ -478,7 +481,7 @@ export class WorldView {
       p = {
         legs: this.image(h.def.sprites.legs, 0, h.x, h.y, DEPTH.legs),
         body: this.image(h.def.sprites.stand, 0, h.x, h.y, DEPTH.character),
-        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, chargeUnder: null, chargeTop: null, pets: null, petsHome: 0, petTrails: null, spinTime: 0,
+        legsTime: 0, orb: null, orbX: h.x, orbY: h.y, auras: [], tag: null, glow: null, shadow: null, airborne: false, chargeUnder: null, chargeTop: null, pets: null, petsHome: 0, petTrails: null, spinTime: 0, swarmX: h.x, swarmY: h.y,
       };
       this.parts.set(h.id, p);
     }
@@ -677,6 +680,17 @@ export class WorldView {
     if (Math.abs(clock - p.spinTime) > 0.2) p.spinTime = clock;
     else p.spinTime += (clock - p.spinTime) * 0.1;
     const spin = p.spinTime;
+    // la ronde ne colle pas à PetBot : son centre le rattrape avec le même retard que les mini-bots à ses
+    // côtés, pour qu'elle traîne un peu derrière lui quand il bouge (GD-050)
+    if (mode === 'follow') {
+      p.swarmX = h.x;
+      p.swarmY = h.y;
+    } else {
+      p.swarmX += (h.x - p.swarmX) * pull;
+      p.swarmY += (h.y - p.swarmY) * pull;
+    }
+    const cx = p.swarmX;
+    const cy = p.swarmY;
     const orbit = PETS.orbit;
     const colors = ULTI_COLORS.PetBot;
     p.petTrails?.clear();
@@ -712,8 +726,8 @@ export class WorldView {
         if (pet.mode !== mode) {
           pet.mode = mode;
           pet.modeTime = 0;
-          pet.fromX = pet.x - h.x;
-          pet.fromY = pet.y - h.y;
+          pet.fromX = pet.x - cx;
+          pet.fromY = pet.y - cy;
         }
         pet.modeTime += dt;
         if (mode === 'follow') {
@@ -730,17 +744,17 @@ export class WorldView {
           // il quitte en spirale l'endroit où il se trouvait pour rejoindre son cercle
           const t = Math.min(1, pet.modeTime / orbit.join);
           const k = t * t * (3 - 2 * t);
-          pet.x = h.x + pet.fromX + (Math.cos(turn) * radius - pet.fromX) * k;
-          pet.y = h.y + pet.fromY + (Math.sin(turn) * radius - pet.fromY) * k;
+          pet.x = cx + pet.fromX + (Math.cos(turn) * radius - pet.fromX) * k;
+          pet.y = cy + pet.fromY + (Math.sin(turn) * radius - pet.fromY) * k;
           // le nez dans le sens de la marche
           pet.angle += angleDiff(pet.angle, turn + (dir * Math.PI) / 2) * (k < 1 ? pull : 1);
           const strength = k * k * glow;
           if (swarm) {
             // son cercle entier, discret ; le plus grand, plus marqué, est le bord de la zone de soin
             p.petTrails!.lineStyle(i === 2 ? 3 : 2, colors.main, (i === 2 ? 0.42 : 0.22) * strength);
-            p.petTrails!.strokeCircle(h.x, h.y, circle);
+            p.petTrails!.strokeCircle(cx, cy, circle);
           }
-          this.drawPetTrail(p.petTrails!, h.x, h.y, radius, turn, dir, strength, colors);
+          this.drawPetTrail(p.petTrails!, cx, cy, radius, turn, dir, strength, colors);
         }
       }
       // flottement : chacun à son rythme, pour qu'ils ne paraissent jamais figés
@@ -1102,8 +1116,12 @@ export class WorldView {
         this.setFrame(parts.main, 'spr_PetBot_ulti_nanos', (now * info.speed) % info.frames);
         // le nuage dessiné va jusqu'à 246 px du centre : on l'ajuste au rayon de soin. Il reste en retrait :
         // ce sont les mini-bots en orbite qui dessinent la zone (GD-047).
-        parts.main.setPosition(e.x, e.y).setScale(e.radius / 246).setAlpha(0.6 * fade);
-        parts.extra?.setPosition(e.x, e.y).setAlpha(0.07 * fade + 0.02 * Math.sin(now * 5));
+        // tout le nuage suit le centre de la ronde des mini-bots, qui traîne un peu derrière PetBot (GD-050)
+        const swarm = this.parts.get(e.owner);
+        const cx = swarm ? swarm.swarmX : e.x;
+        const cy = swarm ? swarm.swarmY : e.y;
+        parts.main.setPosition(cx, cy).setScale(e.radius / 246).setAlpha(0.6 * fade);
+        parts.extra?.setPosition(cx, cy).setAlpha(0.07 * fade + 0.02 * Math.sin(now * 5));
       } else if (e.kind === 'wall') {
         parts ??= { main: this.image('spr_BadaBot_ulti_wall', 0, e.x, e.y, DEPTH.door + 1).setRotation(e.angle), extra: null };
         const info = this.info('spr_BadaBot_ulti_wall');

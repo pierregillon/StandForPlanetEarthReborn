@@ -1063,3 +1063,22 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** L'ulti prolonge la surcharge : c'est la même énergie qui change de nature, pas une lumière qui s'allume.
 
 **Conséquences.** Affichage seulement (`ULTI_COLORS`, `syncAura` et `syncUlti` dans `WorldView.ts`). Vu à l'écran en solo avec EngiBot : enveloppe bleue avant le lancement, passage à l'orange, halo resserré autour du robot.
+
+## GD-050 — Ulti de PetBot : la ronde des mini-bots le suit avec un léger retard
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** Pendant l'ulti (GD-047), les cercles des mini-bots restaient exactement centrés sur PetBot quand il se déplaçait : l'ensemble paraissait rigide, « statique ».
+
+**Décision.** Le centre de la ronde rattrape PetBot avec le même retard que les mini-bots quand ils volent à ses côtés (GD-046) : en pleine course, la ronde traîne d'environ 85 px derrière lui et se recentre dès qu'il s'arrête.
+
+*Par défaut* :
+
+- tout l'affichage de l'essaim suit ce même centre : les trois cercles, les traînées, le nuage de nanomachines et le disque de la zone. Ils restent ainsi alignés entre eux ;
+- **la zone de soin réelle ne change pas** : elle reste centrée sur PetBot, sans retard. L'écart avec ce qu'on voit ne dépasse pas 85 px sur un rayon de 420, et seulement pendant qu'il court.
+
+**Pourquoi.** Des drones qui suivent leur robot avec un temps de retard paraissent vivants ; une figure collée à lui paraît plaquée sur l'écran.
+
+**Conséquences.** Affichage seulement (`swarmX`, `swarmY` dans `syncPets`, repris par `syncEffects`, `WorldView.ts`) : rien ne change pour la simulation ni pour le réseau.
