@@ -5,7 +5,8 @@ import type { World } from './world.ts';
 
 /**
  * Consignes de TvTv², dans l'ordre (GD-085). Les trois premières sont celles d'origine (obj_consigne_world2) ;
- * la suite mène à la régie, au plateau et à l'ultimatum, à la place de la sortie vers la zone de forage.
+ * la suite mène à la régie, au plateau et à l'ultimatum, à la place de la sortie vers la zone de forage. Après
+ * l'ultimatum, la consigne nomme le parking sud : c'est là que l'équipe doit découvrir la police (GD-087).
  */
 export const OBJECTIVES = [
   'Go to the upper floor',
@@ -14,7 +15,7 @@ export const OBJECTIVES = [
   'Take the control room',
   'Reach the studio',
   'Broadcast the message',
-  'Get back to the drop point',
+  'Leave by the south parking lot',
   'Too many of them. Take the north gate',
 ];
 
@@ -27,6 +28,24 @@ export const DRILL_OBJECTIVES = ['Destroy the drills', 'Kill SallyBot'];
 export const GROUND_FLOOR = 'rm_world2';
 export const UPPER_FLOOR = 'rm_world2_1';
 export const DRILL_AREA = 'rm_world2_2';
+
+/**
+ * État d'une salle au moment d'un point de sauvegarde (GD-087) : ce que « Retry » doit retrouver tel quel. Les
+ * entités sont repérées par leur numéro, le même à chaque construction de la salle.
+ */
+export interface RoomSave {
+  /** PNJ encore debout, là où ils étaient ; ceux qui manquent étaient déjà morts. */
+  npcs: { id: number; x: number; y: number; angle: number; hp: number; ammo: number; shieldHp: number; shieldBroken: boolean }[];
+  /** Morts déjà comptés dans cette salle. */
+  killed: { civil: number; soldier: number };
+  /** Portes à bouton ou à carte ouvertes, boutons pressés, vitres brisées, brouillards pas encore levés. */
+  doors: number[];
+  buttons: number[];
+  windows: number[];
+  fogs: number[];
+  outlets: { id: number; energyLeft: number; repairLeft: number }[];
+  chairs: { id: number; x: number; y: number; angle: number }[];
+}
 
 export interface Session {
   /** Robots de l'équipe, dans l'ordre des joueurs (un seul en solo). */
@@ -43,9 +62,10 @@ export interface Session {
   spawnNumber: number;
   /**
    * Point de sauvegarde activé : Retry y ramène au lieu de recommencer le niveau. `objective` : la consigne à
-   * retrouver en y revenant (celui du plateau, posé à la fin de l'ultimatum).
+   * retrouver en y revenant, et `save` : l'état de la salle à ce moment-là (ceux du plateau, posés à la fin de
+   * l'ultimatum). Sans `save`, la salle est remise à neuf.
    */
-  checkpoint: { room: string; x: number; y: number; objective?: number } | null;
+  checkpoint: { room: string; x: number; y: number; objective?: number; save?: RoomSave } | null;
   /**
    * Portes déjà franchies quand la partie commence ailleurs qu'au début (GD-037) : par salle, numéros des
    * portes à bouton et couleurs des portes à carte à trouver ouvertes.

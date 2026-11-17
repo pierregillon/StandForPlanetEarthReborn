@@ -329,8 +329,8 @@ test('l\'ultimatum en réseau : les miroirs le suivent, l\'hôte le mène, Retry
 
   // la riposte (GD-086) : les soldats apparus en cours de partie et les fourgons existent aussi chez les clients
   for (let i = 0; i < 20; i++) step();
-  assert.equal(world.npcs.length, 15, 'le premier groupe de la police');
-  assert.equal(b.mirror.world.npcs.length, 15, 'le miroir les a créés');
+  assert.equal(world.npcs.length, 10, 'le premier groupe de la police');
+  assert.equal(b.mirror.world.npcs.length, 10, 'le miroir les a créés');
   b.mirror.frame(1000);
   const cop = world.npcs[3];
   const seenCop = b.mirror.world.npcs.find((n) => n.id === cop.id);
@@ -351,7 +351,7 @@ test('l\'ultimatum en réseau : les miroirs le suivent, l\'hôte le mène, Retry
   const again = server.currentWorld;
   assert.ok(again && again !== world);
   assert.equal(again.level.name, 'rm_world2');
-  assert.equal(again.objective, 'Get back to the drop point');
+  assert.equal(again.objective, 'Leave by the south parking lot');
   const r = TV_STUDIO.room;
   for (const [i, h] of again.heroes.entries()) {
     assert.ok(h.x > r.x0 && h.x < r.x1 && h.y > r.y0 && h.y < r.y1, 'l\'équipe reprend sur le plateau');
@@ -360,6 +360,10 @@ test('l\'ultimatum en réseau : les miroirs le suivent, l\'hôte le mène, Retry
     assert.ok(Math.abs(seen.x - h.x) < 1 && Math.abs(seen.y - h.y) < 1, 'les miroirs la voient au même endroit');
   }
   assert.equal(b.mirror.world.session.objective, OBJ.dropPoint);
+  // GD-087 : la salle revient comme au point de sauvegarde (ici, sans aucun garde), et le miroir aussi
+  for (let i = 0; i < 12; i++) step();
+  assert.equal(again.npcs.length, 10, 'seuls les dix policiers en place devant les fourgons');
+  assert.equal(b.mirror.world.npcs.length, 10);
 });
 
 test('la téléportation de développement est refusée par défaut', () => {

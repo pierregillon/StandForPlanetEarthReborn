@@ -561,21 +561,24 @@ export const CONFIG = {
     /** Numéro des portails par où elle entre, au sud. */
     gates: 4,
     /**
-     * Les trois arrivées : la première est déjà à pied sur le parking quand l'ultimatum se termine, les
-     * suivantes entrent de dehors par les portails. 45 soldats en tout.
+     * Trois groupes de plus en plus nombreux, 10 puis 15 puis 20 (GD-087, demande de l'utilisateur). Le premier
+     * attend à pied devant les fourgons ; l'horloge part quand l'équipe arrive sur le parking, et les suivants
+     * entrent alors de dehors par les portails. 45 soldats en tout.
      */
     groups: [
-      { atSteps: 0, units: { obj_npc_human_pistol: 15 } },
+      { atSteps: 0, units: { obj_npc_human_pistol: 10 } },
       { atSteps: s(6), units: { obj_npc_human_pistol: 10, obj_npc_robot_shield: 3, obj_npc_robot_shotBot: 2 } },
-      { atSteps: s(12), units: { obj_npc_human_pistol: 8, obj_npc_robot_lightBot: 4, obj_npc_robot_shield: 3 } },
+      { atSteps: s(14), units: { obj_npc_human_pistol: 13, obj_npc_robot_lightBot: 4, obj_npc_robot_shield: 3 } },
     ] as { atSteps: number; units: Record<string, number> }[],
     /** Ensuite, des renforts à intervalle régulier, tant que la troupe compte moins de `maxAlive` soldats debout. */
     reinforce: { everySteps: s(10), maxAlive: 45, units: { obj_npc_human_pistol: 4, obj_npc_robot_shield: 1, obj_npc_robot_lightBot: 1 } as Record<string, number> },
-    /** Sans contact, le plan change quand même après ce temps. */
-    planChangeSteps: s(15),
+    /** Temps entre l'arrivée de l'équipe sur le parking et le changement de plan : la voix du véhicule a vu ce qui vient. */
+    planChangeSteps: s(3),
+    /** Un robot à plus de cette distance à l'ouest du plateau a quitté l'aile est : la riposte part sans l'attendre. */
+    leftWingMargin: 100,
     /** Rythme auquel ceux qui n'ont plus personne en vue reprennent la piste du robot le plus proche. */
     huntEverySteps: s(1.5),
-    /** Temps pendant lequel un soldat de la vague garde sa destination : assez pour traverser l'aile. */
+    /** Temps pendant lequel un soldat de la vague garde la piste d'un robot : assez pour traverser l'aile. */
     memorySteps: s(120),
     /** Écart entre deux soldats quand un groupe apparaît, et place libre exigée autour de chacun. */
     spacing: 110,

@@ -90,8 +90,9 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-082 | Plateau : des projecteurs qui éclairent vraiment, et aucun garde au départ | 2026-11-17 | Acceptée — à ajuster après essai ; corrige deux points de GD-081 |
 | GD-083 | L'aile est se réorganise autour du trajet des invités ; la police arrivera par le sud | 2026-11-17 | Acceptée — aménagement réalisé, scénario de fin à réaliser |
 | GD-084 | Aile est, retouches : toilettes, local technique à deux portes, places de parking | 2026-11-17 | Acceptée ; modifie GD-083 |
-| GD-085 | Fin de TvTv², première partie : la régie, le plateau, l'ultimatum | 2026-11-17 | Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) |
-| GD-086 | Fin de TvTv², deuxième partie : la riposte de la police | 2026-11-17 | Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord) |
+| GD-085 | Fin de TvTv², première partie : la régie, le plateau, l'ultimatum | 2026-11-17 | Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) ; modifiée par GD-087 (texte de la consigne 7, état de la salle retrouvé après un Retry) |
+| GD-086 | Fin de TvTv², deuxième partie : la riposte de la police | 2026-11-17 | Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord) ; modifiée par GD-087 (déclenchement, tailles des groupes, trajet, consigne, Retry) |
+| GD-087 | La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde | 2026-11-17 | Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) |
 
 ---
 
@@ -1883,7 +1884,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 ## GD-085 — Fin de TvTv², première partie : la régie, le plateau, l'ultimatum
 
 - **Date** : 2026-11-17
-- **Statut** : Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur)
+- **Statut** : Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) ; modifiée par GD-087 (texte de la consigne 7, état de la salle retrouvé après un Retry)
 - **Décidée par** : l'utilisateur pour le scénario (GD-083) et pour le feu vert (« Oui, code C1 », après lecture du script) ; les textes, les déclencheurs et les réglages sont des propositions du script, appliquées telles quelles et à confirmer après essai
 
 **Contexte.** Le niveau enchaînait encore les consignes d'origine : après la carte violette, il envoyait vers la zone de forage et SallyBot. Le script de la fin de mission (`docs/narration/niveau-tvtv2.md`, section 10) découpe le travail en trois livraisons ; celle-ci est la première, jusqu'à la fin de l'ultimatum.
@@ -1911,7 +1912,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 ## GD-086 — Fin de TvTv², deuxième partie : la riposte de la police
 
 - **Date** : 2026-11-17
-- **Statut** : Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord)
+- **Statut** : Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord) ; modifiée par GD-087 (déclenchement, tailles des groupes, trajet, consigne, Retry)
 - **Décidée par** : l'utilisateur pour le scénario (GD-083) et pour le feu vert (« Oui, code C2 ») ; la composition de la troupe, les délais, les répliques et les renforts sans fin sont des propositions du script, appliquées telles quelles et à confirmer après essai
 
 **Contexte.** Après l'ultimatum (GD-085), la consigne « Get back to the drop point » s'affichait et rien ne se passait. Le scénario de l'utilisateur : 40 à 50 policiers arrivent par les portails 4, au sud, avec le plateau pour point de ralliement ; les robots, qui comptaient repartir par le sud, tombent sur eux et changent de plan.
@@ -1931,3 +1932,31 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** Le niveau n'a toujours pas de fin : le portail nord s'ouvre comme une porte ordinaire, et rien ne se passe dehors (livraison C3). Les gardes d'origine encore en vie ne rejoignent pas la troupe. La difficulté n'a pas été éprouvée en jouant.
 
 **Conséquences.** `src/sim/wave.ts` (`startWave`, `stepWave`, répliques), réglages dans `CONFIG.wave`, lieux dans `TV_STUDIO.wave` (`src/sim/additions.ts`), `World.parkVans` et `World.spawnNpc`, champ `hunt` des PNJ. Réseau : les PNJ apparus en cours de partie sont créés chez les clients (`blankNpc`, liste `npcs` de `src/net/snapshot.ts`), et les fourgons s'y garent quand l'état commun l'annonce. Affichage : décor ajouté en cours de partie et gyrophares dans `WorldView.ts` (`syncDecor`). Sprite : `policeVan` dans `tools/make-studio.ts`. Tests : `src/sim/wave.test.ts` (huit tests, dont le coût de calcul : 0,14 ms par step en moyenne avec 45 soldats) et le test réseau de l'ultimatum, étendu.
+
+---
+
+## GD-087 — La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau)
+- **Décidée par** : l'utilisateur, après avoir joué C2, pour les trois demandes : retrouver « exactement le même monde » après un Retry, faire arriver la vague quand l'équipe arrive sur le parking avec une consigne qui l'envoie au sud, et des groupes de 10, 15 puis 20 avec 45 ennemis au plus à la fois. Le reste est un choix par défaut, à confirmer : les dix premiers déjà en place devant les fourgons, les délais, le texte de la consigne, le filet de sécurité, ce que la sauvegarde retient
+
+**Contexte.** Deux défauts à l'essai. Un : à peine sorti du plateau, le joueur avait toute la troupe sur lui, puisqu'elle partait à la fin de l'ultimatum et ralliait le plateau. Deux : après un échec, « Retry » reconstruisait le rez-de-chaussée à neuf ; tous les gardes tués avant l'ultimatum revenaient, en plus de la riposte, et il y avait trop d'ennemis.
+
+**Décision.**
+
+- **« Retry » après l'ultimatum rend le monde de la sauvegarde.** À la fin de l'ultimatum, l'état de la salle est enregistré avec le point de sauvegarde. Au Retry, les ennemis et les civils déjà tombés ne reviennent pas ; les survivants sont là où ils étaient, avec leurs points de vie, leurs munitions et leur bouclier, calmes ; les portes à bouton ou à carte ouvertes le sont encore, les boutons pressés aussi ; les vitres brisées, les brouillards levés, l'énergie restante des bornes et la place des chaises sont retrouvés. Les morts d'avant la sauvegarde restent comptés dans les statistiques, pas ceux d'après. L'équipe repart en pleine forme, comme à tout point de sauvegarde (GD-031), et le présentateur et les cadreurs ont quitté le plateau (GD-085).
+- **La police est en place, elle n'avance pas.** À la fin de l'ultimatum, les trois fourgons sont garés et dix policiers attendent à pied devant eux, tournés vers le bâtiment, à plus de 400 px des portes du local technique. Les portails 4 sont fermés. Tant que l'équipe n'est pas là, rien ne bouge.
+- **La riposte commence à l'arrivée de l'équipe** : un robot met le pied sur le parking sud, ou un des dix policiers le voit ou l'entend (par une porte ouverte), ou l'un d'eux est abattu de loin. Les portails 4 s'ouvrent, les dix policiers se lancent ; ceux qui n'avaient rien vu marquent le temps de surprise de n'importe quel soldat.
+- **Une troupe qui grossit** : 10, puis 15 de plus six secondes après (dix policiers, trois robots boucliers, deux fusils à pompe), puis 20 de plus quatorze secondes après (treize policiers, quatre robots légers, trois boucliers). Les deux derniers groupes entrent de dehors par les portails. Ensuite les renforts de GD-086, sans dépasser 45 ennemis debout.
+- **Le changement de plan** : trois secondes après le début de la riposte, avec les deux répliques de GD-086. Les autres déclencheurs de GD-086 (un soldat entré sur le plateau, quinze secondes écoulées) disparaissent.
+- **Le trajet** : il n'y a plus de point de ralliement sur le plateau. Chaque soldat de la riposte va droit sur le robot le plus proche, et le suit si l'équipe se replie.
+- **La consigne 7** devient « Leave by the south parking lot », à la place de « Get back to the drop point ». La réplique radio qui la précède ne change pas (« Pick-up at the drop point, as planned »).
+- **Filet de sécurité** : si l'équipe quitte l'aile est vers l'ouest, par où elle est venue, la riposte part quand même.
+- **Un garde d'origine à la place d'un fourgon** est écarté jusqu'à la première place libre.
+
+**Pourquoi.** La scène voulue par le scénario est « ils tombent nez à nez avec cette armée » : c'est l'équipe qui doit la trouver, pas l'inverse. La consigne d'origine ne disait pas par où passer, et le point de largage est sur le parvis, à l'autre bout du bâtiment : un joueur pouvait repartir par où il était venu et ne jamais voir le parking. Les dix premiers policiers sont déjà là pour deux raisons : les fourgons garés ont un sens, et personne n'apparaît sous les yeux du joueur. La radio parle avant l'entrée du deuxième groupe : elle annonce ce qui vient. Pour le Retry, un point de sauvegarde qui rend un monde plus peuplé que celui qu'on a quitté punit deux fois l'échec.
+
+**Limites connues.** Les traces laissées au sol avant la sauvegarde (carcasses, sang, éclats de verre) ne sont pas redessinées après un Retry : une vitre brisée revient brisée, sans ses éclats. Les survivants reprennent calmes, même ceux qui étaient en plein combat à la fin de l'ultimatum. Si l'équipe part au nord sans passer par le sud, rien ne déclenche la riposte : à régler avec la sortie par le portail nord (C3). La difficulté de la nouvelle montée en charge n'a pas été éprouvée en jouant.
+
+**Conséquences.** `RoomSave` et `checkpoint.save` dans `src/sim/session.ts` ; `World.saveRoom` et `World.restoreRoom` (`src/sim/world.ts`), appelés par `endCast` et par le constructeur. `src/sim/wave.ts` : `stageWave`, `found`, `launch`, états `HOLDING` et `HUNTING` ; `World.waveSteps` vaut 0 tant que la police attend. Réglages : `CONFIG.wave.groups`, `planChangeSteps`, `leftWingMargin` ; lieux : `TV_STUDIO.wave.hold` (à la place de `rally` et `parking`) et `outside`, élargi pour un groupe de vingt. Consigne dans `OBJECTIVES`. Affichage : `WorldView.ts` dessine brisée une vitre qui l'est déjà quand la salle s'affiche. Tests : `src/sim/wave.test.ts` réécrit (dix tests), un test du Retry dans `src/sim/broadcast.test.ts`, le test réseau étendu.

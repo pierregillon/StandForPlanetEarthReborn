@@ -350,8 +350,8 @@ export interface Npc {
   /** Steps écoulés depuis qu'il a vu un héros pour la dernière fois (GD-075). */
   unseen: number;
   /**
-   * Soldat de la riposte (GD-086) : 0 pour les autres, 1 tant qu'il rallie le plateau, 2 quand il traque les
-   * robots (`RALLYING`, `HUNTING` dans wave.ts).
+   * Soldat de la riposte (GD-086, GD-087) : 0 pour les autres, 1 tant qu'il attend devant les fourgons, 2 quand
+   * il traque les robots (`HOLDING`, `HUNTING` dans wave.ts).
    */
   hunt: number;
   /** Coups que le bouclier frontal peut encore encaisser (robot bouclier). */

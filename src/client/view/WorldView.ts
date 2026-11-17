@@ -573,6 +573,8 @@ export class WorldView {
   private shadowGfx: Phaser.GameObjects.Graphics | null = null;
   private readonly doorImgs = new Map<number, Img>();
   private readonly windowImgs = new Map<number, Img>();
+  /** Vitres déjà dessinées brisées. */
+  private readonly brokenShown = new Set<number>();
   private readonly outletImgs = new Map<number, Img>();
   private readonly cardImgs = new Map<number, Img>();
   private readonly zoneImgs: Img[] = [];
@@ -803,6 +805,14 @@ export class WorldView {
     this.syncLights();
     this.syncFogs();
     for (const door of this.world.doors) this.syncDoor(door);
+    // une vitre déjà brisée quand la salle s'affiche (retour dans la salle, reprise au point de sauvegarde,
+    // GD-087) : son image seule, sans les éclats qui volent
+    for (const pane of this.world.windows) {
+      if (!pane.broken || this.brokenShown.has(pane.id)) continue;
+      this.brokenShown.add(pane.id);
+      const img = this.windowImgs.get(pane.id);
+      if (img) this.setFrame(img, pane.sprite, 1);
+    }
     for (const outlet of this.world.outlets) {
       const img = this.outletImgs.get(outlet.id);
       if (!img) continue;
@@ -3220,6 +3230,7 @@ export class WorldView {
   }
 
   private breakWindow(pane: WindowPane, x: number, y: number, angle: number): void {
+    this.brokenShown.add(pane.id);
     const img = this.windowImgs.get(pane.id);
     if (img) this.setFrame(img, pane.sprite, 1);
     if (!this.scene.textures.exists(frameKey('spr_fenetre_eclats', 0))) return;

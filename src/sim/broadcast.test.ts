@@ -60,10 +60,10 @@ function onAir(names: string[]): { w: World; session: Session; events: SimEvent[
 test('les consignes de la fin, dans l\'ordre du script', () => {
   assert.deepEqual(OBJECTIVES, [
     'Go to the upper floor', 'Find the studio pass', 'Go back to ground floor', 'Take the control room',
-    'Reach the studio', 'Broadcast the message', 'Get back to the drop point', 'Too many of them. Take the north gate',
+    'Reach the studio', 'Broadcast the message', 'Leave by the south parking lot', 'Too many of them. Take the north gate',
   ]);
   assert.equal(OBJECTIVES[OBJ.controlRoom], 'Take the control room');
-  assert.equal(OBJECTIVES[OBJ.dropPoint], 'Get back to the drop point');
+  assert.equal(OBJECTIVES[OBJ.dropPoint], 'Leave by the south parking lot');
 });
 
 test('le bouton de la régie : les portes de l\'aile est s\'ouvrent, la consigne change, le robot l\'annonce', () => {
@@ -202,7 +202,7 @@ test('l\'ultimatum : tout le niveau est figé, l\'hôte fait défiler les huit r
   assert.equal(seen.filter((e) => e.type === 'sirens').length, 1);
   const end = seen.find((e) => e.type === 'castEnd');
   assert.ok(end && end.type === 'castEnd' && !end.skipped);
-  assert.equal(w.objective, 'Get back to the drop point');
+  assert.equal(w.objective, 'Leave by the south parking lot');
   // le jeu reprend
   put(w.heroes[0], TV_STUDIO.room.x0 + 400, TV_STUDIO.mark.y - 500);
   const x = w.heroes[0].x;
@@ -237,7 +237,7 @@ test('l\'ultimatum : l\'hôte le passe en tenant la touche, et lui seul', () => 
   const end = events.find((e) => e.type === 'castEnd');
   assert.ok(end && end.type === 'castEnd' && end.skipped);
   assert.ok(events.some((e) => e.type === 'sirens'), 'les sirènes s\'entendent quand même');
-  assert.equal(w.objective, 'Get back to the drop point');
+  assert.equal(w.objective, 'Leave by the south parking lot');
 });
 
 test('après l\'ultimatum, « Retry » ramène sur le plateau sans relire le message', () => {
@@ -250,7 +250,7 @@ test('après l\'ultimatum, « Retry » ramène sur le plateau sans relire le mes
   assert.equal(again, session, 'la même partie, reprise au point de sauvegarde');
   assert.equal(session.rooms.has(GROUND_FLOOR), false, 'la salle est remise à neuf');
   const fresh = new World(ground, sprites, session.heroNames, 5, session);
-  assert.equal(fresh.objective, 'Get back to the drop point');
+  assert.equal(fresh.objective, 'Leave by the south parking lot');
   const r = TV_STUDIO.room;
   for (const h of fresh.heroes) {
     assert.ok(h.x > r.x0 && h.x < r.x1 && h.y > r.y0 && h.y < r.y1, 'sur le plateau');
@@ -260,7 +260,8 @@ test('après l\'ultimatum, « Retry » ramène sur le plateau sans relire le mes
   assert.ok(Math.hypot(fresh.heroes[0].x - fresh.heroes[1].x, fresh.heroes[0].y - fresh.heroes[1].y) >= 90, 'pas l\'un sur l\'autre');
   // plus personne de la chaîne sur le plateau : le présentateur n'est pas revenu à son pupitre
   assert.equal(fresh.npcs.filter((n) => n.def.kind === 'civil' && n.x > r.x0 && n.x < r.x1 && n.y > r.y0 && n.y < r.y1).length, 0);
-  assert.ok(fresh.npcs.some((n) => n.def.kind === 'civil'), 'les autres civils du bâtiment sont là');
+  // le bâtiment était vide à la sauvegarde (test suivant : avec ses occupants) : il l'est encore
+  assert.equal(fresh.npcs.length, 0);
   // les portes déjà franchies sont ouvertes, le message ne se rejoue pas
   assert.ok(fresh.doors.filter((d) => d.kind === 'button' && d.doorId === CONFIG.broadcast.controlRoomButton).every((d) => d.phase === 'open'));
   assert.ok(fresh.doors.filter((d) => d.card === 'purple').every((d) => d.phase === 'open'));
@@ -268,4 +269,88 @@ test('après l\'ultimatum, « Retry » ramène sur le plateau sans relire le mes
   onMark(fresh, 0, 1);
   for (let i = 0; i < CONFIG.broadcast.countdownSteps + 30; i++) fresh.step(idle(fresh));
   assert.equal(fresh.cast, -1);
+});
+
+test('« Retry » après l\'ultimatum rend le monde de la sauvegarde : mêmes survivants, mêmes portes (GD-087)', () => {
+  const session = createSession(['PetBot']);
+  session.carried.add('green').add('purple');
+  session.objective = OBJ.broadcast;
+  const w = new World(ground, sprites, ['PetBot'], 3, session);
+  session.rooms.set(GROUND_FLOOR, w);
+  w.hero.invuln = 1e9;
+  const r = TV_STUDIO.room;
+  const onSet = (p: { x: number; y: number }): boolean => p.x > r.x0 && p.x < r.x1 && p.y > r.y0 && p.y < r.y1;
+  const civilIds = new Set(w.npcs.filter((n) => n.def.kind === 'civil').map((n) => n.id));
+  // avant le message, l'équipe a nettoyé une partie du bâtiment et laissé des traces
+  const soldiers = w.npcs.filter((n) => n.def.kind === 'soldier');
+  const civils = w.npcs.filter((n) => n.def.kind === 'civil' && !onSet(n));
+  for (const npc of [...soldiers.slice(0, 12), ...civils.slice(0, 2)]) w.killNpc(npc);
+  const hurt = soldiers[20];
+  hurt.hp = 1;
+  w.breakWindow(w.windows[3]);
+  const gates = w.doors.filter((d) => d.kind === 'button' && d.doorId === 3);
+  assert.equal(gates.length, 2);
+  for (const d of gates) w.openDoor(d);
+  w.outlets[0].energyLeft = 7;
+  const chair = w.chairs[0];
+  const chairStart = { x: chair.x, y: chair.y };
+  chair.vx = 9;
+  chair.vy = 5;
+  const fogsBefore = w.fogs.length;
+  // l'ultimatum : la sauvegarde est prise à sa fin
+  onMark(w, 0);
+  for (let i = 0; i <= CONFIG.broadcast.countdownSteps && w.cast < 0; i++) w.step(NO_INPUT);
+  assert.ok(w.cast >= 0);
+  w.skipCast();
+  assert.ok(session.checkpoint?.save, 'le point de sauvegarde garde l\'état de la salle');
+  const survivors = w.npcs.map((n) => ({ id: n.id, x: n.x, y: n.y, hp: n.hp }));
+  const stats = { ...session.stats };
+  assert.deepEqual([stats.soldierKilled, stats.civilKilled], [12, 2]);
+  const fogs = w.fogs.filter((f) => !f.enabled).map((f) => f.id).sort();
+  assert.ok(fogs.length < fogsBefore, 'des brouillards sont levés');
+  const broken = w.windows.filter((p) => p.broken).map((p) => p.id).sort();
+  assert.ok(broken.includes(w.windows[3].id));
+  const chairAt = { x: chair.x, y: chair.y };
+  assert.ok(Math.hypot(chairAt.x - chairStart.x, chairAt.y - chairStart.y) > 10, 'la chaise a roulé');
+  // la suite tourne mal : d'autres morts, d'autres dégâts, puis l'équipe tombe
+  for (const npc of w.npcs.filter((n) => n.def.kind === 'soldier').slice(0, 15)) w.killNpc(npc);
+  const later = w.windows.find((p) => !p.broken);
+  assert.ok(later);
+  w.breakWindow(later);
+  w.outlets[0].energyLeft = 0;
+  for (let i = 0; i < 30; i++) w.step(NO_INPUT);
+  assert.equal(w.npcs.filter((n) => n.hunt > 0).length, 10, 'la police est en place');
+  retrySession(session);
+  const fresh = new World(ground, sprites, session.heroNames, 5, session);
+  // mêmes survivants, à la même place, avec les mêmes points de vie ; seule la chaîne a quitté le plateau (GD-085)
+  const staff = survivors.filter((s) => civilIds.has(s.id) && onSet(s)).length;
+  assert.ok(staff > 0);
+  assert.equal(fresh.npcs.length, survivors.length - staff);
+  for (const npc of fresh.npcs) {
+    const was = survivors.find((s) => s.id === npc.id);
+    assert.ok(was, `${npc.object} était debout à la sauvegarde`);
+    assert.deepEqual([npc.x, npc.y, npc.hp], [was.x, was.y, was.hp]);
+    assert.equal(npc.alerted, false, 'calme');
+  }
+  assert.equal(fresh.npcs.find((n) => n.id === hurt.id)?.hp, 1, 'le blessé l\'est toujours');
+  // les morts d'avant la sauvegarde restent comptés, pas ceux d'après ; la police repartie n'est plus comptée
+  assert.deepEqual([session.stats.soldierKilled, session.stats.civilKilled], [12, 2]);
+  assert.equal(session.stats.totalSoldier, stats.totalSoldier);
+  assert.equal(session.stats.totalCivil, stats.totalCivil - staff);
+  // le décor aussi : vitres, portails, borne, brouillards, chaise
+  assert.deepEqual(fresh.windows.filter((p) => p.broken).map((p) => p.id).sort(), broken, 'la vitre brisée après la sauvegarde est intacte');
+  assert.ok(fresh.doors.filter((d) => d.kind === 'button' && d.doorId === 3).every((d) => d.phase === 'open'));
+  assert.equal(fresh.outlets.find((o) => o.id === w.outlets[0].id)?.energyLeft, 7);
+  assert.deepEqual(fresh.fogs.map((f) => f.id).sort(), fogs);
+  const sameChair = fresh.chairs.find((c) => c.id === chair.id);
+  assert.ok(sameChair);
+  assert.deepEqual([sameChair.x, sameChair.y], [chairAt.x, chairAt.y]);
+  assert.deepEqual([sameChair.obstacle.cx, sameChair.obstacle.cy], [chairAt.x + sameChair.offsetX, chairAt.y + sameChair.offsetY], 'son obstacle a suivi');
+  // un second échec ramène au même état
+  for (const npc of fresh.npcs.slice(0, 5)) fresh.killNpc(npc);
+  session.rooms.set(GROUND_FLOOR, fresh);
+  retrySession(session);
+  const third = new World(ground, sprites, session.heroNames, 6, session);
+  assert.equal(third.npcs.length, survivors.length - staff);
+  assert.deepEqual([session.stats.soldierKilled + session.stats.civilKilled], [14]);
 });

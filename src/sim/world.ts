@@ -19,8 +19,8 @@ import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
 import { CONTROL_ROOM_TAKEN, castLines, castPhases, castReader } from './broadcast.ts';
 import { TV_STUDIO } from './additions.ts';
-import { startWave, stepWave } from './wave.ts';
-import type { Session } from './session.ts';
+import { stageWave, stepWave } from './wave.ts';
+import type { RoomSave, Session } from './session.ts';
 import { NO_INPUT } from './types.ts';
 import { clearEffects, stepEffects } from './ulti.ts';
 import type {
@@ -168,6 +168,9 @@ export class World {
     // reprise à un point de sauvegarde : la borne de la zone de forage, ou le plateau après l'ultimatum (GD-085)
     const saved = session.checkpoint?.room === level.name ? this.checkpoint ?? session.checkpoint : null;
     const resumed = saved !== null;
+    // la salle revient telle qu'elle était au point de sauvegarde : mêmes survivants, mêmes portes (GD-087)
+    const save = session.checkpoint?.room === level.name ? session.checkpoint.save : undefined;
+    if (save) this.restoreRoom(save);
     // après l'ultimatum, plus personne de la chaîne n'est sur le plateau : ni présentateur ni cadreurs
     if (resumed && level.name === GROUND_FLOOR) {
       const r = TV_STUDIO.room;
@@ -204,6 +207,81 @@ export class World {
       this.updateDoorObstacle(door);
     }
     for (const button of this.buttons) if (passed.buttons.includes(button.doorId)) button.pressedSteps = 1000;
+  }
+
+  /** État de la salle à retrouver après un « Retry » (GD-087). */
+  private saveRoom(): RoomSave {
+    return {
+      npcs: this.npcs.map((n) => ({ id: n.id, x: n.x, y: n.y, angle: n.angle, hp: n.hp, ammo: n.ammo, shieldHp: n.shieldHp, shieldBroken: n.shieldBroken })),
+      killed: { civil: this.counted.civilKilled, soldier: this.counted.soldierKilled },
+      doors: this.doors.filter((d) => d.kind !== 'auto' && (d.phase === 'open' || d.phase === 'opening')).map((d) => d.id),
+      buttons: this.buttons.filter((b) => b.pressedSteps >= 0).map((b) => b.id),
+      windows: this.windows.filter((p) => p.broken).map((p) => p.id),
+      fogs: this.fogs.filter((f) => !f.enabled).map((f) => f.id),
+      outlets: this.outlets.map((o) => ({ id: o.id, energyLeft: o.energyLeft, repairLeft: o.repairLeft })),
+      chairs: this.chairs.map((c) => ({ id: c.id, x: c.x, y: c.y, angle: c.angle })),
+    };
+  }
+
+  /**
+   * Remet la salle, tout juste construite, dans l'état enregistré : les PNJ tombés avant la sauvegarde ne
+   * reviennent pas, les survivants reprennent leur place et leurs points de vie, calmes ; portes, boutons,
+   * vitres, brouillards, bornes et chaises sont comme l'équipe les avait laissés.
+   */
+  private restoreRoom(save: RoomSave): void {
+    const alive = new Map(save.npcs.map((n) => [n.id, n]));
+    this.npcs = this.npcs.filter((npc) => {
+      const was = alive.get(npc.id);
+      if (!was) return false;
+      npc.x = was.x;
+      npc.y = was.y;
+      npc.angle = was.angle;
+      npc.dir = was.angle;
+      npc.hp = was.hp;
+      npc.ammo = was.ammo;
+      npc.shieldHp = was.shieldHp;
+      npc.shieldBroken = was.shieldBroken;
+      return true;
+    });
+    // les morts d'avant la sauvegarde restent comptés
+    this.stats.civilKilled += save.killed.civil;
+    this.counted.civilKilled += save.killed.civil;
+    this.stats.soldierKilled += save.killed.soldier;
+    this.counted.soldierKilled += save.killed.soldier;
+    for (const door of this.doors) {
+      if (!save.doors.includes(door.id)) continue;
+      door.phase = 'open';
+      door.progress = 1;
+      door.stayTimer = door.stayOpenSteps;
+      this.updateDoorObstacle(door);
+    }
+    for (const button of this.buttons) if (save.buttons.includes(button.id)) button.pressedSteps = 1000;
+    for (const pane of this.windows) {
+      if (!save.windows.includes(pane.id)) continue;
+      pane.broken = true;
+      pane.obstacle.flags &= ~IS_WINDOW;
+    }
+    this.fogs = this.fogs.filter((f) => save.fogs.includes(f.id));
+    for (const outlet of this.outlets) {
+      const was = save.outlets.find((o) => o.id === outlet.id);
+      if (!was) continue;
+      outlet.energyLeft = was.energyLeft;
+      outlet.repairLeft = was.repairLeft;
+    }
+    for (const chair of this.chairs) {
+      const was = save.chairs.find((c) => c.id === chair.id);
+      if (!was || (was.x === chair.x && was.y === chair.y)) continue;
+      const o = chair.obstacle;
+      this.nav.mark(o, -1);
+      this.collision.update(o, () => {
+        o.cx = was.x + chair.offsetX;
+        o.cy = was.y + chair.offsetY;
+      });
+      this.nav.mark(o, 1);
+      chair.x = was.x;
+      chair.y = was.y;
+      chair.angle = was.angle;
+    }
   }
 
   private restoreHero(h: Hero): void {
@@ -431,7 +509,7 @@ export class World {
     this.introHold = 0;
     const s = this.session;
     s.objective = OBJ.dropPoint;
-    s.checkpoint = { room: this.level.name, x: TV_STUDIO.regroup.x - 110, y: TV_STUDIO.regroup.y - 40, objective: OBJ.dropPoint };
+    s.checkpoint = { room: this.level.name, x: TV_STUDIO.regroup.x - 110, y: TV_STUDIO.regroup.y - 40, objective: OBJ.dropPoint, save: this.saveRoom() };
     s.preOpened[this.level.name] = { buttons: [1, CONFIG.broadcast.controlRoomButton], cards: ['green', 'purple'] };
     if (!this.castSirens) this.emit({ type: 'sirens' });
     this.castSirens = true;
@@ -796,9 +874,14 @@ export class World {
   /** Steps restants avant le début de l'ultimatum quand l'équipe est sur la marque, -1 sinon. */
   markCountdown = -1;
   private castSirens = false;
-  /** La riposte (GD-086) : steps depuis son début, -1 avant ; rang du prochain groupe à faire entrer. */
+  /**
+   * La riposte (GD-086, GD-087) : -1 avant l'ultimatum ; 0 quand la police est en place au sud et attend ;
+   * puis les steps écoulés depuis que l'équipe l'a trouvée. `waveGroup` : rang du prochain groupe à faire entrer.
+   */
   waveSteps = -1;
   waveGroup = 0;
+  /** Soldats du premier groupe posés devant les fourgons. */
+  waveHeld = 0;
   private vansParked = false;
 
   step(inputs: Input | Input[]): void {
@@ -1280,9 +1363,9 @@ export class World {
     if (s.objective === OBJ.downstairs && this.level.name === GROUND_FLOOR) s.objective = OBJ.controlRoom;
     if (this.level.name !== GROUND_FLOOR) return;
     this.stepMark();
-    // après l'ultimatum, la police arrive ; au retour sur le plateau après un échec, elle revient aussi
+    // après l'ultimatum, la police se met en place au sud ; au retour sur le plateau après un échec, aussi
     if (s.objective >= OBJ.dropPoint && this.cast < 0) {
-      if (this.waveSteps < 0) startWave(this);
+      if (this.waveSteps < 0) stageWave(this);
       else stepWave(this);
     }
   }

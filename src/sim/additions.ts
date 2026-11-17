@@ -130,14 +130,13 @@ export const TV_STUDIO = {
   /** Point de sauvegarde posé à la fin de l'ultimatum : l'équipe y reprend, devant l'estrade. */
   regroup: { x: 8960, y: MID - 60 },
   /**
-   * La riposte (GD-086) : son point de ralliement devant le pupitre, la partie du parking sud où le premier
-   * groupe attend, l'extérieur des portails 4 d'où viennent les suivants, et les trois fourgons (angle en
-   * degrés GameMaker, 0 = l'avant vers le nord).
+   * La riposte (GD-086, GD-087) : la partie du parking sud où le premier groupe attend, autour des fourgons et
+   * loin des portes du local technique par où l'équipe arrive ; l'extérieur des portails 4 d'où viennent les
+   * suivants ; et les trois fourgons (angle en degrés GameMaker, 0 = l'avant vers le nord).
    */
   wave: {
-    rally: { x: 9000, y: MID },
-    parking: { x0: 9860, x1: 10500, y0: 5000, y1: 6180 },
-    outside: { x0: 10150, x1: 10460, y0: 6460, y1: 7000 },
+    hold: { x0: 10020, x1: 10860, y0: 5000, y1: 6180 },
+    outside: { x0: 9960, x1: 10650, y0: 6460, y1: 7120 },
     vans: [{ x: 10420, y: 5880, angle: 8 }, { x: 10130, y: 5470, angle: -16 }, { x: 10440, y: 5130, angle: 5 }],
   },
   /** Salon d'attente et maquillage au nord, salon de sortie et vestiaire au sud. */
