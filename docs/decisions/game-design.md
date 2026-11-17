@@ -1367,3 +1367,29 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 **Décision.** Tant que le robot est en train de tirer, il garde sa posture de tir ; entre deux coups, l'animation reste sur sa dernière image. Vaut pour PetBot et EngiBot.
 
 **Conséquences.** `heroPose` dans `WorldView.ts`, affichage seulement. La cause est établie par la lecture du code et confirmée en solo (120 images sur 120 en posture de tir, avant comme après) ; l'essai en partie réseau n'a pas pu être fait pendant cette session.
+
+## GD-064 — Prototype à l'essai : les balles deviennent des traits de lumière
+
+- **Date** : 2026-11-17
+- **Statut** : À l'essai — à garder ou à retirer après test par l'utilisateur
+- **Décidée par** : l'utilisateur (l'idée : des balles très rapides vues comme de longues traînées de lumière jaune ou blanche, façon étoile filante, les ricochets d'EngiBot conservés, un éclair à la bouche des canons) ; les valeurs et les points marqués « par défaut » sont des choix par défaut
+
+**Contexte.** L'utilisateur veut essayer un tir plus vif et plus dynamique : remplacer les balles par des rayons de lumière, tout en gardant de vrais projectiles (collisions, ricochets).
+
+**Décision (prototype).**
+
+- **Vitesse** : les balles vont trois fois plus vite, 7 200 px/s au lieu de 2 400. L'écran est traversé en un quart de seconde. Ce sont toujours des projectiles : murs, boucliers, vitres et ennemis les arrêtent comme avant.
+- **Aspect** : la balle n'est plus un sprite mais un trait de lumière de 420 px au plus, blanc à l'avant, qui s'affine et s'éteint vers l'arrière. Il ne dépasse jamais son point de départ. Quand la balle disparaît, le trait file jusqu'à l'obstacle puis s'efface en un dixième de seconde.
+- **Ricochets d'EngiBot** : conservés. À chaque rebond l'ancien trait s'efface sur place et un nouveau repart du mur, plus court puisque la balle a ralenti (GD-062). Son freinage est ajusté pour qu'elle perde la même part de vitesse sur la même distance qu'avant.
+- **Éclair à la bouche du canon** : à chaque tir, une lueur, une flamme pointue dans l'axe et deux éclats de côté, pendant 4 images. Une salve de ShotBot ne fait qu'un éclair.
+- *Par défaut* :
+  - toutes les balles sont concernées, celles des ennemis et de la tourelle d'EngiBot comprises ;
+  - les traits des héros sont jaune vif, ceux des ennemis orangés, pour qu'on sache toujours qui tire ;
+  - la boule de plasma de BadaBot et la batte de BatBot ne changent pas : ce ne sont pas des balles ;
+  - les dégâts, cadences et portées ne changent pas.
+
+**Ce que ça change en jeu, à juger pendant l'essai.** Les balles ennemies ne s'esquivent plus du tout en bougeant : seuls le placement, les murs et le bouclier de BadaBot protègent. Toucher une cible en mouvement devient bien plus facile, y compris un LightBot qui tourne. Le LightBot et le ShotBot deviennent donc plus dangereux, et les héros plus efficaces.
+
+**Pour revenir en arrière.** Un seul réglage : `TRACERS.enabled` à `false` dans `src/sim/config.ts` rend les balles d'avant, vitesse et dessin compris. Le facteur de vitesse est `TRACERS.speedFactor`.
+
+**Conséquences.** Simulation : `TRACERS` et `BULLET_SPEED` dans `config.ts`. Affichage : `syncStreak`, `drawStreak`, `drawMuzzleFlash` dans `WorldView.ts`. Vu dans la page en solo : traits des héros et des ennemis, éclairs, ricochets raccourcis. Pas essayé en réseau, où une balle ne vit plus que quelques instantanés.

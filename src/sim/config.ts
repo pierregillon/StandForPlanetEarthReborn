@@ -103,7 +103,19 @@ export interface BossDef {
 
 export type NpcDef = SoldierDef | CivilDef | BossDef;
 
-const enemyBullet = (sprite: string, maxDistance = 1500): BulletDef => ({ sprite, speed: 40, maxDistance, damage: 1, radius: 4 });
+/**
+ * PROTOTYPE À L'ESSAI (GD-064) : les balles deviennent des traits de lumière. Elles vont trois fois plus vite
+ * (7 200 px/s : l'écran est traversé en un quart de seconde) et sont dessinées comme de longues traînées
+ * lumineuses, avec un éclair à la bouche du canon. Ce sont toujours des projectiles : collisions, ricochets
+ * d'EngiBot et boucliers fonctionnent comme avant. Passer `enabled` à false rend les balles d'avant.
+ * La boule de plasma de BadaBot et la batte de BatBot ne sont pas concernées.
+ */
+export const TRACERS = { enabled: true, speedFactor: 3 };
+const SWIFT = TRACERS.enabled ? TRACERS.speedFactor : 1;
+/** Vitesse des balles, en pixels par step (40 avant le prototype, GD-062). */
+const BULLET_SPEED = 40 * SWIFT;
+
+const enemyBullet = (sprite: string, maxDistance = 1500): BulletDef => ({ sprite, speed: BULLET_SPEED, maxDistance, damage: 1, radius: 4 });
 
 const civil = (move: string, run: string, dead: string, radius: number, runAnimFactor: number): CivilDef => ({
   kind: 'civil',
@@ -169,7 +181,7 @@ export const CONFIG = {
       shotsPerSecond: 3,
       precisionDeg: 3,
       muzzle: { x: 90, y: 23 },
-      bullet: { sprite: 'spr_bullet_PetBot', speed: 40, maxDistance: 1500, damage: 1, radius: 6 }, // vitesse 20 dans le code de 2019 ; 40 comme toutes les balles (GD-062)
+      bullet: { sprite: 'spr_bullet_PetBot', speed: BULLET_SPEED, maxDistance: 1500, damage: 1, radius: 6 }, // vitesse 20 dans le code de 2019 ; 40 comme toutes les balles (GD-062)
       magazine: 12, // 99 en 2019, 24 au debut du remake ; 4 s de tir (GD-057)
       reloadSteps: s(1.2), // remake
       fire2CooldownSteps: 0,
@@ -193,7 +205,7 @@ export const CONFIG = {
       shotsPerSecond: 5,
       precisionDeg: 10,
       muzzle: { x: 43, y: 57 },
-      bullet: { sprite: 'spr_EngiBot_bullet', speed: 40, maxDistance: 1500, damage: 1, radius: 6, kind: 'bounce' },
+      bullet: { sprite: 'spr_EngiBot_bullet', speed: BULLET_SPEED, maxDistance: 1500, damage: 1, radius: 6, kind: 'bounce' },
       magazine: 18, // 100 en 2019, 25 au debut du remake ; 3,6 s de tir (GD-057)
       reloadSteps: s(1.4), // remake
       fire2CooldownSteps: s(0.5),
@@ -287,10 +299,12 @@ export const CONFIG = {
       turretPrecisionDeg: 5,
       turretRadius: 40,
       turretMuzzle: 60,
-      turretBullet: { sprite: 'spr_bullet_pistol', speed: 40, maxDistance: 1500, damage: 1, radius: 4 } as BulletDef,
+      turretBullet: { sprite: 'spr_bullet_pistol', speed: BULLET_SPEED, maxDistance: 1500, damage: 1, radius: 4 } as BulletDef,
       placeAnimSteps: s(0.5),
-      bulletDeceleration: 0.2,
-      bulletMinSpeed: 1,
+      // la balle d'EngiBot ralentit : pour qu'elle perde la même part de sa vitesse sur la même distance quand
+      // elle va plus vite (prototype GD-064), le freinage suit le carré de la vitesse
+      bulletDeceleration: 0.2 * SWIFT * SWIFT,
+      bulletMinSpeed: 1 * SWIFT,
     },
     batBot: {
       swingSteps: 10,

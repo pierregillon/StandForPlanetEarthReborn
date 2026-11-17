@@ -179,3 +179,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | ShotBot plus vif (GD-059), un robot par pince du véhicule de largage et orbe de BadaBot en vol (GD-060), bornes identiques pour le client et le serveur au retour de l'étage (GD-061). 85 tests. |
 | 2026-11-17 | Balle de PetBot à 2 400 px/s comme les autres ; la traînée des balles suit leur vitesse (GD-062). |
 | 2026-11-17 | Corrigé : en réseau, un robot qui tirait en courant alternait posture de marche et posture de tir (GD-063). |
+| 2026-11-17 | Prototype à l'essai : balles trois fois plus rapides, dessinées en traits de lumière, éclair à la bouche des canons ; désactivable par `TRACERS.enabled` (GD-064). |

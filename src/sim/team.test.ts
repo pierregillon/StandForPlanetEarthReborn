@@ -123,7 +123,8 @@ test('les balles des héros traversent les coéquipiers, sans les soigner ni les
   for (let i = 0; i < 40; i++) w.step([aim]);
   // une seule balle, tirée à la main vers le coéquipier
   w.spawnBullet(pet.def.bullet, 'hero', pet.x + 60, pet.y, 0, pet.id);
-  for (let i = 0; i < 20; i++) w.step([aim]);
+  // (assez de steps pour depasser le coequipier, pas assez pour sortir de portee, quelle que soit la vitesse des balles)
+  for (let i = 0; i < Math.ceil(600 / pet.def.bullet.speed); i++) w.step([aim]);
   assert.equal(ally.hp, 5, 'la balle de PetBot ne soigne pas');
   assert.equal(w.bullets.length, 1, 'la balle continue sa route');
   assert.ok(w.bullets[0].x > ally.x + 100, 'elle a dépassé le coéquipier');
