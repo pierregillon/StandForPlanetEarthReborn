@@ -71,6 +71,9 @@ function stateOf(w: World): Entity {
   s.introLine = w.introLine;
   s.introLineSteps = w.introLineSteps;
   s.introHold = w.introHold;
+  s.cast = w.cast;
+  s.castReader = w.castReader;
+  s.markCountdown = w.markCountdown;
   Object.assign(s, w.stats);
   return s;
 }
@@ -85,6 +88,9 @@ export function applyState(w: World): void {
   w.introLine = Number(s.introLine ?? 0);
   w.introLineSteps = Number(s.introLineSteps ?? 0);
   w.introHold = Number(s.introHold ?? 0);
+  w.cast = Number(s.cast ?? -1);
+  w.castReader = Number(s.castReader ?? 0);
+  w.markCountdown = Number(s.markCountdown ?? -1);
   w.session.carried.clear();
   for (const color of String(s.carried ?? '').split(',')) if (color) w.session.carried.add(color);
   for (const key of Object.keys(w.stats) as (keyof World['stats'])[]) if (typeof s[key] === 'number') w.stats[key] = s[key] as number;

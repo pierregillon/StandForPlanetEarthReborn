@@ -22,7 +22,7 @@ function stepUntil(w: World, type: SimEvent['type'], max: number): SimEvent | nu
   return null;
 }
 
-test('les consignes s\'enchaînent : étage, carte violette, retour, sortie', () => {
+test('les consignes s\'enchaînent : étage, carte violette, retour, régie', () => {
   const session = createSession('PetBot');
   const g = new World(ground, sprites, 'PetBot', 3, session);
   session.rooms.set(GROUND_FLOOR, g);
@@ -46,7 +46,7 @@ test('les consignes s\'enchaînent : étage, carte violette, retour, sortie', ()
   assert.equal(u.hero.hp, 7, 'le héros garde ses points de vie');
   assert.ok(session.stats.totalSoldier > totalGround, 'les soldats de l\'étage sont comptés');
   u.step(NO_INPUT);
-  assert.equal(u.objective, 'Find the purple key');
+  assert.equal(u.objective, 'Find the studio pass');
 
   // 2. la carte violette
   const card = u.cards.find((c) => c.color === 'purple');
@@ -65,7 +65,7 @@ test('les consignes s\'enchaînent : étage, carte violette, retour, sortie', ()
   assert.ok(back && back.type === 'changeRoom' && back.room === GROUND_FLOOR && back.spawn === 2);
   g.enter(u.heroes, back.spawn);
   g.step(NO_INPUT);
-  assert.equal(g.objective, 'Exit to the drilling area');
+  assert.equal(g.objective, 'Take the control room');
   assert.ok(Math.hypot(g.hero.x - stairs.x, g.hero.y - stairs.y) > stairs.radius, 'le héros arrive à côté de l\'escalier, pas dessus');
   assert.equal(stepUntil(g, 'changeRoom', 30), null, 'pas de retour immédiat à l\'étage');
 
@@ -77,14 +77,13 @@ test('les consignes s\'enchaînent : étage, carte violette, retour, sortie', ()
   g.step({ ...NO_INPUT, usePressed: true, use: true });
   assert.equal(purpleDoor.phase, 'opening');
 
-  // 4. la zone de sortie, en haut de la carte : 10 secondes à y rester
+  // 4. l'ancienne zone de sortie, en haut de la carte, ne mène plus à la zone de forage (GD-085)
   g.hero.x = 6560;
   g.hero.y = 400;
   g.step(NO_INPUT);
-  assert.ok(g.exitCountdown > 0);
-  assert.equal(stepUntil(g, 'changeRoom', CONFIG.hero.exitCountdownSteps - 60), null);
-  const out = stepUntil(g, 'changeRoom', 120);
-  assert.ok(out && out.type === 'changeRoom' && out.room === DRILL_AREA, 'la sortie mène à la zone de forage');
+  assert.equal(g.exitCountdown, -1);
+  assert.equal(stepUntil(g, 'changeRoom', CONFIG.hero.exitCountdownSteps + 60), null, 'on ne quitte plus le niveau par là');
+  assert.equal(g.objective, 'Take the control room');
 });
 
 test('départ à l\'étage : en redescendant, les portes déjà franchies sont ouvertes', () => {
@@ -109,7 +108,15 @@ test('départ à l\'étage : en redescendant, les portes déjà franchies sont o
   assert.equal(normal.doors.find((d) => d.kind === 'button' && d.doorId === 1)?.phase, 'closed');
 });
 
-test('la zone de sortie est inactive tant que la consigne n\'est pas atteinte', () => {
+test('la zone de forage reste jouable depuis le menu, avec ses propres consignes', () => {
+  const session = createSessionAt('PetBot', DRILL_AREA);
+  const d = new World(load(DRILL_AREA), sprites, 'PetBot', 3, session);
+  assert.equal(d.objective, 'Destroy the drills');
+  for (const drill of d.drills) d.damageDrill(drill, 100000);
+  assert.equal(d.objective, 'Kill SallyBot');
+});
+
+test('l\'ancienne zone de sortie est inactive dès le début', () => {
   const g = new World(ground, sprites, 'PetBot', 3);
   g.hero.x = 6560;
   g.hero.y = 400;

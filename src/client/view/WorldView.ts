@@ -10,6 +10,9 @@ import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
 import { ANCHOR, arrivalPhases, clawOf, crewReleased, introLines, introShot } from '../../sim/intro.ts';
 import type { IntroLine } from '../../sim/intro.ts';
+import { castLive } from '../../sim/broadcast.ts';
+import { TV_STUDIO } from '../../sim/additions.ts';
+import { GROUND_FLOOR, OBJ } from '../../sim/session.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
 import type { Bat, Bullet, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
@@ -600,8 +603,12 @@ export class WorldView {
   /** Caméra libre (ADR-017) : le brouillard de guerre n'est pas dessiné, et l'éclairage peut être coupé. */
   reveal = false;
   lightsOff = false;
-  /** Lueurs des écrans de la chaîne pendant le journal de l'introduction. */
+  /** Lueurs des écrans de la chaîne : le journal, la neige du direct coupé, l'ultimatum. */
   private screenGlows: Img[] = [];
+  /** Enseignes « ON AIR » du plateau, et marque de l'ultimatum derrière le pupitre (GD-085). */
+  private onAirImgs: Img[] = [];
+  private markGfx: Phaser.GameObjects.Graphics | null = null;
+  private markText: Phaser.GameObjects.Text | null = null;
   private vehicle: {
     body: Img;
     shadow: Img | null;
@@ -681,8 +688,9 @@ export class WorldView {
 
     for (const d of world.decor) {
       if (!scene.textures.exists(frameKey(d.sprite, 0))) continue;
-      this.image(d.sprite, d.frame, d.x, d.y, -d.depth)
+      const img = this.image(d.sprite, d.frame, d.x, d.y, -d.depth)
         .setRotation(d.angle).setScale(d.scaleX, d.scaleY).setTint(tintOf(d.tint)).setAlpha(d.alpha);
+      if (d.sprite === 'spr_tv_onair') this.onAirImgs.push(img);
     }
 
     for (const w of level.walls) {
@@ -2270,7 +2278,14 @@ export class WorldView {
   /** Pendant le journal, les écrans de la chaîne scintillent : une lueur bleutée qui tremble sur chacun. */
   private syncScreens(): void {
     const shot = this.newsShot();
-    const on = shot === 'studio' || shot === 'hall';
+    const world = this.world;
+    const ground = world.level.name === GROUND_FLOOR;
+    // à l'antenne : le journal de l'introduction, puis les robots pendant l'ultimatum
+    const live = shot === 'studio' || shot === 'hall' || castLive(world.cast);
+    // la régie est prise : le direct est coupé, les écrans ne montrent plus que de la neige
+    const snow = !live && ground && world.session.objective >= OBJ.studio;
+    const on = live || snow;
+    this.syncStudio(ground, live);
     if (!on && this.screenGlows.length === 0) return;
     if (on && this.screenGlows.length === 0) {
       this.ensureHalo();
@@ -2287,8 +2302,45 @@ export class WorldView {
       if (!near) return;
       // un tirage par écran et par battement : l'image change, la lueur tremble
       const noise = Math.abs(Math.sin((beat + i * 7.3) * 12.9898) * 43758.5453) % 1;
-      glow.setAlpha(0.28 + 0.3 * noise).setScale(0.62 + 0.14 * noise);
+      if (snow) glow.setTint(0xd8d8d8).setAlpha(0.1 + 0.22 * noise).setScale(0.5 + 0.1 * noise);
+      else glow.setTint(0x7fd6ff).setAlpha(0.28 + 0.3 * noise).setScale(0.62 + 0.14 * noise);
     });
+  }
+
+  /**
+   * Le plateau (GD-085) : l'enseigne « ON AIR » est allumée tant que quelqu'un est à l'antenne — le présentateur
+   * jusqu'à la prise de la régie, puis les robots pendant l'ultimatum. La marque derrière le pupitre s'allume
+   * quand il faut venir y lire le message.
+   */
+  private syncStudio(ground: boolean, live: boolean): void {
+    if (!ground) return;
+    const world = this.world;
+    const objective = world.session.objective;
+    const lit = live || objective < OBJ.studio;
+    for (const img of this.onAirImgs) img.setTint(lit ? 0xffffff : 0x4a4a52);
+    const show = world.cast < 0 && (objective === OBJ.studio || objective === OBJ.broadcast);
+    if (!show && !this.markGfx) return;
+    const { mark } = TV_STUDIO;
+    if (!this.markGfx) {
+      this.markGfx = this.scene.add.graphics().setDepth(DEPTH.outlet);
+      this.markText = this.scene.add.text(mark.x, mark.y, '', { fontFamily: 'Aldo', fontSize: '30px', color: '#ff5a5a', stroke: '#000000', strokeThickness: 5, align: 'center' })
+        .setOrigin(0.5).setDepth(DEPTH.worldText);
+    }
+    const g = this.markGfx;
+    g.clear();
+    // pendant le compte à rebours, c'est l'interface qui l'affiche : le texte au sol cacherait les robots
+    this.markText?.setVisible(show && world.markCountdown <= 0);
+    if (!show) return;
+    const radius = CONFIG.broadcast.markRadius;
+    const t = this.scene.time.now / 1000;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+    const counting = world.markCountdown > 0;
+    const k = counting ? 1 - world.markCountdown / CONFIG.broadcast.countdownSteps : 0;
+    g.fillStyle(0xff3b3b, 0.07 + 0.06 * pulse).fillCircle(mark.x, mark.y, radius);
+    g.lineStyle(4, 0xff5a5a, 0.45 + 0.4 * pulse).strokeCircle(mark.x, mark.y, radius - 6 * pulse);
+    // le compte à rebours remplit la marque comme une horloge
+    if (counting) g.lineStyle(10, 0xffffff, 0.9).beginPath().arc(mark.x, mark.y, radius - 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k).strokePath();
+    this.markText?.setText('STAND HERE\nTO BROADCAST').setAlpha(0.6 + 0.4 * pulse);
   }
 
   private syncFogs(): void {
@@ -2297,7 +2349,7 @@ export class WorldView {
     let any = false;
     rt.clear();
     this.syncScreens();
-    if (this.reveal || this.newsShot()) {
+    if (this.reveal || this.newsShot() || this.world.cast >= 0) {
       // le brouillard de guerre est levé le temps du journal : il revient quand la caméra retrouve les robots
       rt.setVisible(false);
       return;

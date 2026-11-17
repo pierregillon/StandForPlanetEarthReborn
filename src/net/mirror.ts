@@ -131,7 +131,7 @@ export class Mirror {
   /** Mon robot obéit tout de suite à mes commandes, avec le même code de déplacement que le serveur. */
   private predict(input: Input): void {
     const h = this.hero;
-    if (h.gone || h.state === 'dead' || h.arrivalSteps > 0 || h.deploySteps > 0 || h.reviving >= 0) return;
+    if (h.gone || h.state === 'dead' || h.arrivalSteps > 0 || h.deploySteps > 0 || h.reviving >= 0 || this.world.cast >= 0) return;
     if (h.ultiPhase === ULTI_CAST) return; // immobile pendant le lancement
     if (h.ultiPhase === ULTI_ACTION) {
       // le bond de BatBot se calcule ici comme sur le serveur

@@ -16,7 +16,9 @@ import { deploySound, stepHero } from './hero.ts';
 import { createBoss } from './boss.ts';
 import type { BossState } from './boss.ts';
 import { createNpc, stepNpcs } from './npc.ts';
-import { DRILL_AREA, GROUND_FLOOR, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
+import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
+import { CONTROL_ROOM_TAKEN, castLines, castPhases, castReader } from './broadcast.ts';
+import { TV_STUDIO } from './additions.ts';
 import type { Session } from './session.ts';
 import { NO_INPUT } from './types.ts';
 import { clearEffects, stepEffects } from './ulti.ts';
@@ -162,8 +164,18 @@ export class World {
       const first = this.spawnPoint(1);
       this.checkpoint = { x: first.x - 230, y: first.y - 60, active: session.checkpoint?.room === level.name };
     }
-    const resumed = this.checkpoint?.active === true;
-    const spawn = resumed && this.checkpoint ? { x: this.checkpoint.x + 110, y: this.checkpoint.y + 40 } : start;
+    // reprise à un point de sauvegarde : la borne de la zone de forage, ou le plateau après l'ultimatum (GD-085)
+    const saved = session.checkpoint?.room === level.name ? this.checkpoint ?? session.checkpoint : null;
+    const resumed = saved !== null;
+    // après l'ultimatum, plus personne de la chaîne n'est sur le plateau : ni présentateur ni cadreurs
+    if (resumed && level.name === GROUND_FLOOR) {
+      const r = TV_STUDIO.room;
+      const gone = this.npcs.filter((n) => n.def.kind === 'civil' && n.x > r.x0 && n.x < r.x1 && n.y > r.y0 && n.y < r.y1);
+      this.npcs = this.npcs.filter((n) => !gone.includes(n));
+      this.stats.totalCivil -= gone.length;
+      this.counted.civil -= gone.length;
+    }
+    const spawn = saved ? { x: saved.x + 110, y: saved.y + 40 } : start;
     // Les bornes gardées sont choisies depuis l'entrée principale de la salle, jamais depuis l'endroit par où
     // l'on arrive : le monde miroir d'un client, reconstruit à chaque entrée, doit garder les mêmes que le
     // serveur. Sinon, au retour de l'étage, le joueur voyait des bornes que le serveur n'avait pas.
@@ -328,6 +340,108 @@ export class World {
     }
   }
 
+  // ---------- Régie, plateau, ultimatum (GD-085) ----------
+
+  /** Un robot appuie sur le bouton de la régie : le direct est coupé, la voie du plateau est ouverte. */
+  private takeControlRoom(h: Hero): void {
+    if (this.level.name !== GROUND_FLOOR || this.session.objective !== OBJ.controlRoom) return;
+    this.session.objective = OBJ.studio;
+    this.emit({ type: 'radio', speaker: h.def.name, text: CONTROL_ROOM_TAKEN });
+  }
+
+  /** Robots vivants à la place du présentateur, sur la marque. */
+  private onMark(): Hero[] {
+    const { mark } = TV_STUDIO;
+    return this.living().filter((h) => Math.hypot(h.x - mark.x, h.y - mark.y) <= CONFIG.broadcast.markRadius);
+  }
+
+  /**
+   * La marque derrière le pupitre : quand la moitié de l'équipe s'y tient, un compte à rebours démarre ; s'ils
+   * la quittent, il s'annule. À zéro, l'ultimatum commence.
+   */
+  private stepMark(): void {
+    const s = this.session;
+    if (s.objective === OBJ.studio) {
+      const r = TV_STUDIO.room;
+      if (this.living().some((h) => h.x > r.x0 && h.x < r.x1 && h.y > r.y0 && h.y < r.y1)) s.objective = OBJ.broadcast;
+    }
+    const waiting = s.objective === OBJ.broadcast ? this.onMark() : [];
+    if (waiting.length === 0 || waiting.length * 2 < this.present().length) {
+      this.markCountdown = -1;
+      return;
+    }
+    if (this.markCountdown < 0) this.markCountdown = CONFIG.broadcast.countdownSteps;
+    if (--this.markCountdown > 0) return;
+    this.markCountdown = -1;
+    const reader = waiting.find((h) => h.def.name === castReader(waiting.map((o) => o.def.name))) ?? waiting[0];
+    this.cast = 0;
+    this.castReader = reader.id;
+    this.castSirens = false;
+    this.introLine = 0;
+    this.introLineSteps = 0;
+    this.introHold = 0;
+    // ceux qui sont derrière le pupitre regardent les caméras ; les balles en vol disparaissent
+    for (const h of waiting) {
+      h.angle = Math.PI;
+      h.moving = false;
+    }
+    this.bullets.length = 0;
+    this.emit({ type: 'castStart' });
+  }
+
+  /** L'ultimatum : mêmes règles que l'introduction (GD-079), l'hôte lit à son rythme ou passe tout. */
+  private stepCast(host: Input | undefined): void {
+    const a = CONFIG.arrival;
+    if (host?.dash) {
+      if (++this.introHold >= a.skipHoldSteps) {
+        this.endCast(true);
+        return;
+      }
+    } else {
+      this.introHold = 0;
+    }
+    const reader = this.heroes[this.castReader] ?? this.hero;
+    const line = castLines(this.session.heroNames, reader.def.name)[this.introLine];
+    if (!line || line.at > this.cast) {
+      if (++this.cast >= castPhases().total) this.endCast(false);
+      return;
+    }
+    const written = typingSteps(line.text);
+    if (line.siren && !this.castSirens && this.introLineSteps >= written) {
+      this.castSirens = true;
+      this.emit({ type: 'sirens' });
+    }
+    if (host?.dashPressed && this.introLineSteps < written) {
+      this.introLineSteps = written;
+    } else if (host?.dashPressed || ++this.introLineSteps >= written + a.autoAdvanceSteps) {
+      this.introLine++;
+      this.introLineSteps = 0;
+    }
+  }
+
+  /**
+   * Fin de l'ultimatum, lu ou passé : la consigne suivante s'affiche et un point de sauvegarde est posé sur le
+   * plateau. Après un échec, l'équipe y reprend sans relire le message, portes déjà franchies ouvertes.
+   */
+  private endCast(skipped: boolean): void {
+    this.cast = -1;
+    this.introLine = 9999;
+    this.introLineSteps = 0;
+    this.introHold = 0;
+    const s = this.session;
+    s.objective = OBJ.dropPoint;
+    s.checkpoint = { room: this.level.name, x: TV_STUDIO.regroup.x - 110, y: TV_STUDIO.regroup.y - 40, objective: OBJ.dropPoint };
+    s.preOpened[this.level.name] = { buttons: [1, CONFIG.broadcast.controlRoomButton], cards: ['green', 'purple'] };
+    if (!this.castSirens) this.emit({ type: 'sirens' });
+    this.castSirens = true;
+    this.emit({ type: 'castEnd', skipped });
+  }
+
+  /** Passe l'ultimatum en cours (caméra libre). */
+  skipCast(): void {
+    if (this.cast >= 0) this.endCast(true);
+  }
+
   /** Chaises à roulettes : poussées par les héros, elles roulent puis ralentissent ; les murs les arrêtent. */
   private stepChairs(): void {
     const cfg = CONFIG.chair;
@@ -375,6 +489,7 @@ export class World {
 
   /** Consigne affichée au joueur (GD-010). */
   get objective(): string {
+    if (this.level.name === DRILL_AREA) return DRILL_OBJECTIVES[this.drills.every((d) => d.destroyed) ? 1 : 0];
     return OBJECTIVES[this.session.objective] ?? '';
   }
 
@@ -670,10 +785,25 @@ export class World {
   introWaiting = false;
   /** Les rotors du véhicule ont commencé à se faire entendre. */
   private introRumbled = true;
+  /**
+   * Ultimatum (GD-085) : son horloge, en steps, ou -1 hors de la séquence. Ses répliques réutilisent
+   * `introLine`, `introLineSteps` et `introHold` : une seule séquence joue à la fois.
+   */
+  cast = -1;
+  /** Rang du robot qui lit le message. */
+  castReader = 0;
+  /** Steps restants avant le début de l'ultimatum quand l'équipe est sur la marque, -1 sinon. */
+  markCountdown = -1;
+  private castSirens = false;
 
   step(inputs: Input | Input[]): void {
     this.tick++;
     const list = Array.isArray(inputs) ? inputs : [inputs];
+    if (this.cast >= 0) {
+      // l'ultimatum est à l'antenne : tout le niveau est figé, seules ses répliques avancent
+      this.stepCast(list[this.hostSlot]);
+      return;
+    }
     this.stepIntro(list[this.hostSlot]);
     this.stepChairs();
     for (const o of this.outlets) o.inUse = false;
@@ -1033,6 +1163,7 @@ export class World {
       }
       button.pressedSteps = 0;
       this.emit({ type: 'buttonPressed', x: button.x, y: button.y });
+      if (button.doorId === CONFIG.broadcast.controlRoomButton) this.takeControlRoom(h);
     }
   }
 
@@ -1058,7 +1189,7 @@ export class World {
       if (!card.carried && Math.hypot(h.x - card.x, h.y - card.y) <= h.def.radius + 30) {
         card.carried = true;
         this.session.carried.add(card.color);
-        this.emit({ type: 'notify', text: `${card.color === 'green' ? 'Green' : 'Purple'} card found` });
+        this.emit({ type: 'notify', text: card.color === 'green' ? 'Green card found' : 'Studio pass found - purple card' });
       }
     }
     if (!input.usePressed) return;
@@ -1122,40 +1253,27 @@ export class World {
     }
   }
 
-  /** Enchaînement des consignes du monde 2 (GD-010) et sortie du niveau. */
+  /**
+   * Enchaînement des consignes de TvTv² (GD-010, GD-085). La zone de sortie d'origine (`exitZone`, dehors au
+   * nord) ne mène plus à la zone de forage : la sortie du niveau sera le portail nord (livraison C3).
+   */
   private stepObjectives(): void {
     const s = this.session;
-    if (s.objective === 0 && this.level.name === UPPER_FLOOR) s.objective = 1;
-    if (s.objective === 1 && s.carried.has('purple')) s.objective = 2;
-    if (s.objective === 2 && this.level.name === GROUND_FLOOR) s.objective = 3;
-    // sortie du niveau : il faut au moins la moitié de l'équipe dans la zone
-    const team = this.present();
-    const zone = s.objective >= 3 ? this.exitZone : null;
-    const waiting = zone ? team.filter((h) => h.state !== 'dead' && distanceToBox(zone, h.x, h.y) <= 0).length : 0;
-    const inExit = waiting > 0 && waiting * 2 >= team.length;
-    // zone de forage : détruire les foreuses, puis tuer le boss ; l'ordre réel importe peu
+    // zone de forage, jouable depuis le menu : détruire les foreuses, puis tuer le boss ; l'ordre réel importe peu
     if (this.level.name === DRILL_AREA) {
-      if (s.objective === 3) s.objective = 4;
-      if (s.objective === 4 && this.drills.every((d) => d.destroyed)) s.objective = 5;
-      if (s.objective === 5 && !this.ended && !this.npcs.some((n) => n.def.kind === 'boss')) {
+      if (!this.ended && this.drills.every((d) => d.destroyed) && !this.npcs.some((n) => n.def.kind === 'boss')) {
         if (this.endTimer < 0) this.endTimer = CONFIG.boss.endDelaySteps;
         if (--this.endTimer <= 0) {
           this.ended = true;
           this.emit({ type: 'levelEnd' });
         }
       }
-    }
-    if (!inExit) {
-      this.exitCountdown = -1;
-      this.exitFired = false;
       return;
     }
-    if (this.exitCountdown < 0) this.exitCountdown = CONFIG.hero.exitCountdownSteps;
-    if (this.exitCountdown > 0) this.exitCountdown--;
-    if (this.exitCountdown === 0 && !this.exitFired) {
-      this.exitFired = true;
-      this.emit({ type: 'changeRoom', room: DRILL_AREA, spawn: 1 });
-    }
+    if (s.objective === OBJ.upstairs && this.level.name === UPPER_FLOOR) s.objective = OBJ.pass;
+    if (s.objective === OBJ.pass && s.carried.has('purple')) s.objective = OBJ.downstairs;
+    if (s.objective === OBJ.downstairs && this.level.name === GROUND_FLOOR) s.objective = OBJ.controlRoom;
+    if (this.level.name === GROUND_FLOOR) this.stepMark();
   }
 
   // ---------- Requêtes utilisées par les PNJ ----------

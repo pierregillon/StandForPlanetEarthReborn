@@ -63,6 +63,8 @@ Le **monde 2 complet**, trois salles converties automatiquement depuis le projet
 Consignes enchaînées, en anglais comme dans le code :
 `Go to the upper floor` → `Find the purple key` → `Go back to ground floor` → `Exit to the drilling area` → `Destroy the drills` → `Kill SallyBot`. Puis écran de score.
 
+> Depuis GD-085 (2026-11-17), le niveau est celui de la chaîne TvTv² : après le retour au rez-de-chaussée, les consignes mènent à la régie, au plateau et à l'ultimatum (`docs/narration/niveau-tvtv2.md`, section 10). La zone de forage n'en fait plus partie ; elle reste jouable depuis le menu.
+
 Portes : automatiques, à bouton, à carte verte ou violette.
 
 ### Présentation

@@ -3,15 +3,25 @@
 import type { Stats } from './types.ts';
 import type { World } from './world.ts';
 
-/** Consignes du monde 2, dans l'ordre (obj_consigne_world2). Les deux dernières arrivent avec la zone de forage. */
+/**
+ * Consignes de TvTv², dans l'ordre (GD-085). Les trois premières sont celles d'origine (obj_consigne_world2) ;
+ * la suite mène à la régie, au plateau et à l'ultimatum, à la place de la sortie vers la zone de forage.
+ */
 export const OBJECTIVES = [
   'Go to the upper floor',
-  'Find the purple key',
+  'Find the studio pass',
   'Go back to ground floor',
-  'Exit to the drilling area',
-  'Destroy the drills',
-  'Kill SallyBot',
+  'Take the control room',
+  'Reach the studio',
+  'Broadcast the message',
+  'Get back to the drop point',
 ];
+
+/** Rang de chaque consigne dans OBJECTIVES. */
+export const OBJ = { upstairs: 0, pass: 1, downstairs: 2, controlRoom: 3, studio: 4, broadcast: 5, dropPoint: 6 };
+
+/** Consignes de la zone de forage : elle ne fait plus partie de ce niveau, mais reste jouable depuis le menu. */
+export const DRILL_OBJECTIVES = ['Destroy the drills', 'Kill SallyBot'];
 
 export const GROUND_FLOOR = 'rm_world2';
 export const UPPER_FLOOR = 'rm_world2_1';
@@ -30,8 +40,11 @@ export interface Session {
   room: string;
   /** Jeu de points d'apparition à utiliser en entrant dans la salle. */
   spawnNumber: number;
-  /** Point de sauvegarde activé : Retry y ramène au lieu de recommencer le niveau. */
-  checkpoint: { room: string; x: number; y: number } | null;
+  /**
+   * Point de sauvegarde activé : Retry y ramène au lieu de recommencer le niveau. `objective` : la consigne à
+   * retrouver en y revenant (celui du plateau, posé à la fin de l'ultimatum).
+   */
+  checkpoint: { room: string; x: number; y: number; objective?: number } | null;
   /**
    * Portes déjà franchies quand la partie commence ailleurs qu'au début (GD-037) : par salle, numéros des
    * portes à bouton et couleurs des portes à carte à trouver ouvertes.
@@ -54,7 +67,6 @@ export function createSessionAt(heroNames: string | string[], room: string): Ses
     session.preOpened[GROUND_FLOOR] = { buttons: [1], cards: ['green'] };
   } else if (room === DRILL_AREA) {
     session.carried.add('green').add('purple');
-    session.objective = 3;
     session.checkpoint = { room, x: 0, y: 0 };
   }
   return session;

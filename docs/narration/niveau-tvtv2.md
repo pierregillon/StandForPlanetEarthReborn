@@ -189,7 +189,7 @@ Les points 3, 4 et 5 sont appliqués tels quels dans la première livraison (GD-
 
 ## 10. Script de la fin de mission
 
-> **Statut : proposition à valider par l'utilisateur** (2026-11-17). Le scénario est le sien (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé.
+> **Statut** (2026-11-17) : le scénario est celui de l'utilisateur (section 2 bis, GD-083) : message diffusé depuis la place du présentateur, 40 à 50 policiers par le sud, repli par le nord. Tout le reste ci-dessous — textes, déclencheurs, durées, composition de la vague — est proposé. **Les temps A à C sont livrés (livraison C1, GD-085)**, tels qu'écrits ici, à confirmer après essai ; les temps D à G restent à faire.
 
 Ce que la fin doit faire comprendre, d'après l'arc narratif (acte II) : les robots ont parlé à toute la population ; ils ont laissé une dernière chance ; la réponse des humains est la force ; les robots s'échappent, et ils sont désormais une menace majeure. Elle ne dit toujours rien du virus ni de SFHB.
 
@@ -303,7 +303,7 @@ Trois livraisons jouables, à essayer l'une après l'autre.
 
 | Livraison | Contenu | Ce que l'on peut jouer à la fin |
 |---|---|---|
-| **C1. Jusqu'au message** | Consignes 2, 4, 5 et 6 ; effets du bouton de la régie ; marque derrière le pupitre et compte à rebours ; cinématique de l'ultimatum (répliques 1 à 8) ; radio en jeu ; point de sauvegarde sur le plateau | Du largage jusqu'à la fin de l'ultimatum |
+| **C1. Jusqu'au message** — **livrée le 2026-11-17 (GD-085)** | Consignes 2, 4, 5 et 6 ; effets du bouton de la régie ; marque derrière le pupitre et compte à rebours ; cinématique de l'ultimatum (répliques 1 à 8) ; radio en jeu ; point de sauvegarde sur le plateau | Du largage jusqu'à la fin de l'ultimatum |
 | **C2. La vague** | Arrivée de la police par les portails 4, trajet vers le plateau, renforts, consignes 7 et 8, les deux répliques du changement de plan ; fourgons de police garés sur le parking sud | Le repli jusqu'au dépose-minute |
 | **C3. La sortie** | Ouverture lente du portail 3, consigne « Hold on », zone de sortie, cinématique de récupération, écran de fin. La zone de forage et SallyBot quittent ce niveau : leur salle reste dans le dépôt pour l'acte I, mais on n'y accède plus d'ici | Le niveau entier |
 

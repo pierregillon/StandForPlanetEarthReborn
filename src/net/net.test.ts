@@ -6,6 +6,9 @@ import { readFileSync } from 'node:fs';
 import { Lobby } from '../../server/game.ts';
 import type { Peer } from '../../server/game.ts';
 import { NO_INPUT } from '../sim/types.ts';
+import { CONFIG } from '../sim/config.ts';
+import { TV_STUDIO } from '../sim/additions.ts';
+import { OBJ } from '../sim/session.ts';
 import type { Input, LevelData, SpriteManifest } from '../sim/types.ts';
 import type { ClientMessage, LobbyState, RoomStart, ServerMessage } from './messages.ts';
 import { Mirror } from './mirror.ts';
@@ -255,6 +258,92 @@ test('changement de salle et Retry : le serveur ouvre la salle, les clients reb�
   assert.equal(server.currentWorld?.level.name, 'rm_world2');
   assert.equal(b.mirror.world.level.name, 'rm_world2');
   assert.equal(b.mirror.world.heroes[1].state !== 'dead', true);
+});
+
+test('l\'ultimatum en réseau : les miroirs le suivent, l\'hôte le mène, Retry ramène sur le plateau (GD-085)', () => {
+  const { server, clients: [a, b] } = setup(2);
+  a.say({ t: 'create' });
+  b.say({ t: 'join' });
+  a.say({ t: 'pick', hero: 'PetBot' });
+  b.say({ t: 'pick', hero: 'BatBot' });
+  a.say({ t: 'start' });
+  const world = server.currentWorld;
+  assert.ok(world && a.mirror && b.mirror);
+  world.npcs = [];
+  const step = (ia: Input = NO_INPUT, ib: Input = NO_INPUT): void => {
+    a.play(ia);
+    b.play(ib);
+    server.tick();
+  };
+  // on passe l'introduction, puis on place la partie au moment d'entrer en régie
+  for (let i = 0; i < 80; i++) step({ ...NO_INPUT, dash: true });
+  for (let i = 0; i < 700 && world.heroes.some((h) => h.arrivalSteps > 0 || h.deploySteps > 0); i++) step();
+  world.session.objective = OBJ.controlRoom;
+  const button = world.buttons.find((k) => k.doorId === CONFIG.broadcast.controlRoomButton);
+  assert.ok(button);
+  world.heroes[1].x = button.x + Math.cos(button.angle) * 50;
+  world.heroes[1].y = button.y + Math.sin(button.angle) * 50;
+  for (let i = 0; i < 8; i++) step();
+  a.mirror.world.drainEvents();
+  step(NO_INPUT, { ...NO_INPUT, usePressed: true, use: true });
+  for (let i = 0; i < 8; i++) step();
+  const radio = a.mirror.world.drainEvents().find((e) => e.type === 'radio');
+  assert.ok(radio && radio.type === 'radio' && radio.speaker === 'BatBot', 'la réplique radio arrive chez l\'autre joueur');
+  assert.equal(a.mirror.world.session.objective, OBJ.studio);
+
+  // les deux robots sur la marque : le compte à rebours, puis l'ultimatum, chez tout le monde
+  world.heroes.forEach((h, i) => {
+    h.x = TV_STUDIO.mark.x + 20;
+    h.y = TV_STUDIO.mark.y - 40 + i * 80;
+  });
+  for (let i = 0; i < 20; i++) step();
+  assert.ok(world.markCountdown > 0);
+  assert.ok(b.mirror.world.markCountdown > 0, 'le miroir affiche le compte à rebours');
+  for (let i = 0; i < CONFIG.broadcast.countdownSteps + 70; i++) step();
+  assert.ok(world.cast >= 0);
+  assert.ok(a.mirror.world.cast >= 0 && b.mirror.world.cast >= 0, 'les miroirs sont dans la séquence');
+  assert.equal(b.mirror.world.castReader, world.castReader);
+  assert.equal(world.heroes[world.castReader].def.name, 'BatBot');
+  assert.equal(world.introLine, 0);
+  // mon robot ne bouge pas pendant la séquence, même prédit
+  const x = b.mirror.world.heroes[1].x;
+  for (let i = 0; i < 10; i++) step(NO_INPUT, { ...NO_INPUT, moveX: -1 });
+  assert.equal(b.mirror.world.heroes[1].x, x);
+  // seul l'hôte fait défiler
+  step(NO_INPUT, { ...NO_INPUT, dashPressed: true, dash: true });
+  for (let i = 0; i < 8; i++) step();
+  assert.equal(world.introLine, 0);
+  step({ ...NO_INPUT, dashPressed: true, dash: true });
+  step();
+  step({ ...NO_INPUT, dashPressed: true, dash: true });
+  for (let i = 0; i < 8; i++) step();
+  assert.equal(world.introLine, 1);
+  assert.equal(b.mirror.world.introLine, 1);
+  // il passe le reste en tenant la touche
+  for (let i = 0; i < 80 && world.cast >= 0; i++) step({ ...NO_INPUT, dash: true });
+  for (let i = 0; i < 8; i++) step();
+  assert.equal(world.cast, -1);
+  assert.equal(b.mirror.world.cast, -1);
+  assert.equal(b.mirror.world.session.objective, OBJ.dropPoint);
+
+  // toute l'équipe tombe : Retry reprend sur le plateau, après le message
+  for (const h of world.heroes) world.damageHero(h, 99, true);
+  for (let i = 0; i < 200; i++) step();
+  assert.equal(a.over && b.over, true);
+  a.say({ t: 'retry' });
+  for (let i = 0; i < 12; i++) step();
+  const again = server.currentWorld;
+  assert.ok(again && again !== world);
+  assert.equal(again.level.name, 'rm_world2');
+  assert.equal(again.objective, 'Get back to the drop point');
+  const r = TV_STUDIO.room;
+  for (const [i, h] of again.heroes.entries()) {
+    assert.ok(h.x > r.x0 && h.x < r.x1 && h.y > r.y0 && h.y < r.y1, 'l\'équipe reprend sur le plateau');
+    assert.equal(h.arrivalSteps, 0, 'sans largage');
+    const seen = b.mirror.world.heroes[i];
+    assert.ok(Math.abs(seen.x - h.x) < 1 && Math.abs(seen.y - h.y) < 1, 'les miroirs la voient au même endroit');
+  }
+  assert.equal(b.mirror.world.session.objective, OBJ.dropPoint);
 });
 
 test('la téléportation de développement est refusée par défaut', () => {

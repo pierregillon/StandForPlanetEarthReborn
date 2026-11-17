@@ -540,6 +540,22 @@ export const CONFIG = {
    * Arrivée par le véhicule de largage au début du niveau (GD-035), en steps : il entre par la gauche,
    * descend, lâche le robot, remonte et repart par la droite ; le robot se déploie ensuite.
    */
+  /** L'ultimatum, lu depuis la place du présentateur (GD-085). Ses répliques suivent les règles de `arrival`. */
+  broadcast: {
+    /** Numéro du bouton de la régie : il ouvre les deux portes de l'aile est. */
+    controlRoomButton: 2,
+    /** Marque derrière le pupitre : la moitié de l'équipe doit s'y tenir, à moins de `markRadius`, pendant `countdownSteps`. */
+    markRadius: 150,
+    countdownSteps: s(3),
+    /** Ouverture sur le plateau, coupes entre deux plans, neige de l'antenne coupée, réouverture des bandes. */
+    inSteps: s(1),
+    cutSteps: s(0.35),
+    staticSteps: s(0.9),
+    outSteps: s(0.5),
+    /** Radio en jeu : temps d'affichage d'une réplique une fois écrite, en secondes (affichage seulement). */
+    radioSeconds: 3.5,
+  },
+
   arrival: {
     /**
      * Le journal télévisé qui ouvre l'introduction complète (GD-080) : l'image s'ouvre sur le plateau

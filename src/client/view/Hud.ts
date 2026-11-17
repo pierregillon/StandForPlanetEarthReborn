@@ -177,7 +177,7 @@ export class Hud {
     const now = this.scene.time.now;
     // pendant l'introduction, l'interface s'efface : la consigne n'apparaît qu'une fois les robots au sol,
     // comme le prévoyait obj_consigne_world2
-    const intro = h.arrivalSteps > 0 || this.hidden;
+    const intro = h.arrivalSteps > 0 || this.hidden || world.cast >= 0;
     this.intro = intro;
 
     if (this.bar) this.bar.setTexture(frameKey('spr_healthBar', Math.max(0, Math.min(12, h.energy)))).setVisible(!intro);
@@ -246,7 +246,8 @@ export class Hud {
     }
     this.hint.setText(hint).setColor(hintColor);
     const leavingIn = Math.max(world.exitCountdown, world.zoneCountdown);
-    this.countdown.setText(leavingIn > 0 ? `Leaving area :\n${Math.ceil(leavingIn / 60)}` : '');
+    if (world.markCountdown > 0) this.countdown.setText(`ON AIR IN\n${Math.ceil(world.markCountdown / 60)}`);
+    else this.countdown.setText(leavingIn > 0 ? `Leaving area :\n${Math.ceil(leavingIn / 60)}` : '');
 
   }
 }

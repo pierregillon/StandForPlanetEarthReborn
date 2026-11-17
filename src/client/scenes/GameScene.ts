@@ -17,6 +17,7 @@ import type { Hero, Input, LevelData, SpriteManifest } from '../../sim/types.ts'
 import type { World } from '../../sim/world.ts';
 import { isFreshStart, openRoom, retrySession, startTeam } from '../../sim/match.ts';
 import { arrivalPhases, clawOf, introShot } from '../../sim/intro.ts';
+import { castShot } from '../../sim/broadcast.ts';
 import { TV_STUDIO } from '../../sim/additions.ts';
 import { IntroOverlay } from '../view/IntroOverlay.ts';
 import { createSession } from '../../sim/session.ts';
@@ -266,6 +267,11 @@ export class GameScene extends Phaser.Scene {
   /** Point visé par la caméra : le robot, décalé d'un tiers vers le curseur (GD-029). */
   private cameraGoal(): { x: number; y: number } {
     const h = this.world.hero;
+    if (this.world.cast >= 0) {
+      // l'ultimatum : le plateau, le hall et ses écrans, puis le pupitre (GD-085)
+      const shot = castShot(this.world.cast);
+      return shot === 'hall' ? TV_STUDIO.shots.hall : shot === 'desk' || shot === 'static' ? TV_STUDIO.shots.desk : TV_STUDIO.shots.studio;
+    }
     if (h.state === 'dead') return { x: h.x, y: h.y };
     if (h.arrivalSteps > 0) {
       // pendant le largage, le cadre reste centré sur le véhicule
@@ -293,6 +299,7 @@ export class GameScene extends Phaser.Scene {
   /** La caméra montre-t-elle un plan du journal de l'introduction, loin des robots ? */
   private inNewsShot(): boolean {
     const h = this.world.hero;
+    if (this.world.cast >= 0) return true;
     return h.arrivalSteps > 0 && introShot(arrivalPhases(h.arrivalTotal), h.arrivalTotal - h.arrivalSteps).kind !== 'vehicle';
   }
 
@@ -312,6 +319,7 @@ export class GameScene extends Phaser.Scene {
     this.closePanel();
     if (!this.mirror) {
       this.world.skipArrival();
+      this.world.skipCast();
       for (let i = 0; i < CONFIG.hero.maxDeploySteps + 4 && (this.world.hero.arrivalSteps > 0 || this.world.hero.deploySteps > 0); i++) this.world.step(this.idleInput());
     }
     // sans éclairage au départ : on vient voir les salles et leurs textures, et la pénombre est ce qui
@@ -517,6 +525,12 @@ export class GameScene extends Phaser.Scene {
         this.synth.vehicleStop();
         this.cameras.main.fadeIn(260, 0, 0, 0);
       }
+      else if (e.type === 'castStart') this.synth.newsJingle(true);
+      else if (e.type === 'sirens') this.synth.sirens(14);
+      else if (e.type === 'castEnd') {
+        if (e.skipped) this.cameras.main.fadeIn(260, 0, 0, 0);
+        this.hud.notify('Checkpoint saved');
+      } else if (e.type === 'radio') this.intro.say(e.speaker, e.text);
       else if (e.type === 'buttonPressed') this.synth.buttonPress();
       else if (e.type === 'checkpoint') {
         this.synth.checkpoint();
@@ -589,16 +603,8 @@ export class GameScene extends Phaser.Scene {
       this.conn.send({ t: 'retry' });
       return;
     }
-    const cp = this.session.checkpoint;
-    if (cp) {
-      // GD-031 : point de sauvegarde activé, on y reprend ; sa salle est remise à neuf, le reste est gardé
-      this.session.rooms.get(cp.room)?.forget();
-      this.session.room = cp.room;
-      this.session.objective = Math.min(this.session.objective, 3);
-      this.scene.restart();
-      return;
-    }
-    // GD-029 : sinon on repart du début du niveau, sans carte, avec le même héros
+    // GD-031 : point de sauvegarde activé, on y reprend ; sa salle est remise à neuf, le reste est gardé.
+    // GD-029 : sinon on repart du début du niveau, sans carte, avec le même héros.
     this.registry.set('session', retrySession(this.session));
     this.scene.restart();
   }

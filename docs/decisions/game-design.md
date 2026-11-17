@@ -15,7 +15,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-007 | La mort du héros est activée ; Retry relance la salle | 2026-11-15 | Acceptée |
 | GD-008 | Ennemis, civils et IA : ceux du code | 2026-11-15 | Acceptée |
 | GD-009 | Premier niveau : le monde 2 complet, avec le boss | 2026-11-15 | Acceptée |
-| GD-010 | Le niveau suit 6 consignes et se termine à la mort de SallyBot | 2026-11-15 | Acceptée |
+| GD-010 | Le niveau suit 6 consignes et se termine à la mort de SallyBot | 2026-11-15 | Acceptée ; modifiée par GD-085 (les consignes 4 à 6 sont remplacées) |
 | GD-011 | Brouillard de guerre et lumières simples, sans ombres portées | 2026-11-15 | Acceptée pour le brouillard ; pour les lumières, remplacée par GD-038 (ombres portées et couleurs) |
 | GD-012 | Textes en anglais ; clavier-souris en ZQSD et WASD ; manette plus tard | 2026-11-15 | Acceptée |
 | GD-013 | Équilibrage : valeurs du code, ajustées pour un joueur seul | 2026-11-15 | Acceptée |
@@ -90,6 +90,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-082 | Plateau : des projecteurs qui éclairent vraiment, et aucun garde au départ | 2026-11-17 | Acceptée — à ajuster après essai ; corrige deux points de GD-081 |
 | GD-083 | L'aile est se réorganise autour du trajet des invités ; la police arrivera par le sud | 2026-11-17 | Acceptée — aménagement réalisé, scénario de fin à réaliser |
 | GD-084 | Aile est, retouches : toilettes, local technique à deux portes, places de parking | 2026-11-17 | Acceptée ; modifie GD-083 |
+| GD-085 | Fin de TvTv², première partie : la régie, le plateau, l'ultimatum | 2026-11-17 | Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) |
 
 ---
 
@@ -240,7 +241,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 ## GD-010 — Le niveau suit 6 consignes et se termine à la mort de SallyBot
 
 - **Date** : 2026-11-15
-- **Statut** : Acceptée
+- **Statut** : Acceptée ; modifiée par GD-085 (les consignes 4 à 6 sont remplacées)
 - **Décidée par** : l'utilisateur (sur recommandation)
 
 **Contexte.** Le code déclare des consignes pour le monde 2 mais n'affiche que la première, sans aucune logique d'objectifs. Aujourd'hui le niveau se termine en restant 10 secondes sur une zone invisible du rez-de-chaussée, quels que soient les ennemis restants.
@@ -1875,3 +1876,31 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Pourquoi.** Demandes de l'utilisateur : des toilettes là où l'on attend, des places où l'on peut vraiment se garer, et une entrée large pour la troupe qui viendra du sud.
 
 **Conséquences.** `src/sim/additions.ts` (`WC`, `SIDE.low`, `TV_STUDIO.toilets`, `TV_STUDIO.techRoom`). Le brouillard des toilettes se lève avec le salon d'attente, celui du local technique avec le salon de sortie. Tests dans `src/sim/intro.test.ts`.
+
+---
+
+## GD-085 — Fin de TvTv², première partie : la régie, le plateau, l'ultimatum
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur)
+- **Décidée par** : l'utilisateur pour le scénario (GD-083) et pour le feu vert (« Oui, code C1 », après lecture du script) ; les textes, les déclencheurs et les réglages sont des propositions du script, appliquées telles quelles et à confirmer après essai
+
+**Contexte.** Le niveau enchaînait encore les consignes d'origine : après la carte violette, il envoyait vers la zone de forage et SallyBot. Le script de la fin de mission (`docs/narration/niveau-tvtv2.md`, section 10) découpe le travail en trois livraisons ; celle-ci est la première, jusqu'à la fin de l'ultimatum.
+
+**Décision.**
+
+- **Sept consignes** : « Go to the upper floor », « Find the studio pass » (la carte violette, renommée), « Go back to ground floor », « Take the control room », « Reach the studio », « Broadcast the message », « Get back to the drop point ». Les suivantes viendront avec les livraisons C2 et C3.
+- **La régie** : appuyer sur son bouton (le n° 2 du niveau d'origine, qui ouvre les deux portes de l'aile est) termine « Take the control room ». L'enseigne « ON AIR » s'éteint, les écrans de la chaîne passent à la neige, et le robot qui a appuyé le dit à la radio : « Control room secured. The way to the studio is open. »
+- **La marque** : derrière le pupitre, à la place du présentateur. Quand la moitié de l'équipe, vivante, s'y tient, un compte à rebours de 3 secondes s'affiche (« ON AIR IN 3 ») ; quitter la marque l'annule. C'est la règle des passages entre salles.
+- **L'ultimatum** : une cinématique aux règles de l'introduction (GD-079 : Espace pour la réplique suivante, Espace tenu pour tout passer, l'hôte seul). Sept phrases en direct dans le cadre du journal, où « TvTv² NEWS » devient « STAND FOR PLANET EARTH », avec le portrait du robot ; trois plans (le plateau, le hall d'accueil et ses écrans, le pupitre) ; puis l'antenne est coupée, et la voix du véhicule donne le rendez-vous au point de largage.
+- **Qui parle** : le robot qui se tient sur la marque (s'ils sont plusieurs, le premier de la liste BadaBot, BatBot, PetBot, EngiBot). **Le texte est le même quel que soit le robot** : l'unité parle d'une seule voix. La voix du véhicule est celle du premier robot resté à bord (EngiBot, PetBot, BatBot, BadaBot) ; si les quatre sont joués, c'est BadaBot.
+- **Pendant la séquence, tout le niveau est figé** : personne ne bouge ni ne tire, les balles en vol disparaissent.
+- **Radio en jeu** : une réplique courte dans une boîte de dialogue réduite, en bas de l'écran, qui s'écrit puis s'efface seule, sans arrêter la partie.
+- **Point de sauvegarde** : posé à la fin de l'ultimatum, lu ou passé. Après un échec, « Retry » ramène l'équipe sur le plateau, remise en état, avec la consigne « Get back to the drop point » ; le message ne se rejoue pas. Comme pour celui de la zone de forage (GD-031), la salle est remise à neuf : les ennemis du rez-de-chaussée sont de retour, les portes déjà franchies sont ouvertes, et le personnel de la chaîne n'est plus sur le plateau.
+- **La zone de forage** n'est plus reliée à ce niveau : l'ancienne zone de sortie, dehors au nord, ne fait plus rien. Sa salle reste jouable depuis le choix du départ, au menu, avec ses deux consignes (« Destroy the drills », « Kill SallyBot ») et son boss ; elle servira à l'acte I.
+
+**Pourquoi.** La mission de l'acte II est de prendre la chaîne et de parler à toute la population (arc narratif) ; les foreuses appartiennent à l'acte I. Le même texte pour tous les robots sert le thème de l'arc : des machines qui récitent la cause pour laquelle on les a programmées. Figer le niveau évite qu'un garde arrive pendant qu'on lit.
+
+**Limites connues.** Après « Get back to the drop point », rien ne se passe encore : la vague de police (C2) et la sortie par le portail nord (C3) ne sont pas faites, et le niveau n'a donc plus de fin pour l'instant. Les sirènes s'entendent une quinzaine de secondes puis s'éteignent.
+
+**Conséquences.** `src/sim/broadcast.ts` (texte, plans, qui parle), `src/sim/session.ts` (`OBJECTIVES`, `OBJ`, `DRILL_OBJECTIVES`, consigne retenue par le point de sauvegarde), `src/sim/world.ts` (`takeControlRoom`, `stepMark`, `stepCast`, `endCast` ; état `cast`, `castReader`, `markCountdown`, transmis par `src/net/snapshot.ts`), réglages dans `CONFIG.broadcast`, `TV_STUDIO.mark` et `TV_STUDIO.regroup` dans `src/sim/additions.ts`. Affichage : `IntroOverlay.ts` (séquence et radio en jeu), `WorldView.ts` (`syncStudio` : enseigne et marque ; écrans), `GameScene.ts` (plans de caméra), `sfx.ts` (indicatif déformé, sirènes). Tests : `src/sim/broadcast.test.ts` et un test réseau dans `src/net/net.test.ts`.

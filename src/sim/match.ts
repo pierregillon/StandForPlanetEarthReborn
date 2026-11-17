@@ -47,6 +47,6 @@ export function retrySession(session: Session): Session {
   }
   session.rooms.get(cp.room)?.forget();
   session.room = cp.room;
-  session.objective = Math.min(session.objective, 3);
+  if (cp.objective !== undefined) session.objective = cp.objective;
   return session;
 }

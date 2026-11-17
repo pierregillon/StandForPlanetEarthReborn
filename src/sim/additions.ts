@@ -124,7 +124,11 @@ export const TV_STUDIO = {
    * Plans de la cinématique d'introduction (GD-080), centre de l'image : la régie et le plateau à cheval sur
    * la baie vitrée, puis le comptoir du hall d'accueil et ses écrans.
    */
-  shots: { studio: { x: 8700, y: MID }, hall: { x: 4660, y: 5380 } },
+  shots: { studio: { x: 8700, y: MID }, hall: { x: 4660, y: 5380 }, desk: { x: 9240, y: MID } },
+  /** Marque de l'ultimatum (GD-085) : la place du présentateur, derrière le pupitre. */
+  mark: { x: 9470, y: MID },
+  /** Point de sauvegarde posé à la fin de l'ultimatum : l'équipe y reprend, devant l'estrade. */
+  regroup: { x: 8960, y: MID - 60 },
   /** Salon d'attente et maquillage au nord, salon de sortie et vestiaire au sud. */
   lounges: { north: { x0: 8256, x1: 9568, y0: 1408, y1: 3040 }, south: { x0: 8256, x1: 9568, y0: 4896, y1: 6272 } },
   /** Toilettes au nord, au-dessus du maquillage ; local technique au sud, du plateau au mur extérieur. */

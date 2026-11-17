@@ -141,11 +141,28 @@ export class Synth {
   }
 
   /** Le journal de TvTv² prend l'antenne : un indicatif de quatre notes et son accord. */
-  newsJingle(): void {
+  newsJingle(warped = false): void {
+    // `warped` : le même indicatif une octave plus bas, lent et rauque, quand les robots prennent l'antenne
+    const k = warped ? 0.5 : 1;
+    const slow = warped ? 1.6 : 1;
     const notes = [523, 659, 784, 1047];
-    notes.forEach((f, i) => this.tone('triangle', f, f, 0.16, 0.1, i * 0.11));
-    for (const f of [523, 784, 1047]) this.tone('sine', f, f, 0.9, 0.06, 0.46);
-    this.tone('square', 131, 131, 0.5, 0.04, 0.46);
+    notes.forEach((f, i) => this.tone(warped ? 'sawtooth' : 'triangle', f * k, f * k * (warped ? 0.97 : 1), 0.16 * slow, warped ? 0.07 : 0.1, i * 0.11 * slow));
+    for (const f of [523, 784, 1047]) this.tone('sine', f * k, f * k, 0.9 * slow, 0.06, 0.46 * slow);
+    this.tone('square', 131 * k, 131 * k, 0.5 * slow, 0.04, 0.46 * slow);
+  }
+
+  /** Sirènes de police au loin : deux notes qui alternent, de plus en plus fort, pendant `seconds`. */
+  sirens(seconds: number): void {
+    const beat = 0.42;
+    const count = Math.floor(seconds / beat);
+    for (let i = 0; i < count; i++) {
+      const f = i % 2 === 0 ? 640 : 860;
+      // elles approchent, puis s'éteignent sur le dernier quart
+      const k = i / count;
+      const volume = 0.012 + 0.05 * (k < 0.75 ? k / 0.75 : (1 - k) / 0.25);
+      this.hum('sawtooth', f, f * 1.03, beat, volume, i * beat, 0.05, 0.08);
+      this.hum('sine', f * 0.5, f * 0.5, beat, volume * 0.6, i * beat, 0.05, 0.08);
+    }
   }
 
   /** L'image saute : un grésillement de parasites. */

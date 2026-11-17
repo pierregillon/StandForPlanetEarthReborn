@@ -565,6 +565,14 @@ export type SimEvent =
   | { type: 'checkpoint'; x: number; y: number }
   | { type: 'deploy'; sound: string; hero: number }
   | { type: 'vehicleArrives'; seconds: number }
+  /** L'ultimatum commence (GD-085). */
+  | { type: 'castStart' }
+  /** L'ultimatum est fini, ou l'hôte l'a passé (`skipped`). */
+  | { type: 'castEnd'; skipped: boolean }
+  /** Les sirènes de la police montent. */
+  | { type: 'sirens' }
+  /** Radio en jeu : une réplique courte, qui n'arrête pas la partie. */
+  | { type: 'radio'; speaker: string; text: string }
   /** Le véhicule redécolle ; `seconds` : le temps qu'il met à sortir de l'écran. */
   | { type: 'vehicleLeaves'; seconds: number }
   /** L'introduction complète commence : le journal de TvTv² est à l'antenne. */

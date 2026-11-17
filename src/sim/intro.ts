@@ -63,6 +63,10 @@ export interface IntroLine {
   release?: boolean;
   /** Les rotors du véhicule se font entendre quand cette réplique est écrite : c'est eux qui la coupent. */
   rumble?: boolean;
+  /** Dite en direct sur TvTv² : elle s'affiche dans le cadre du journal, avec le portrait de celui qui parle. */
+  live?: boolean;
+  /** Les sirènes de la police se font entendre quand cette réplique est écrite. */
+  siren?: boolean;
 }
 
 /** Nom du présentateur du journal dans les répliques. */
@@ -94,7 +98,7 @@ const RADIO: [string, string][] = [
 ];
 
 /** Le robot qui reste à bord et passe la main : le premier de cette liste parmi ceux qui ne sont pas joués. */
-const STAY_ORDER = ['EngiBot', 'PetBot', 'BatBot', 'BadaBot'];
+export const STAY_ORDER = ['EngiBot', 'PetBot', 'BatBot', 'BadaBot'];
 const STAY: Record<string, string> = {
   EngiBot: 'This one is yours. We keep the engines warm.',
   PetBot: 'We stay on standby. Come back in one piece.',
@@ -103,7 +107,7 @@ const STAY: Record<string, string> = {
 };
 
 /** Le robot qui descend et répond : le premier de cette liste parmi ceux qui sont joués. */
-const GO_ORDER = ['BadaBot', 'BatBot', 'PetBot', 'EngiBot'];
+export const GO_ORDER = ['BadaBot', 'BatBot', 'PetBot', 'EngiBot'];
 /** Sa réponse selon qu'ils descendent à un, à deux (`{Mate}` = son coéquipier) ou à trois. */
 const GO: Record<string, [string, string, string]> = {
   BadaBot: ['One is enough.', '{Mate} and I. That will do.', 'Three of us. More than enough.'],
