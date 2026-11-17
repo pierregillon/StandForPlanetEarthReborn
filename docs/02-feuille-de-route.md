@@ -192,3 +192,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Tirs : flamme réduite d'un quart ; traînée en étoile filante, aiguille pleine et nette, sans halo (GD-065). |
 | 2026-11-17 | Tirs : la traînée reste vive sur 1 000 px au lieu de 450, grise à 2 000 px au lieu de 1 150 (GD-065). |
 | 2026-11-17 | Tirs : la flamme naît au bout du canon mesuré sur chaque sprite et suit le tireur tant qu'elle brûle (GD-065). |
+| 2026-11-17 | Tirs : traînée en pleine couleur sur 800 px au lieu de 1 000 ; jaune des héros éclairci vers le blanc (GD-065). |

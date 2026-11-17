@@ -103,10 +103,10 @@ const TRACER_STYLE = {
   width: 7.5,
   fade: 0.14,
   /**
-   * Lumière d'un tir : cœur et halo de la flamme, et jaune franc de la traînée (`trail`). Un peu plus orangée
-   * pour les ennemis, pour savoir qui tire.
+   * Lumière d'un tir : cœur et halo de la flamme, et couleur de la traînée (`trail`) : un jaune clair, qui tire
+   * sur le blanc, pour les héros ; orangée pour les ennemis, pour savoir qui tire.
    */
-  hero: { core: 0xfff3a0, glow: 0xffc21a, trail: 0xffe01f },
+  hero: { core: 0xfff3a0, glow: 0xffc21a, trail: 0xffec78 },
   enemy: { core: 0xffd9a0, glow: 0xff7a1f, trail: 0xff8f24 },
   /**
    * Forme de la traînée, une aiguille pleine aux bords francs : `tail`, sa largeur à la queue (part de sa
@@ -117,7 +117,7 @@ const TRACER_STYLE = {
   /** Gris d'une balle refroidie. */
   cold: 0x8f949c,
   /** La balle reste chaude sur `hotUntil` pixels de vol, puis refroidit jusqu'à `coldAt`. */
-  hotUntil: 1000,
+  hotUntil: 800,
   coldAt: 2000,
   /**
    * Déflagration à la bouche du canon : une flamme de lumière vers l'avant, longue comme deux fois l'arme,
