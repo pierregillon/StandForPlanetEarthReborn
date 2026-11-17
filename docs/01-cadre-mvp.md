@@ -1,6 +1,6 @@
 # Cadre du MVP
 
-Dernière mise à jour : 2026-11-16.
+Dernière mise à jour : 2026-11-17.
 
 Ce document décrit **ce que l'on construit** pour la première version jouable. Le **pourquoi** de chaque choix est dans les journaux de décisions ([game design](decisions/game-design.md), [architecture](decisions/architecture.md)) ; les identifiants entre crochets (`GD-005`, `ADR-002`) y renvoient.
 
@@ -13,6 +13,8 @@ Refaire en **jeu web** (jouable dans un navigateur) le jeu GameMaker « Stand Fo
 1. **Les décisions de ce dépôt** (ce document et les journaux de décisions).
 2. **Le code GameMaker Studio 2 de janvier 2019** (commit `d438c548` du dépôt d'origine) : c'est la référence fonctionnelle `[GD-001]`. Il est décrit en détail dans [reference/jeu-original/](reference/jeu-original/).
 3. **Les documents de conception d'époque** (GDD, scénario, cahier des charges graphique), dans [reference/documents-origine/](reference/documents-origine/). Ils décrivent une vision plus large que le code ; on y puise pour combler un manque, pas pour contredire le code.
+
+**Pour l'histoire** (actes, missions, personnages, ordre et thème des niveaux, dialogues), la référence est [narration/arc-narratif.md](narration/arc-narratif.md), écrit par l'utilisateur `[GD-076]`. Il remplace le scénario d'époque. Il ne change rien aux mécaniques ni au périmètre du MVP décrits ici.
 
 Comment accéder au code et aux assets d'origine : voir [reference/README.md](reference/README.md).
 

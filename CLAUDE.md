@@ -2,6 +2,12 @@
 
 Ce dépôt est le remake web du jeu GameMaker « Stand For Planet Earth ». Les sessions de travail ne partagent pas de mémoire : **la documentation de `docs/` est la mémoire du projet.**
 
+## Index du dépôt
+
+`AGENTS.md`, à la racine, dit où se trouve quoi et quoi lire selon le travail. Il est chargé avec ce fichier par la ligne d'import ci-dessous :
+
+@AGENTS.md
+
 ## Avant de travailler
 
 Lire, dans cet ordre :
@@ -10,6 +16,8 @@ Lire, dans cet ordre :
 2. `docs/01-cadre-mvp.md` — le périmètre, les écarts voulus avec le jeu d'origine, les points ouverts.
 3. `docs/decisions/game-design.md` et `docs/decisions/architecture.md` — les décisions prises et leurs raisons.
 4. `docs/reference/README.md` — comment lire le code d'origine, et les pièges à éviter.
+
+**Pour tout travail de game design narratif** (scénario, dialogues, cinématiques, consignes de mission, ordre et thème des niveaux, personnages, cohérence de l'univers et du vocabulaire) : lire d'abord, en entier, `docs/narration/arc-narratif.md`. C'est la référence narrative écrite par l'utilisateur (GD-076) ; on ne la modifie qu'à sa demande. Un travail purement technique (code, sprites, équilibrage) n'en a pas besoin.
 
 ## Règles de travail
 

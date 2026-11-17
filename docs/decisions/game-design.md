@@ -1590,3 +1590,23 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Décision.** Un soldat déjà alerté qui retrouve une cible perdue de vue depuis au moins un quart de seconde attend 0,35 s avant de pouvoir tirer. Pendant ce temps il se tourne vers elle, la met en joue et se déplace normalement ; seul le tir est retenu. Le ShotBot, plus vif, garde son propre temps de réaction, 0,2 s. Cela vaut dans les deux sens : l'ennemi qui entre dans la salle du joueur comme le joueur qui débouche devant un ennemi qui l'attendait. Une cible cachée moins d'un quart de seconde (elle passe derrière un pilier) ne déclenche pas ce temps.
 
 **Conséquences.** `reacquireSteps` et `reacquireAfterSteps` dans `src/sim/config.ts`, `stepSoldier` dans `npc.ts`, un test dans `enemies.test.ts`. Se mettre à couvert devient plus payant : chaque fois qu'on rompt la ligne de vue assez longtemps, on gagne ce tiers de seconde. Le robot bouclier, qui frappe au contact, est concerné comme les autres.
+
+## GD-076 — L'arc narratif de référence est le document « reborn » de l'utilisateur
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (il remet le document, le déclare « très important » et demande qu'il serve de référence, chargé à chaque travail de game design : scénario, dialogues, organisation des niveaux, cohérence sémantique — mais pas pour le travail technique)
+
+**Contexte.** Jusqu'ici l'histoire du jeu n'était connue que par le scénario d'époque (`docs/reference/documents-origine/scenario.pdf`) et par les consignes du monde 2 trouvées dans le code (GD-010). L'utilisateur a retravaillé l'histoire dans un document nommé « stand-for-planet-earth reborn » : concept narratif, six actes SFPE, quatre actes SFHB, dénouement à deux choix, alternance des époques, personnages (le chimiste, le scientifique, PLUTO), thématique centrale et liste de questions en suspens.
+
+**Décision.**
+
+- Le document est versé dans le dépôt, mot pour mot, dans `docs/narration/arc-narratif.md`. Seule la mise en forme Markdown est ajoutée.
+- Il fait référence pour tout ce qui touche à l'histoire : actes et missions, personnages, ordre et thème des niveaux, dialogues, cinématiques, consignes, vocabulaire de l'univers. Il remplace le scénario d'époque, gardé comme trace historique.
+- Il doit être lu en entier avant tout travail de game design narratif. Un travail purement technique (code, sprites, équilibrage) n'en a pas besoin.
+- C'est le document de l'utilisateur : on ne le modifie qu'à sa demande. Une question en suspens (sa section 7) se tranche avec lui ; la réponse est reportée dans le document et tracée ici.
+- Il ne change ni les mécaniques ni le périmètre du jeu déjà construit : pour le gameplay, les sources de vérité restent celles du cadre du MVP (les décisions de ce dépôt, puis le code de 2019).
+
+**Conséquences.** `AGENTS.md`, créé à la racine, indexe le dépôt et dit quoi lire selon le travail ; `CLAUDE.md` l'importe et rappelle la règle de lecture. Le cadre du MVP (§2), `docs/reference/README.md` et `README.md` renvoient au document.
+
+**Points ouverts.** Les questions de la section 7 du document. Le rattachement des niveaux existants à l'arc reste à faire avec l'utilisateur : le niveau jouable aujourd'hui (monde 2 : traverser le bâtiment, détruire les foreuses, battre SallyBot) ressemble à la mission de l'acte I de SFPE, « détruire des foreuses » — c'est un rapprochement fait par Claude, pas une décision.

@@ -61,7 +61,7 @@ Spécifications extraites du commit de référence le 2026-11-15, avec les valeu
 | Fichier | Contenu |
 |---|---|
 | [game-design-document.pdf](documents-origine/game-design-document.pdf) | Gameplay, link, bonus, IA, synopsis, personnages, commandes |
-| [scenario.pdf](documents-origine/scenario.pdf) | Histoire : SFPE, puis SFHB ; premières missions |
+| [scenario.pdf](documents-origine/scenario.pdf) | Histoire : SFPE, puis SFHB ; premières missions. **Remplacé** le 2026-11-17 par [l'arc narratif de l'utilisateur](../narration/arc-narratif.md) (GD-076) ; gardé comme trace historique |
 | [cahier-des-charges-graphismes.pdf](documents-origine/cahier-des-charges-graphismes.pdf) | Personnages, animations attendues, ennemis, décors |
 
 Ils décrivent une vision plus large et parfois différente du code (7 héros, fusion d'ennemis, bornes d'arcade…). Ils servent à combler un manque, pas à contredire le code (voir GD-001). Pour en extraire le texte : `pdftotext -enc UTF-8 -layout <fichier.pdf> <sortie.txt>` (l'outil de lecture de PDF intégré ne fonctionne pas sur cette machine).
