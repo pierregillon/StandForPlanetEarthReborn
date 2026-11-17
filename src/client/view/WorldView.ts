@@ -93,18 +93,29 @@ const BULLET_STYLE = {
 };
 
 /**
- * Prototype (GD-064) : les balles sont des traits de lumière, comme des étoiles filantes. Blanc au cœur, jaune
- * vif pour les héros, orangé pour les ennemis, pour qu'on sache toujours qui tire.
+ * Prototype (GD-064) : les balles sont des projectiles entourés de lumière, comme des étoiles filantes. À la
+ * sortie du canon elles ont la lumière de la déflagration (blanc au cœur, jaune autour) ; en refroidissant,
+ * leur traînée vire au gris et l'on ne voit plus que la balle.
  */
 const TRACER_STYLE = {
-  /** Longueur de la traînée en plein vol, et secondes pendant lesquelles elle s'efface après l'impact. */
-  length: 420,
-  fade: 0.11,
-  hero: { core: 0xfff27a, glow: 0xffc400, width: 5 },
-  enemy: { core: 0xffc27a, glow: 0xff5a1f, width: 5 },
-  /** Éclair à la bouche du canon : durée en secondes et longueur de la flamme. */
-  flash: 0.07,
-  flame: 64,
+  /** Longueur et largeur de la traînée en plein vol ; secondes pendant lesquelles elle s'efface après l'impact. */
+  length: 900,
+  width: 7.5,
+  fade: 0.14,
+  /** Lumière d'une balle chaude : cœur et halo. Un peu plus orangée pour les ennemis, pour savoir qui tire. */
+  hero: { core: 0xfff3a0, glow: 0xffc21a },
+  enemy: { core: 0xffd9a0, glow: 0xff7a1f },
+  /** Gris d'une balle refroidie. */
+  cold: 0x8f949c,
+  /** La balle reste chaude sur `hotUntil` pixels de vol, puis refroidit jusqu'à `coldAt`. */
+  hotUntil: 450,
+  coldAt: 1150,
+  /**
+   * Déflagration à la bouche du canon : une flamme de lumière vers l'avant, longue comme deux fois l'arme,
+   * tenue `hold` secondes à pleine force puis éteinte selon une exponentielle de constante `decay`. Elle
+   * éclaire la pièce autour d'elle dans un rayon `light`.
+   */
+  blast: { length: 190, width: 46, hold: 0.03, decay: 0.075, light: 340, lightAlpha: 0.6 },
 };
 
 /** Trait de lumière d'une balle en vol : début de sa ligne droite en cours (départ ou dernier ricochet) et dernier tracé. */
@@ -117,6 +128,8 @@ interface Streak {
   headX: number;
   headY: number;
   speed: number;
+  /** Chaleur de la balle, de 1 (sortie du canon) à 0 (refroidie). */
+  heat: number;
   enemy: boolean;
   done: boolean;
 }
@@ -127,17 +140,19 @@ interface Afterglow {
   y0: number;
   x1: number;
   y1: number;
+  heat: number;
   enemy: boolean;
   life: number;
 }
 
-/** Éclair à la bouche d'un canon. */
+/** Déflagration à la bouche d'un canon : son âge en secondes, et la lueur qu'elle jette sur la pièce. */
 interface MuzzleFlash {
   x: number;
   y: number;
   angle: number;
   enemy: boolean;
-  life: number;
+  age: number;
+  light: Img;
 }
 
 type Img = Phaser.GameObjects.Image;
@@ -345,6 +360,8 @@ export class WorldView {
   private hasLamps = false;
   private cable!: Phaser.GameObjects.Graphics;
   private tracers!: Phaser.GameObjects.Graphics;
+  /** Lumières des tirs (prototype GD-064) : flammes des canons et halo des balles chaudes, en lumière ajoutée. */
+  private shotLights!: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene, world: World, floors: FloorManifest) {
     this.scene = scene;
@@ -452,6 +469,7 @@ export class WorldView {
     this.npcFx = scene.add.graphics().setDepth(DEPTH.bullet + 2);
     this.cable = scene.add.graphics().setDepth(DEPTH.laser);
     this.tracers = scene.add.graphics().setDepth(DEPTH.bullet + 1);
+    this.shotLights = scene.add.graphics().setDepth(DEPTH.bullet + 2).setBlendMode(Phaser.BlendModes.ADD);
     this.drillBars = scene.add.graphics().setDepth(DEPTH.worldText);
     // brouillard de guerre : un calque de la taille de l'écran, que la lumière peut percer (GD-041)
     this.fogLayer = scene.add.renderTexture(0, 0, VIEW.width, VIEW.height).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.fog);
@@ -1043,6 +1061,7 @@ export class WorldView {
     const alive = new Set<number>();
     const g = this.tracers;
     g.clear();
+    this.shotLights.clear();
     const dt = Math.min(0.05, this.scene.game.loop.delta / 1000);
     for (const b of this.world.bullets) {
       alive.add(b.id);
@@ -1085,44 +1104,61 @@ export class WorldView {
       const a = this.afterglows[i];
       a.life -= dt / TRACER_STYLE.fade;
       if (a.life <= 0) this.afterglows.splice(i, 1);
-      else this.drawStreak(a.x0, a.y0, a.x1, a.y1, a.enemy, a.life * a.life, false);
+      else this.drawStreak(a.x0, a.y0, a.x1, a.y1, a.enemy, a.life * a.life, false, a.heat);
     }
+    const blast = TRACER_STYLE.blast;
     for (let i = this.flashes.length - 1; i >= 0; i--) {
       const f = this.flashes[i];
-      f.life -= dt / TRACER_STYLE.flash;
-      if (f.life <= 0) this.flashes.splice(i, 1);
-      else this.drawMuzzleFlash(f);
+      f.age += dt;
+      // pleine force un instant, puis extinction exponentielle : vive au début, de plus en plus lente
+      const k = f.age < blast.hold ? 1 : Math.exp(-(f.age - blast.hold) / blast.decay);
+      if (k < 0.03) {
+        f.light.destroy();
+        this.flashes.splice(i, 1);
+      } else {
+        this.drawMuzzleFlash(f, k);
+      }
     }
   }
 
   /**
-   * Prototype (GD-064) : la balle est un trait de lumière. Sa traînée part de la balle et remonte sa ligne
-   * droite, sans jamais dépasser son point de départ ni son dernier ricochet : après un rebond, l'ancien trait
-   * s'efface sur place et un nouveau repart du mur.
+   * Prototype (GD-064) : la balle est un projectile entouré de lumière. Sa traînée part de la balle et remonte
+   * sa ligne droite, sans jamais dépasser son point de départ ni son dernier ricochet : après un rebond,
+   * l'ancien trait s'efface sur place et un nouveau repart du mur. En refroidissant, la traînée vire au gris et
+   * la balle elle-même apparaît.
    */
   private syncStreak(b: Bullet): void {
     let streak = this.streaks.get(b.id);
+    const enemy = b.owner === 'enemy';
     if (!streak) {
-      streak = { fromX: b.startX, fromY: b.startY, angle: b.angle, tailX: b.startX, tailY: b.startY, headX: b.x, headY: b.y, speed: b.speed, enemy: b.owner === 'enemy', done: false };
+      streak = { fromX: b.startX, fromY: b.startY, angle: b.angle, tailX: b.startX, tailY: b.startY, headX: b.x, headY: b.y, speed: b.speed, heat: 1, enemy, done: false };
       this.streaks.set(b.id, streak);
-      // une balle qui vient de partir : éclair à la bouche du canon (pas pour celles qu'on découvre déjà en vol)
-      if (b.steps <= 8) this.addMuzzleFlash(b.startX, b.startY, b.angle, streak.enemy);
+      // une balle qui vient de partir : déflagration à la bouche du canon (pas pour celles qu'on découvre déjà en vol)
+      if (b.steps <= 8) this.addMuzzleFlash(b.startX, b.startY, b.angle, enemy);
     }
-    if (streak.done) return;
-    if (b.spent) {
+    let img = this.bulletImgs.get(b.id);
+    if (!img) {
+      img = this.image(b.def.sprite, 0, b.x, b.y, DEPTH.bullet).setScale(b.def.scale ?? (enemy ? BULLET_STYLE.enemyScale : BULLET_STYLE.heroScale));
+      this.bulletImgs.set(b.id, img);
+    }
+    if (streak.done || b.spent) {
       // côté client d'une partie réseau : elle a atteint un mur et attend que le serveur la retire
-      this.endStreak(streak);
+      img.setVisible(false);
+      if (!streak.done) this.endStreak(streak);
       streak.done = true;
       return;
     }
     if (Math.abs(angleDiff(streak.angle, b.angle)) > 0.02) {
       // ricochet (ou balle renvoyée) : l'ancien trait va jusqu'au point de rebond et s'efface
-      this.afterglows.push({ x0: streak.tailX, y0: streak.tailY, x1: b.x, y1: b.y, enemy: streak.enemy, life: 1 });
+      this.afterglows.push({ x0: streak.tailX, y0: streak.tailY, x1: b.x, y1: b.y, heat: streak.heat, enemy: streak.enemy, life: 1 });
       streak.fromX = b.x;
       streak.fromY = b.y;
       streak.angle = b.angle;
-      streak.enemy = b.owner === 'enemy';
+      streak.enemy = enemy;
     }
+    // la chaleur baisse avec le chemin parcouru : la balle sort du canon chauffée à blanc, puis s'éteint
+    const flown = b.steps * b.def.speed;
+    streak.heat = Math.max(0, Math.min(1, 1 - (flown - TRACER_STYLE.hotUntil) / (TRACER_STYLE.coldAt - TRACER_STYLE.hotUntil)));
     // une balle ralentie traîne un trait plus court (GD-062)
     const len = Math.min(TRACER_STYLE.length * Math.min(1, b.speed / b.def.speed), Math.hypot(b.x - streak.fromX, b.y - streak.fromY));
     streak.headX = b.x;
@@ -1130,7 +1166,10 @@ export class WorldView {
     streak.tailX = b.x - Math.cos(b.angle) * len;
     streak.tailY = b.y - Math.sin(b.angle) * len;
     streak.speed = b.speed;
-    this.drawStreak(streak.tailX, streak.tailY, b.x, b.y, streak.enemy, 1, true);
+    this.drawStreak(streak.tailX, streak.tailY, b.x, b.y, streak.enemy, 1, true, streak.heat);
+    // refroidie, on voit la balle elle-même
+    img.setVisible(streak.heat < 0.98).setAlpha(1 - streak.heat).setPosition(b.x, b.y).setRotation(b.angle);
+    if (b.def.kind === 'bounce') this.setFrame(img, b.def.sprite, (b.steps / 7) % this.info(b.def.sprite).frames);
   }
 
   /** La balle vient de disparaître : son trait est prolongé jusqu'au mur qu'elle a touché, puis laissé à s'effacer. */
@@ -1141,52 +1180,86 @@ export class WorldView {
     // entre deux images, elle a encore avancé : jusqu'au premier obstacle, d'un step au plus
     const hit = this.world.collision.raycast(streak.headX, streak.headY, streak.headX + c * streak.speed, streak.headY + s * streak.speed, BLOCK_BULLET);
     const reach = streak.speed * (hit ? hit.t : 0.5);
-    this.afterglows.push({ x0: streak.tailX, y0: streak.tailY, x1: streak.headX + c * reach, y1: streak.headY + s * reach, enemy: streak.enemy, life: 1 });
+    this.afterglows.push({ x0: streak.tailX, y0: streak.tailY, x1: streak.headX + c * reach, y1: streak.headY + s * reach, heat: streak.heat, enemy: streak.enemy, life: 1 });
   }
 
-  /** Un trait de lumière, de sa queue à sa tête : il s'élargit, s'éclaircit et blanchit vers l'avant. */
-  private drawStreak(x0: number, y0: number, x1: number, y1: number, enemy: boolean, alpha: number, head: boolean): void {
+  /**
+   * La traînée d'une balle, de sa queue à sa tête : elle s'élargit et s'éclaircit vers l'avant. Chaude
+   * (`heat` à 1) elle a la lumière de la déflagration, blanche en tête et jaune derrière, avec un halo ; en
+   * refroidissant elle s'amincit, pâlit et vire au gris.
+   */
+  private drawStreak(x0: number, y0: number, x1: number, y1: number, enemy: boolean, alpha: number, head: boolean, heat: number): void {
     const g = this.tracers;
-    const style = enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
+    const hot = enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
+    const body = mixColor(TRACER_STYLE.cold, hot.glow, heat);
+    const core = mixColor(TRACER_STYLE.cold, hot.core, heat);
+    const tip = mixColor(0xc4c8ce, 0xffffff, heat);
+    const width = TRACER_STYLE.width * (0.4 + 0.6 * heat);
+    const strength = alpha * (0.5 + 0.5 * heat);
     const at = (t: number): { x: number; y: number } => ({ x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t });
-    // halo sur la moitié avant
-    const mid = at(0.45);
-    g.lineStyle(style.width * 3, style.glow, 0.2 * alpha).lineBetween(mid.x, mid.y, x1, y1);
-    const pieces = 6;
+    const pieces = 8;
     for (let k = 0; k < pieces; k++) {
       const a = at(k / pieces);
       const b = at((k + 1) / pieces);
       const q = (k + 1) / pieces;
-      g.lineStyle(1.2 + (style.width - 1.2) * q, k >= pieces - 2 ? 0xffffff : k >= pieces - 4 ? style.core : style.glow, (0.12 + 0.88 * q * q) * alpha);
+      g.lineStyle(1.2 + (width - 1.2) * q, k >= pieces - 2 ? tip : k >= pieces - 5 ? core : body, (0.08 + 0.92 * q * q) * strength);
       g.lineBetween(a.x, a.y, b.x, b.y);
     }
-    if (head) {
-      g.fillStyle(style.core, 0.5 * alpha).fillCircle(x1, y1, style.width * 1.6);
-      g.fillStyle(0xffffff, alpha).fillCircle(x1, y1, style.width * 0.8);
+    if (heat > 0.02) {
+      // la lumière que la balle chaude jette autour d'elle, plus forte vers la tête
+      const light = this.shotLights;
+      const mid = at(0.5);
+      light.lineStyle(width * 3.4, hot.glow, 0.16 * alpha * heat).lineBetween(mid.x, mid.y, x1, y1);
+      if (head) {
+        light.fillStyle(hot.glow, 0.2 * alpha * heat).fillCircle(x1, y1, 30);
+        light.fillStyle(hot.core, 0.35 * alpha * heat).fillCircle(x1, y1, 14);
+      }
     }
+    if (head) g.fillStyle(tip, alpha).fillCircle(x1, y1, width * 0.7);
   }
 
-  /** Éclair à la bouche du canon. Une salve de plusieurs plombs (ShotBot) n'en fait qu'un. */
+  /** Déflagration à la bouche du canon. Une salve de plusieurs plombs (ShotBot) n'en fait qu'une. */
   private addMuzzleFlash(x: number, y: number, angle: number, enemy: boolean): void {
-    if (this.flashes.some((f) => f.life > 0.6 && Math.abs(f.x - x) < 6 && Math.abs(f.y - y) < 6)) return;
-    this.flashes.push({ x, y, angle, enemy, life: 1 });
+    if (this.flashes.some((f) => f.age < 0.03 && Math.abs(f.x - x) < 6 && Math.abs(f.y - y) < 6)) return;
+    const blast = TRACER_STYLE.blast;
+    this.ensureHalo();
+    // la lueur est posée au-dessus de l'ombre de la salle : elle éclaire aussi un lieu sombre
+    const light = this.scene.add.image(x + Math.cos(angle) * blast.length * 0.35, y + Math.sin(angle) * blast.length * 0.35, 'lightHalo')
+      .setBlendMode(Phaser.BlendModes.ADD).setTint((enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero).glow)
+      .setScale((blast.light * 2) / 256).setDepth(DEPTH.darkness + 1);
+    this.flashes.push({ x, y, angle, enemy, age: 0, light });
   }
 
-  /** L'éclair : une lueur ronde, une flamme pointue dans l'axe du tir, deux éclats de côté. Il dure 4 images. */
-  private drawMuzzleFlash(f: MuzzleFlash): void {
-    const g = this.tracers;
-    const style = f.enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
+  /**
+   * La déflagration à la force `k` (1 à l'instant du tir, puis vers 0) : une flamme de lumière en goutte,
+   * tournée vers l'avant, blanche en son centre et jaune autour, et la lueur qu'elle jette sur la pièce. Le
+   * blanc s'éteint le premier : en mourant, la flamme jaunit puis rougeoie.
+   */
+  private drawMuzzleFlash(f: MuzzleFlash, k: number): void {
+    const g = this.shotLights;
+    const blast = TRACER_STYLE.blast;
+    const hot = f.enemy ? TRACER_STYLE.enemy : TRACER_STYLE.hero;
     const c = Math.cos(f.angle);
     const s = Math.sin(f.angle);
-    const k = f.life;
-    const point = (along: number, across: number): Phaser.Geom.Point => new Phaser.Geom.Point(f.x + c * along - s * across, f.y + s * along + c * across);
-    g.fillStyle(style.glow, 0.28 * k).fillCircle(f.x, f.y, 46);
-    g.fillStyle(style.core, 0.5 * k).fillCircle(f.x, f.y, 22);
-    const flame = TRACER_STYLE.flame * (0.6 + 0.4 * k);
-    g.fillStyle(style.core, 0.85 * k).fillPoints([point(-6, -11), point(flame, 0), point(-6, 11)], true);
-    g.fillStyle(0xffffff, 0.95 * k).fillPoints([point(-4, -5), point(flame * 0.7, 0), point(-4, 5)], true);
-    for (const side of [-1, 1]) g.fillStyle(style.core, 0.7 * k).fillPoints([point(0, side * 4), point(14, side * 30 * k), point(10, side * 4)], true);
-    g.fillStyle(0xffffff, k).fillCircle(f.x, f.y, 9);
+    f.light.setAlpha(blast.lightAlpha * k);
+    /** Goutte allongée : pointue aux deux bouts, la plus large au premier tiers. */
+    const drop = (length: number, width: number): Phaser.Geom.Point[] => {
+      const side: { along: number; across: number }[] = [];
+      const steps = 9;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        side.push({ along: -10 + length * t, across: width * Math.sin(Math.PI * Math.pow(t, 0.55)) });
+      }
+      const points = [...side.map((p) => ({ along: p.along, across: p.across })), ...side.reverse().map((p) => ({ along: p.along, across: -p.across }))];
+      return points.map((p) => new Phaser.Geom.Point(f.x + c * p.along - s * p.across, f.y + s * p.along + c * p.across));
+    };
+    // elle frémit d'une image à l'autre
+    const reach = blast.length * (0.7 + 0.3 * k) * (0.94 + Math.random() * 0.12);
+    g.fillStyle(hot.glow, 0.4 * k).fillPoints(drop(reach, blast.width * 1.25), true);
+    g.fillStyle(hot.core, 0.7 * k).fillPoints(drop(reach * 0.82, blast.width * 0.8), true);
+    g.fillStyle(0xffffff, Math.min(1, 1.3 * k * k)).fillPoints(drop(reach * 0.55, blast.width * 0.42), true);
+    g.fillStyle(hot.core, 0.5 * k).fillCircle(f.x, f.y, 30);
+    g.fillStyle(0xffffff, Math.min(1, k * k)).fillCircle(f.x, f.y, 14);
   }
 
   /** Sprite et image du corps du héros selon son état. */

@@ -1393,3 +1393,22 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 **Pour revenir en arrière.** Un seul réglage : `TRACERS.enabled` à `false` dans `src/sim/config.ts` rend les balles d'avant, vitesse et dessin compris. Le facteur de vitesse est `TRACERS.speedFactor`.
 
 **Conséquences.** Simulation : `TRACERS` et `BULLET_SPEED` dans `config.ts`. Affichage : `syncStreak`, `drawStreak`, `drawMuzzleFlash` dans `WorldView.ts`. Vu dans la page en solo : traits des héros et des ennemis, éclairs, ricochets raccourcis. Pas essayé en réseau, où une balle ne vit plus que quelques instantanés.
+
+## GD-065 — Prototype des traits de lumière : déflagration qui éclaire, balles qui refroidissent
+
+- **Date** : 2026-11-17
+- **Statut** : À l'essai, comme GD-064 qu'elle précise
+- **Décidée par** : l'utilisateur, après un premier essai jugé « très dynamique », avec une capture du jeu « Jackal » comme référence pour la déflagration uniquement ; les valeurs sont des choix par défaut
+
+**Contexte.** Premier essai de GD-064 : l'éclair à la bouche du canon était trop bref et trop petit, et les traînées gardaient la même couleur sur tout leur vol.
+
+**Décision.**
+
+- **Déflagration** : au tir, une flamme de lumière en forme de goutte s'étend vers l'avant sur 190 px, environ deux fois la longueur de l'arme. Elle est blanche en son centre et jaune autour.
+- **Elle éclaire la pièce** : une lueur jaune de 340 px de rayon teinte le décor autour du canon, y compris dans une salle sombre.
+- **Extinction** : pleine force pendant 30 ms, puis extinction exponentielle (constante de 75 ms), vive au début et de plus en plus lente. Le blanc s'éteint le premier, la flamme jaunit puis rougeoie. Le tout dure moins de 0,3 s.
+- **Balles et traînées** : à la sortie du canon elles ont la même lumière que la déflagration, avec un halo autour de la balle. Elles restent chaudes sur 450 px de vol, puis refroidissent : la traînée s'amincit, pâlit et vire au gris, et à 1 150 px on ne voit plus que la balle elle-même (son sprite d'origine).
+- **Traînée plus longue et plus large** : 900 px au plus (420 avant), 7,5 px de large (5 avant).
+- *Par défaut* : la lumière des ennemis reste un peu plus orangée que celle des héros, déflagration comprise, pour qu'on sache qui tire.
+
+**Conséquences.** `TRACER_STYLE` dans `WorldView.ts` regroupe tous ces réglages ; la lueur est une image en lumière ajoutée posée au-dessus de l'ombre de la salle. Affichage seulement : la simulation de GD-064 ne change pas. La lueur n'est pas arrêtée par les murs : elle déborde un peu de l'autre côté d'une cloison proche. Vu dans la page en solo, sur des images figées : la flamme, la lueur sur le sol, son extinction, une balle refroidie au loin.
