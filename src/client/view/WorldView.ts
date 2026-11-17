@@ -166,6 +166,32 @@ const TRACER_STYLE = {
 };
 
 /**
+ * Tir de BadaBot (GD-073). Il ne tire pas des balles mais des boules de plasma, lentes : pas de flamme ni de
+ * trait de lumière, mais une décharge d'énergie violette. À la salve : une floraison de lumière devant son
+ * orbe (`bloom`, en pixels), un anneau de choc qui s'ouvre vers l'avant (`ring`), des arcs électriques qui
+ * fusent en éventail (`arcs`, sur `reach` pixels, dans ±`spread` radians) et une lueur violette jetée sur
+ * le sol (`light`) ; pleine force `hold` secondes, puis extinction de constante `decay`. En vol, chaque
+ * boule traîne un sillage ionisé de `wake` pixels, large de `width` à la boule, parcouru de filaments.
+ */
+const PLASMA_STYLE = {
+  core: 0xf6e6ff, glow: 0xb866ff, deep: 0x7a2cff,
+  wake: 190, width: 15,
+  hold: 0.03, decay: 0.065, bloom: 44, ring: 78, arcs: 6, reach: 150, spread: 0.55, light: 330,
+};
+
+/** Décharge à la salve de BadaBot : elle suit son orbe tant qu'elle brille. */
+interface PlasmaFlash {
+  x: number;
+  y: number;
+  angle: number;
+  gun: Gun | null;
+  age: number;
+  light: Img;
+  /** Arcs électriques : écart à l'axe du tir et longueur. */
+  arcs: { offset: number; length: number }[];
+}
+
+/**
  * Bout du canon de chaque tireur, mesuré sur la première image de son sprite de tir : pixels depuis l'origine
  * du sprite, x vers l'avant, y vers sa droite. La flamme d'un tir naît là. Le point de tir de la simulation
  * (`muzzle`, repris du code de 2019) en est parfois loin : 19 px en arrière pour EngiBot, 7 pour PetBot, 6 pour
@@ -497,6 +523,7 @@ export class WorldView {
   private readonly afterglows: Afterglow[] = [];
   private readonly flashes: MuzzleFlash[] = [];
   private readonly smokes: Smoke[] = [];
+  private readonly plasmaFlashes: PlasmaFlash[] = [];
   private readonly droneImgs = new Map<number, Img>();
   private readonly droneShadowImgs = new Map<number, Img>();
   private readonly explosionImgs = new Map<number, Img>();
@@ -1244,8 +1271,13 @@ export class WorldView {
     const dt = Math.min(0.05, this.scene.game.loop.delta / 1000);
     for (const b of this.world.bullets) {
       alive.add(b.id);
-      // prototype (GD-064) : un trait de lumière, sauf pour la boule de plasma de BadaBot
-      if (TRACERS.enabled && b.def.kind !== 'plasma') {
+      // la boule de plasma de BadaBot a son propre effet (GD-073)
+      if (b.def.kind === 'plasma') {
+        this.syncPlasma(b);
+        continue;
+      }
+      // prototype (GD-064) : un trait de lumière
+      if (TRACERS.enabled) {
         this.syncStreak(b);
         continue;
       }
@@ -1303,6 +1335,138 @@ export class WorldView {
       }
     }
     this.syncSmoke(dt);
+    const P = PLASMA_STYLE;
+    for (let i = this.plasmaFlashes.length - 1; i >= 0; i--) {
+      const f = this.plasmaFlashes[i];
+      f.age += dt;
+      const k = f.age < P.hold ? 1 : Math.exp(-(f.age - P.hold) / P.decay);
+      if (k < 0.03) {
+        f.light.destroy();
+        this.plasmaFlashes.splice(i, 1);
+      } else {
+        this.drawPlasmaFlash(f, k);
+      }
+    }
+  }
+
+  /** Une boule de plasma en vol (GD-073) : son sprite d'origine, un halo violet et un sillage ionisé. */
+  private syncPlasma(b: Bullet): void {
+    const P = PLASMA_STYLE;
+    let img = this.bulletImgs.get(b.id);
+    if (!img) {
+      img = this.image(b.def.sprite, 0, b.x, b.y, DEPTH.bullet).setScale(b.def.scale ?? BULLET_STYLE.heroScale);
+      this.bulletImgs.set(b.id, img);
+      // une boule qui vient de partir : décharge devant l'orbe (une seule par salve)
+      if (b.steps <= 4) this.addPlasmaFlash(b);
+    }
+    img.setPosition(b.x, b.y).setRotation(b.angle);
+    const g = this.shotLights;
+    const c = Math.cos(b.angle);
+    const s = Math.sin(b.angle);
+    const length = Math.min(P.wake, Math.hypot(b.x - b.startX, b.y - b.startY));
+    if (length > 6) {
+      /** Ruban effilé : large à la boule, en pointe derrière elle. */
+      const ribbon = (reach: number, half: number, color: number, alpha: number): void => {
+        g.fillStyle(color, alpha).fillPoints([
+          new Phaser.Geom.Point(b.x - s * half, b.y + c * half),
+          new Phaser.Geom.Point(b.x - c * reach, b.y - s * reach),
+          new Phaser.Geom.Point(b.x + s * half, b.y - c * half),
+        ], true);
+      };
+      ribbon(length, P.width, P.deep, 0.34);
+      ribbon(length * 0.7, P.width * 0.6, P.glow, 0.5);
+      ribbon(length * 0.4, P.width * 0.28, P.core, 0.8);
+      // filaments : deux éclairs qui courent dans le sillage et changent à chaque image
+      for (let k = 0; k < 2; k++) {
+        const points: Phaser.Geom.Point[] = [];
+        const reach = length * (0.55 + Math.random() * 0.35);
+        const pieces = Math.max(2, Math.round(reach / 20));
+        for (let i = 0; i <= pieces; i++) {
+          const t = i / pieces;
+          const side = i === 0 ? 0 : (Math.random() - 0.5) * 2 * P.width * (1 - t * 0.7);
+          points.push(new Phaser.Geom.Point(b.x - c * reach * t - s * side, b.y - s * reach * t + c * side));
+        }
+        g.lineStyle(1.6, P.core, 0.55).strokePoints(points);
+      }
+    }
+    g.fillStyle(P.glow, 0.3).fillCircle(b.x, b.y, 22);
+    g.fillStyle(P.core, 0.35).fillCircle(b.x, b.y, 11);
+  }
+
+  /** Décharge de la salve de BadaBot, devant son orbe. Les trois boules d'une salve n'en font qu'une. */
+  private addPlasmaFlash(b: Bullet): void {
+    const P = PLASMA_STYLE;
+    const id = b.ownerId;
+    const owner = this.world.heroes.find((h) => h.id === id);
+    const gun: Gun | null = owner
+      ? () => {
+        const h = this.world.heroes.find((o) => o.id === id);
+        const p = this.parts.get(id);
+        if (!h || !p || h.gone || h.state === 'dead') return null;
+        return { x: p.orbX + Math.cos(h.angle) * 16, y: p.orbY + Math.sin(h.angle) * 16, angle: h.angle };
+      }
+      : null;
+    const now = gun?.() ?? null;
+    const x = now ? now.x : b.startX;
+    const y = now ? now.y : b.startY;
+    const angle = now ? now.angle : b.angle;
+    if (this.plasmaFlashes.some((f) => f.age < 0.05 && Math.hypot(f.x - x, f.y - y) < 12)) return;
+    const cone = this.muzzleLightTexture();
+    const light = this.scene.add.image(x, y, cone.key).setOrigin(cone.focusX, 0.5).setRotation(angle)
+      .setBlendMode(Phaser.BlendModes.ADD).setTint(P.glow).setScale(P.light / cone.reach).setDepth(DEPTH.darkness + 1);
+    const arcs = Array.from({ length: P.arcs }, () => ({ offset: (Math.random() * 2 - 1) * P.spread, length: P.reach * (0.5 + Math.random() * 0.5) }));
+    this.plasmaFlashes.push({ x, y, angle, gun, age: 0, light, arcs });
+  }
+
+  /**
+   * La décharge à la force `k` (1 à la salve, puis vers 0) : une floraison blanche et violette devant l'orbe,
+   * un anneau de choc qui s'ouvre et s'éloigne, et des arcs électriques qui crépitent, redessinés à chaque image.
+   */
+  private drawPlasmaFlash(f: PlasmaFlash, k: number): void {
+    const g = this.shotLights;
+    const P = PLASMA_STYLE;
+    const gun = f.gun?.();
+    if (gun) {
+      f.x = gun.x;
+      f.y = gun.y;
+      f.angle = gun.angle;
+    }
+    const ax = Math.cos(f.angle);
+    const ay = Math.sin(f.angle);
+    const open = 1 - k;
+    f.light.setAlpha(0.9 * k).setPosition(f.x, f.y).setRotation(f.angle);
+    // la floraison
+    g.fillStyle(P.deep, 0.35 * k).fillCircle(f.x + ax * 10, f.y + ay * 10, P.bloom);
+    g.fillStyle(P.glow, 0.6 * k).fillCircle(f.x + ax * 10, f.y + ay * 10, P.bloom * 0.6);
+    g.fillStyle(0xffffff, k).fillCircle(f.x + ax * 8, f.y + ay * 8, P.bloom * 0.3);
+    // l'anneau de choc : vu de dessus, un ovale en travers du tir, qui s'ouvre en s'éloignant
+    const radius = 18 + (P.ring - 18) * open;
+    const cx = f.x + ax * (14 + 50 * open);
+    const cy = f.y + ay * (14 + 50 * open);
+    const ring: Phaser.Geom.Point[] = [];
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      const lx = Math.cos(a) * radius * 0.3;
+      const ly = Math.sin(a) * radius;
+      ring.push(new Phaser.Geom.Point(cx + ax * lx - ay * ly, cy + ay * lx + ax * ly));
+    }
+    g.lineStyle(8 + 6 * k, P.glow, 0.3 * k).strokePoints(ring, true);
+    g.lineStyle(2 + 4 * k, P.core, 0.85 * k).strokePoints(ring, true);
+    // les arcs électriques
+    for (const arc of f.arcs) {
+      const a = f.angle + arc.offset;
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      const reach = arc.length * (0.55 + 0.45 * open);
+      const points: Phaser.Geom.Point[] = [];
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6;
+        const side = i === 0 ? 0 : (Math.random() - 0.5) * 30 * Math.sin(t * Math.PI * 0.9 + 0.3);
+        points.push(new Phaser.Geom.Point(f.x + c * (12 + reach * t) - s * side, f.y + s * (12 + reach * t) + c * side));
+      }
+      g.lineStyle(6, P.glow, 0.35 * k).strokePoints(points);
+      g.lineStyle(2, P.core, 0.95 * k).strokePoints(points);
+    }
   }
 
   /** La fumée d'un tir : quelques bouffées étalées là où brûlait la flamme, lancées vers l'avant. */
@@ -1790,13 +1954,16 @@ export class WorldView {
     return h.moving ? walkCycle(def.sprites.move) : { sprite: def.sprites.stand, frame: 0 };
   }
 
-  /** Boule de plasma de BadaBot : au repos, en charge, chargée, ou juste tirée. */
+  /**
+   * Boule de plasma de BadaBot : juste tirée, en train de se reformer entre deux salves, ou prête (GD-073).
+   * Sans munitions, elle reste au repos.
+   */
   private syncPlasmaBall(h: Hero, p: HeroParts, bodySprite: string, bodyFrame: number): void {
     if (h.def.kind !== 'BadaBot') return;
     p.orb ??= this.image('spr_plasmaBawl_idle', 0, h.x, h.y, DEPTH.character + 1);
     const ball = p.orb;
     const now = this.scene.time.now / 1000;
-    const full = CONFIG.abilities.badaBot.fullChargeSteps;
+    const period = STEPS_PER_SECOND / h.def.shotsPerSecond;
     // la tête de BadaBot bouge d'une image à l'autre : l'orbe la suit (GD-033)
     const local = orbOffset(bodySprite, bodyFrame);
     const c = Math.cos(h.angle);
@@ -1808,10 +1975,10 @@ export class WorldView {
     const reload = h.reloadTimer > 0 ? 1 - h.reloadTimer / Math.max(1, h.def.reloadSteps) : 1;
     ball.setScale(0.3 + 0.7 * reload).setAlpha(0.45 + 0.55 * reload);
     if (h.reloadTimer > 0) this.setFrame(ball, 'spr_plasmaBawl_loading', reload * this.info('spr_plasmaBawl_loading').frames);
-    else if (h.charge >= full) this.setFrame(ball, 'spr_plasmaBawl_loaded', (now * 10) % this.info('spr_plasmaBawl_loaded').frames);
-    else if (h.charge > 0) this.setFrame(ball, 'spr_plasmaBawl_loading', (h.charge / full) * this.info('spr_plasmaBawl_loading').frames);
     else if (h.sinceShot < 15) this.setFrame(ball, 'spr_plasmaBawl_shot', h.sinceShot / 3);
-    else this.setFrame(ball, 'spr_plasmaBawl_idle', (now * 20) % this.info('spr_plasmaBawl_idle').frames);
+    else if (h.ammo === 0) this.setFrame(ball, 'spr_plasmaBawl_idle', (now * 20) % this.info('spr_plasmaBawl_idle').frames);
+    else if (h.sinceShot < period) this.setFrame(ball, 'spr_plasmaBawl_loading', ((h.sinceShot - 15) / Math.max(1, period - 15)) * this.info('spr_plasmaBawl_loading').frames);
+    else this.setFrame(ball, 'spr_plasmaBawl_loaded', (now * 10) % this.info('spr_plasmaBawl_loaded').frames);
     // l'orbe tourne et grossit autour de son propre centre
     const own = this.info(ball.texture.key.split('/')[0]);
     ball.setOrigin(own.ox / own.w, own.oy / own.h);
@@ -2443,44 +2610,19 @@ export class WorldView {
     return { x: h.x + local.x * c - local.y * s, y: h.y + local.x * s + local.y * c };
   }
 
-  private clipTexture(kind: string): string {
-    const key = `clip:${kind}`;
-    if (this.scene.textures.exists(key)) return key;
-    const g = this.scene.make.graphics({ x: 0, y: 0 }, false);
-    if (kind === 'EngiBot') {
-      // chargeur tambour : disque sombre garni de cartouches
-      g.fillStyle(0x1c1c1c, 1).fillCircle(14, 14, 13);
-      g.lineStyle(2, 0xb04040, 1).strokeCircle(14, 14, 13);
-      for (let k = 0; k < 6; k++) g.fillStyle(0xffd23c, 1).fillCircle(14 + Math.cos(k * 1.047) * 8, 14 + Math.sin(k * 1.047) * 8, 2.5);
-      g.fillStyle(0x666666, 1).fillCircle(14, 14, 3);
-    } else {
-      // fiole : tube vert à embout blanc
-      g.fillStyle(0x1f4d2a, 1).fillRoundedRect(0, 8, 28, 12, 4);
-      g.fillStyle(0x7dff9a, 1).fillRoundedRect(2, 10, 18, 8, 3);
-      g.fillStyle(0xffffff, 1).fillRect(21, 9, 6, 10);
-    }
-    g.generateTexture(key, 28, 28);
-    g.destroy();
-    return key;
-  }
-
-  /** Début du rechargement : la munition usée est éjectée sur le côté et reste au sol ; l'orbe de BadaBot se disperse. */
+  /**
+   * Début du rechargement : l'orbe de BadaBot se disperse. PetBot et EngiBot n'éjectent plus rien : leurs
+   * animations de rechargement se suffisent (GD-071, GD-072).
+   */
   private ejectClip(h: Hero): void {
+    if (h.def.kind !== 'BadaBot') return;
     const scene = this.scene;
     const slot = this.weaponSlot(h);
-    if (h.def.kind === 'BadaBot') {
-      for (let i = 0; i < 12; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const dot = scene.add.circle(slot.x, slot.y, 3 + Math.random() * 4, 0xc060ff).setDepth(DEPTH.fx).setBlendMode(Phaser.BlendModes.ADD);
-        scene.tweens.add({ targets: dot, x: slot.x + Math.cos(a) * 70, y: slot.y + Math.sin(a) * 70, alpha: 0, duration: 300, onComplete: () => dot.destroy() });
-      }
-      return;
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dot = scene.add.circle(slot.x, slot.y, 3 + Math.random() * 4, 0xc060ff).setDepth(DEPTH.fx).setBlendMode(Phaser.BlendModes.ADD);
+      scene.tweens.add({ targets: dot, x: slot.x + Math.cos(a) * 70, y: slot.y + Math.sin(a) * 70, alpha: 0, duration: 300, onComplete: () => dot.destroy() });
     }
-    if (h.def.magazine === 0) return;
-    const img = scene.add.image(slot.x, slot.y, this.clipTexture(h.def.kind)).setDepth(DEPTH.remains).setRotation(h.angle).setTint(0x9a9a9a);
-    const side = h.angle + Math.PI / 2 + (Math.random() - 0.5) * 0.6;
-    this.toss({ img, vx: Math.cos(side) * 320, vy: Math.sin(side) * 320, spin: 9 });
-    this.keepRemains(img);
   }
 
   /**

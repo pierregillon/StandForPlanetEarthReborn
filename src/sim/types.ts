@@ -199,7 +199,6 @@ export interface Hero {
   speedFactor: number;
   // BadaBot
   /** Charge du tir de plasma (0 = pas de charge en cours). */
-  charge: number;
   shieldUp: boolean;
   tanked: number;
   // BatBot

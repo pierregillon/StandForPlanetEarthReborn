@@ -47,7 +47,7 @@ export function stepWeapons(world: World, h: Hero, input: Input): void {
         h.ammo = h.def.magazine;
         world.emit({ type: 'reloadEnd', hero: h.id });
       }
-    } else if (input.reloadPressed && h.ammo < h.def.magazine && h.charge === 0) {
+    } else if (input.reloadPressed && h.ammo < h.def.magazine) {
       h.reloadTimer = h.def.reloadSteps;
       world.emit({ type: 'reloadStart', hero: h.id });
     }
@@ -537,24 +537,21 @@ function returnBat(world: World, b: Bat, h: Hero): void {
 
 // ---------- BadaBot : plasma chargé, bouclier ----------
 
+/**
+ * Tir principal de BadaBot (GD-073) : une salve de trois boules de plasma, tirées ensemble, tant que le clic est
+ * maintenu. Il n'y a plus de charge à tenir : dans le code de 2019, il fallait garder le clic appuyé pour passer
+ * de une à trois boules.
+ */
 function badaBotFire1(world: World, h: Hero, input: Input, busy: boolean): void {
   if (h.state === 'firing1' && h.fireTimer === 0) h.state = 'standing';
-  const ready = h.fireTimer === 0 && !busy && h.reloadTimer === 0;
-  if (input.fire1 && ready && h.ammo > 0) {
-    h.charge = Math.min(A.badaBot.fullChargeSteps, h.charge + 1);
+  if (!input.fire1 || busy || h.reloadTimer > 0 || h.fireTimer > 0) return;
+  if (h.ammo === 0) {
+    emptyClick(world, h);
     return;
   }
-  if (input.fire1 && ready && h.ammo === 0) emptyClick(world, h);
-  if (h.charge === 0) return;
-  if (!input.fire1 && ready) {
-    // relâchement : 1 à 3 boules selon la charge, de moins en moins précises
-    const tier = Math.floor((h.charge - 1) / A.badaBot.chargePerBall);
-    const balls = Math.min(1 + tier, h.ammo); // l'original pouvait descendre sous zéro munition
-    shoot(world, h, balls, h.def.precisionDeg + tier * A.badaBot.precisionPerBallDeg);
-    h.fireTimer = Math.round(STEPS_PER_SECOND / h.def.shotsPerSecond);
-    if (h.state !== 'firing2') h.state = 'firing1';
-  }
-  h.charge = 0;
+  shoot(world, h, Math.min(A.badaBot.salvo, h.ammo), A.badaBot.salvoPrecisionDeg);
+  h.fireTimer = Math.round(STEPS_PER_SECOND / h.def.shotsPerSecond);
+  if (h.state !== 'firing2') h.state = 'firing1';
 }
 
 function badaBotFire2(world: World, h: Hero, input: Input): void {
@@ -596,7 +593,7 @@ export function shieldIntercept(h: Hero, x1: number, y1: number, x2: number, y2:
   return -1;
 }
 
-/** Le bouclier encaisse une balle : toutes les 3 balles, il coûte 1 énergie. */
+/** Le bouclier encaisse une balle : toutes les 5 balles, il coûte 1 énergie (GD-073). */
 export function shieldTank(world: World, h: Hero): void {
   if (++h.tanked >= A.badaBot.bulletsPerEnergy) {
     h.tanked = 0;

@@ -1519,7 +1519,7 @@ BatBot n'a toujours pas de munitions. Les 9 boules de BadaBot font exactement tr
 3. **Détente** : il se relâche d'un coup, dépasse sa longueur de 5 px, blanchit un instant, crache de la vapeur de part et d'autre et un anneau de lumière au bout du canon.
 4. **Retour** : il oscille en s'amortissant et reprend sa place, un peu avant la fin du rechargement.
 
-Le bras droit, qui tient le canon, suit le mouvement en pivotant à l'épaule. Le reste du robot ne bouge pas (GD-048 : un robot ne respire pas). Le tambour dessiné par-dessus est retiré ; le chargeur vide éjecté au début du rechargement est conservé.
+Le bras droit, qui tient le canon, suit le mouvement en pivotant à l'épaule. Le reste du robot ne bouge pas (GD-048 : un robot ne respire pas). Le tambour dessiné par-dessus est retiré. Le chargeur vide éjecté au début du rechargement, d'abord conservé, est retiré lui aussi (demande de l'utilisateur après l'essai de PetBot : « plus simple, mais cohérent » ; pour EngiBot c'est un choix par défaut, par cohérence).
 
 **Plus d'éclair en fin de rechargement, pour aucun robot** (demande de l'utilisateur après essai : « les animations doivent se suffire à elles-mêmes »). Le petit disque lumineux qui apparaissait sur l'arme à la fin du rechargement (blanc, violet pour BadaBot, GD-032) est retiré pour les quatre héros. Le son de fin de rechargement est conservé.
 
@@ -1539,6 +1539,42 @@ Le bras droit, qui tient le canon, suit le mouvement en pivotant à l'épaule. L
 2. **Trois doses** : trois fois de suite, la croix de son dos s'illumine, une goutte verte file le long du tuyau jusqu'à l'arme, et un voyant s'allume en vert, d'arrière en avant. Les doses arrivent à peu près aux tiers du rechargement, comme les trois carrés de munitions affichés près de l'arme.
 3. **Verrouillage** : la culasse claque en avant avec une étincelle, les trois voyants jettent un éclat et reviennent au rouge : l'arme est prête.
 
-Le robot lui-même ne bouge pas (GD-048). La dernière image est sa posture de repos, à l'identique.
+Le robot lui-même ne bouge pas (GD-048). La dernière image est sa posture de repos, à l'identique. La fiole vide qui tombait au sol au début du rechargement est retirée (demande de l'utilisateur).
 
 **Conséquences.** Sprite `spr_PetBot_reload`, fabriqué par `npm run make-sprites` (ADR-015) à partir de sa posture de repos d'origine. Les images de déploiement ne servent plus au rechargement (GD-034 est remplacée sur ce point). Affichage seulement : la durée du rechargement ne change pas.
+
+## GD-073 — BadaBot : salve de trois boules, tir plasma mis en lumière, bouclier plus solide
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (trois boules à chaque tir, un effet de tir à la hauteur des autres robots mais cohérent avec lui, un bouclier qui encaisse 5 balles au lieu de 3) ; la cadence et le détail de l'effet sont des choix par défaut
+
+**Contexte.** BadaBot tirait une boule de plasma par clic et jusqu'à trois en gardant le clic appuyé, de moins en moins précises. Depuis GD-064 les autres robots ont une flamme et des traînées de lumière ; lui, qui tire des boules lentes, n'en profitait pas. Son bouclier coûtait une énergie toutes les trois balles encaissées.
+
+**Décision.**
+
+- **Tir principal** : chaque tir est une salve de trois boules de plasma, tirées ensemble, aussi dispersée que l'ancien tir chargé à fond (±9°). Plus de charge à tenir. *Par défaut* : une salve par seconde en gardant le clic, ce qui correspond au rythme de l'ancien tir chargé (deux tiers de seconde de charge, puis le délai entre deux tirs) ; son chargeur reste de neuf boules, soit trois salves.
+- **L'orbe** montre le rythme : elle se disperse au tir, se reforme pendant la seconde qui suit, puis pulse quand la salve est prête.
+- **Effet de tir** : pas de flamme ni de trait de lumière, mais une décharge d'énergie violette, sa couleur. À la salve : une floraison de lumière devant l'orbe, un anneau de choc qui s'ouvre vers l'avant, des arcs électriques en éventail et une lueur violette jetée sur le sol, le tout éteint en un cinquième de seconde. En vol, chaque boule garde son sprite d'origine et traîne un sillage ionisé de 190 px, effilé, parcouru de filaments qui crépitent.
+- **Bouclier** : il coûte une énergie toutes les cinq balles encaissées, au lieu de trois.
+
+**Conséquences.** `badaBotFire1`, `salvo`, `salvoPrecisionDeg` et `bulletsPerEnergy` dans `src/sim` ; le compteur de charge du héros disparaît. `PLASMA_STYLE`, `syncPlasma` et `drawPlasmaFlash` dans `WorldView.ts`. Écart voulu avec le jeu d'origine. GD-055 (0,4 s entre deux boules) est remplacée par la cadence d'une salve par seconde.
+
+## GD-074 — Le dash passe avant tout et annule l'action en cours
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (le dash est un moyen d'échapper à un tir : il doit être prioritaire sur le tir, le rechargement ou le bouclier, interrompre ce qu'on faisait et l'invalider)
+
+**Contexte.** Comme dans le code de 2019, on ne pouvait dasher qu'en marchant sans rien faire d'autre : en plein tir ou bouclier levé, la touche ne répondait pas.
+
+**Décision.** Le dash part dans tous les cas, dès qu'on se déplace et qu'il reste une charge de dash. Il annule l'action en cours :
+
+- le tir s'arrête ; il reprend après le dash si le clic est toujours tenu ;
+- un rechargement en cours est perdu : les munitions ne sont pas rechargées, il faut recommencer ;
+- le bouclier de BadaBot s'abaisse ;
+- *par défaut*, dans le même esprit : EngiBot renonce à poser sa tourelle (sans dépenser d'énergie) et le coup de batte de BatBot en cours ne porte plus.
+
+Relever un coéquipier et lancer un ulti restent des moments où le robot ne peut pas dasher.
+
+**Conséquences.** `steerHero` et `interruptForDash` dans `src/sim/hero.ts` ; trois tests dans `abilities.test.ts`. Écart voulu avec le jeu d'origine.

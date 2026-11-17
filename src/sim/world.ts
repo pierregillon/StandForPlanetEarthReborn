@@ -559,7 +559,7 @@ export class World {
       deploySteps: 0, deployTotal: 0, arrivalSteps: 0, arrivalTotal: 0,
       invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0, repairTimer: 0, linkedOutlet: -1, overchargeHold: 0, healPool: 0,
       fire2Timer: 0, fire2Was: false, fire2Hold: 0, fire2Anim: -1, speedFactor: 1,
-      charge: 0, shieldUp: false, tanked: 0,
+      shieldUp: false, tanked: 0,
       bats: 2, swingRight: true, swing: 'd', swingSteps: 0, swingHit: new Set(), recallDone: false,
       placingTurret: 0,
     };
@@ -628,7 +628,6 @@ export class World {
       h.charging = false;
       h.linkedOutlet = -1;
       h.shieldUp = false;
-      h.charge = 0;
       h.fire2Anim = -1;
       h.placingTurret = 0;
       h.speedFactor = 1;

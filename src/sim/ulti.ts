@@ -48,7 +48,6 @@ export function stepUlti(world: World, h: Hero, input: Input): boolean {
     h.charging = false;
     h.linkedOutlet = -1;
     h.shieldUp = false;
-    h.charge = 0;
     h.fire2Anim = -1;
     h.placingTurret = 0;
     h.speedFactor = 1;

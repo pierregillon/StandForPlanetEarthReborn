@@ -243,7 +243,7 @@ export const CONFIG = {
       dashCharges: 1, // lourd : il tient sa position derrière son bouclier (GD-056)
       reviveSteps: s(3),
       rotateSpeedDeg: 15,
-      shotsPerSecond: 2.5, // 10 dans le code de 2019 ; 0,4 s entre deux tirs (GD-055)
+      shotsPerSecond: 1, // une salve de trois boules par seconde (GD-073) ; 10 tirs par seconde dans le code de 2019
       precisionDeg: 3,
       muzzle: { x: 28, y: 0 },
       bullet: { sprite: 'spr_BadaBot_bullet', speed: 40, maxDistance: 1500, damage: 0, radius: 8, kind: 'plasma', scale: 0.25 },
@@ -255,7 +255,7 @@ export const CONFIG = {
         legs: 'spr_BadaBot_jambes', dead: 'spr_BadaBot_mort', portrait: 'spr_cadre_BadaBot', select: 'spr_selectionBadaBot',
       },
       sounds: { fire1: ['snd_badaBot_fire1_1', 'snd_badaBot_fire1_2', 'snd_badaBot_fire1_3'], fire2: ['snd_badaBot_fire2_1', 'snd_badaBot_fire2_2', 'snd_badaBot_fire2_3'] },
-      blurb: 'Tank. Hold left click to charge up to 3 plasma balls. Right click: shield.',
+      blurb: 'Tank. Left click: a salvo of 3 plasma balls. Right click: shield.',
     },
   } as Record<string, HeroDef>,
 
@@ -318,16 +318,17 @@ export const CONFIG = {
       hand: { x: 17, y: 50 },
     },
     badaBot: {
-      fullChargeSteps: 60,
-      chargePerBall: 20,
-      precisionPerBallDeg: 3,
+      // GD-073 : chaque tir est une salve de trois boules, aussi dispersée que l'ancien tir chargé à fond
+      // (dans le code de 2019 : 1 à 3 boules selon la durée de l'appui, 20 steps par boule)
+      salvo: 3,
+      salvoPrecisionDeg: 9,
       explosionRadius: 50,
       explosionDamage: 2, // 20 dans le code de 2019 (GD-055)
       /** Zone protégée par le bouclier dans le repère du héros (masque de spr_BadaBot_shield). */
       shieldBox: { x0: 18, y0: -79, x1: 104, y1: 78 },
       shieldRaiseSteps: 12,
       shieldSpeedFactor: 0.75, // 0,5 dans l'original ; la mobilité prime (GD-031)
-      bulletsPerEnergy: 3,
+      bulletsPerEnergy: 5, // 3 dans le code de 2019 : le bouclier encaisse mieux (GD-073)
     },
   },
 

@@ -186,21 +186,21 @@ test('BatBot : même en surcharge, la batte lancée reste une batte simple', () 
   assert.equal(w.explosions.length, 0, 'pas d\'explosion : les paliers ont disparu (GD-043)');
 });
 
-test('BadaBot : tir chargé de 3 boules de plasma', () => {
+test('BadaBot : chaque tir est une salve de 3 boules de plasma (GD-073)', () => {
   const { w, npc, aim } = arena('BadaBot', 'obj_npc_robot_shotBot', 500);
   const h = w.hero;
   npc.fireTimer = 100000;
+  const hp = npc.hp;
   run(w, 5, aim);
-  run(w, 60, { ...aim, fire1: true });
-  assert.equal(h.charge, CONFIG.abilities.badaBot.fullChargeSteps);
-  w.step(aim);
+  // un seul step d'appui suffit : plus de charge à tenir
+  w.step({ ...aim, fire1: true });
   assert.equal(w.bullets.filter((b) => b.owner === 'hero').length, 3);
   assert.equal(h.ammo, h.def.magazine - 3);
   run(w, 40, aim);
-  assert.ok(!w.npcs.includes(npc), 'le ShotBot est tué par les explosions');
+  assert.ok(!w.npcs.includes(npc) || npc.hp < hp, 'les explosions touchent le ShotBot');
 });
 
-test('BadaBot : le bouclier arrête les balles et coûte 1 énergie toutes les 3 balles', () => {
+test('BadaBot : le bouclier arrête les balles et coûte 1 énergie toutes les 5 balles (GD-073)', () => {
   const { w, npc, aim } = arena('BadaBot', 'obj_npc_human_pistol', 5000);
   const h = w.hero;
   const pistol = npc.def;
@@ -213,7 +213,8 @@ test('BadaBot : le bouclier arrête les balles et coûte 1 énergie toutes les 3
     run(w, 15, { ...aim, fire2: true });
   }
   assert.equal(h.hp, h.def.maxHealth, 'aucun dégât derrière le bouclier');
-  assert.equal(h.energy, 1, '6 balles encaissées = 2 énergies');
+  assert.equal(CONFIG.abilities.badaBot.bulletsPerEnergy, 5);
+  assert.equal(h.energy, 2, 'six balles encaissées : une seule énergie dépensée');
   // une balle venue de dos passe
   w.spawnBullet(pistol.bullet, 'enemy', h.x - 400, h.y, 0);
   run(w, 15, { ...aim, fire2: true });
@@ -254,25 +255,64 @@ test('PetBot : ses trois mini-bots partent de leur place et convergent vers les 
   });
 });
 
-test('BadaBot : 2 points par boule, et 0,4 s entre deux tirs meme en cliquant vite (GD-055)', () => {
+test('BadaBot : 2 points par boule, une salve par seconde en gardant le clic (GD-073)', () => {
   const { w, npc, aim } = arena('BadaBot', 'obj_npc_robot_shield', 5000);
   const h = w.hero;
   npc.fireTimer = 100000;
   assert.equal(CONFIG.abilities.badaBot.explosionDamage, 2);
   run(w, 5, aim);
-  // une seconde de clics aussi rapides que possible : un step appuye, un step relache
+  run(w, 60, { ...aim, fire1: true });
+  assert.equal(h.def.magazine - h.ammo, 3, 'une salve dans la première seconde');
+  run(w, 60, { ...aim, fire1: true });
+  assert.equal(h.def.magazine - h.ammo, 6, 'une autre dans la suivante');
+  // cliquer vite ne tire pas plus souvent
   let fired = 0;
   for (let i = 0; i < 60; i++) {
     const before = h.ammo;
     w.step({ ...aim, fire1: i % 2 === 0 });
     fired += before - h.ammo;
   }
-  assert.ok(fired >= 2 && fired <= 3, `2 a 3 boules par seconde en cliquant (${fired})`);
-  // pendant le delai, on ne peut pas commencer a charger
-  run(w, 30, aim);
-  run(w, 2, { ...aim, fire1: true });
-  w.step(aim);
-  assert.equal(h.fireTimer, 24);
-  run(w, 10, { ...aim, fire1: true });
-  assert.equal(h.charge, 0, 'la charge attend la fin du delai');
+  assert.equal(fired, 3, 'une salve par seconde en cliquant');
+});
+
+// ---------- Dash prioritaire (GD-074) ----------
+
+test('dash : lancé en plein tir, il arrête le tir', () => {
+  const { w, aim } = arena('PetBot', 'obj_npc_human_pistol', 5000);
+  const h = w.hero;
+  run(w, 5, aim);
+  run(w, 10, { ...aim, fire1: true, moveY: -1 });
+  assert.equal(h.state, 'firing1');
+  w.step({ ...aim, fire1: true, moveY: -1, dashPressed: true });
+  assert.ok(h.dashing, 'le dash part même en tirant');
+  const ammo = h.ammo;
+  run(w, 3, { ...aim, fire1: true, moveY: -1 });
+  assert.equal(h.ammo, ammo, 'aucune balle pendant le dash');
+});
+
+test('dash : il annule le rechargement, sans rendre les munitions', () => {
+  const { w, aim } = arena('PetBot', 'obj_npc_human_pistol', 5000);
+  const h = w.hero;
+  run(w, 5, aim);
+  run(w, 25, { ...aim, fire1: true });
+  const left = h.ammo;
+  assert.ok(left < h.def.magazine);
+  w.step({ ...aim, reloadPressed: true });
+  run(w, 20, { ...aim, moveY: -1 });
+  assert.ok(h.reloadTimer > 0);
+  w.step({ ...aim, moveY: -1, dashPressed: true });
+  assert.ok(h.dashing);
+  assert.equal(h.reloadTimer, 0, 'le rechargement est abandonné');
+  run(w, 200, aim);
+  assert.equal(h.ammo, left, 'les munitions ne sont pas rechargées');
+});
+
+test('dash : il abaisse le bouclier de BadaBot', () => {
+  const { w, aim } = arena('BadaBot', 'obj_npc_human_pistol', 5000);
+  const h = w.hero;
+  run(w, CONFIG.abilities.badaBot.shieldRaiseSteps + 2, { ...aim, fire2: true, moveY: -1 });
+  assert.ok(h.shieldUp);
+  w.step({ ...aim, fire2: true, moveY: -1, dashPressed: true });
+  assert.ok(h.dashing, 'le dash part bouclier levé');
+  assert.ok(!h.shieldUp, 'et le bouclier tombe');
 });

@@ -120,6 +120,21 @@ function stepRevive(world: World, h: Hero, input: Input): boolean {
 }
 
 /**
+ * Le dash annule ce que le robot faisait (GD-074) : un rechargement en cours est perdu, sans rendre de
+ * munitions ; le tir s'arrête ; le bouclier de BadaBot s'abaisse ; EngiBot renonce à poser sa tourelle ; le
+ * coup de batte de BatBot ne porte plus.
+ */
+function interruptForDash(h: Hero): void {
+  h.reloadTimer = 0;
+  h.state = 'walking';
+  h.fire2Anim = -1;
+  h.shieldUp = false;
+  h.speedFactor = 1;
+  h.placingTurret = 0;
+  h.swingSteps = 0;
+}
+
+/**
  * Dash, visée et déplacement d'un step. Ne dépend que du héros, de son entrée et des collisions : le client
  * d'une partie en réseau l'utilise pour prédire son propre robot sans attendre le serveur (ADR-014).
  */
@@ -129,15 +144,17 @@ export function steerHero(world: World, h: Hero, input: Input): void {
   const boost = 1 + CONFIG.hero.overchargeSpeedBonus * Math.max(0, h.energy - CONFIG.hero.naturalEnergy);
   const walkSpeed = h.def.walkSpeed * h.speedFactor * boost;
 
-  // --- dash : il faut être en train de marcher (pas en train de tirer) ---
+  // --- dash : il passe avant tout (GD-074). On peut le lancer en plein tir, en rechargeant ou bouclier levé ;
+  // il interrompt l'action en cours. Dans le code de 2019, il fallait être en train de marcher, sans tirer.
   const wantsMove = input.moveX !== 0 || input.moveY !== 0;
-  if (input.dashPressed && h.state === 'walking' && wantsMove && h.dashCharges > 0 && !h.dashing && canMove) {
+  if (input.dashPressed && wantsMove && h.dashCharges > 0 && !h.dashing && canMove) {
     const dir = Math.atan2(input.moveY, input.moveX);
     const dashSpeed = h.def.walkSpeed * CONFIG.hero.dashSpeedFactor;
     const aheadX = h.x + Math.cos(dir) * dashSpeed;
     const aheadY = h.y + Math.sin(dir) * dashSpeed;
     if (world.collision.circleFree(aheadX, aheadY, h.def.radius, BLOCK_MOVE)) {
       h.dashing = true;
+      interruptForDash(h);
       h.moveAngle = dir;
       h.targetX = h.x + Math.cos(dir) * CONFIG.hero.dashDistance;
       h.targetY = h.y + Math.sin(dir) * CONFIG.hero.dashDistance;
