@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import type { FloorManifest } from '../assets.ts';
 import { CONFIG, STEPS_PER_SECOND, TRACERS } from '../../sim/config.ts';
-import { BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, angleDiff, localToWorld } from '../../sim/geom.ts';
+import { BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, angleDiff, gmAngleToRad, localToWorld } from '../../sim/geom.ts';
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
@@ -44,6 +44,11 @@ const LIGHTING = {
   colorStrength: 1.4,
   /** Au plus ce nombre de lampes recalculées par image quand des portes bougent. */
   maxBakesPerFrame: 2,
+  /**
+   * Ombres portées sous les projecteurs (GD-082) : un projecteur est placé à cette hauteur ; un personnage
+   * mesure `characterHeight`. L'ombre s'allonge avec la distance, jusqu'à `maxLength`.
+   */
+  shadow: { spotHeight: 330, characterHeight: 105, maxLength: 210, alpha: 0.42 },
 };
 
 /** Source de lumière, avec sa zone éclairée pré-dessinée dans une texture (ombres portées comprises). */
@@ -61,6 +66,25 @@ interface Lamp {
   doors: Door[];
   /** Ouverture de ces portes au dernier calcul : si elle change, la zone éclairée est recalculée. */
   doorState: number;
+  /** Projecteur : il n'éclaire qu'un faisceau, d'axe `angle` et de demi-ouverture `half` (radians). */
+  cone: { angle: number; half: number } | null;
+}
+
+/** Enveloppe convexe d'un nuage de points (chaîne monotone d'Andrew). */
+function convexHull(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  const p = points.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (o: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }): number => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower: { x: number; y: number }[] = [];
+  for (const q of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop();
+    lower.push(q);
+  }
+  const upper: { x: number; y: number }[] = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p[i]) <= 0) upper.pop();
+    upper.push(p[i]);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
 }
 
 const CARD_COLORS: Record<string, number> = { green: 0x35d05a, purple: 0xb04cff };
@@ -540,6 +564,9 @@ export class WorldView {
   /** Lueur de chaque héros, par rang. */
   private readonly heroLamps = new Map<number, Lamp>();
   private lights: Lamp[] = [];
+  /** Meubles qui portent une ombre sous les projecteurs : leurs quatre coins et leur hauteur. */
+  private shadowBoxes: { corners: { x: number; y: number }[]; x: number; y: number; height: number }[] = [];
+  private shadowGfx: Phaser.GameObjects.Graphics | null = null;
   private readonly doorImgs = new Map<number, Img>();
   private readonly windowImgs = new Map<number, Img>();
   private readonly outletImgs = new Map<number, Img>();
@@ -2784,7 +2811,10 @@ export class WorldView {
       const radius = Number(inst.props.radius ?? 256 * Math.abs(inst.scaleX));
       const intensity = Number(inst.props.lightIntensity ?? 0.5);
       const doors = world.doors.filter((d) => Math.hypot(d.x - inst.x, d.y - inst.y) <= radius + d.halfLength);
-      const lamp = this.makeLamp(`lamp:${index}`, inst.x, inst.y, radius, intensity * LIGHTING.strength, LIGHTING.bakeScale, doors);
+      // un projecteur n'éclaire qu'un faisceau (GD-082)
+      const cone = inst.props.coneAngle === undefined ? null
+        : { angle: gmAngleToRad(Number(inst.props.coneAngle)), half: (Number(inst.props.coneHalf ?? 25) * Math.PI) / 180 };
+      const lamp = this.makeLamp(`lamp:${index}`, inst.x, inst.y, radius, intensity * LIGHTING.strength, LIGHTING.bakeScale, doors, cone);
       if (!lamp) return;
       this.lights.push(lamp);
       // lampe colorée (teinte et saturation de l'original, sur 255) : sa couleur s'ajoute au décor, dans la
@@ -2795,6 +2825,18 @@ export class WorldView {
       scene.add.image(lamp.x, lamp.y, lamp.key).setScale(1 / LIGHTING.bakeScale).setBlendMode(Phaser.BlendModes.ADD)
         .setTint(color.color).setAlpha(Math.min(1, intensity * sat * LIGHTING.colorStrength)).setDepth(DEPTH.fog - 1);
     });
+    // meubles qui portent une ombre sous les projecteurs : leur boîte, d'après la boîte englobante du sprite
+    this.shadowBoxes = [];
+    for (const d of world.decor) {
+      if (d.shadow <= 0) continue;
+      const sp = this.info(d.sprite);
+      const [l, t, r, b] = sp.bbox;
+      const corners = [[l, t], [r + 1, t], [r + 1, b + 1], [l, b + 1]].map(([px, py]) => localToWorld(d.x, d.y, d.angle, (px - sp.ox) * d.scaleX, (py - sp.oy) * d.scaleY));
+      this.shadowBoxes.push({ corners, x: d.x, y: d.y, height: d.shadow });
+    }
+    // les ombres sont dessinées au sol, sous le mobilier et les personnages : celui qui porte l'ombre la cache
+    // sous lui, elle ne l'assombrit pas
+    this.shadowGfx = scene.add.graphics().setDepth(DEPTH.remains - 200);
     // chaque robot porte sa lueur : on voit celle des coéquipiers et ce qu'elle éclaire (GD-041)
     for (const h of world.heroes) {
       const lamp = this.makeLamp(`lamp:hero:${h.id}`, h.x, h.y, LIGHTING.heroRadius, LIGHTING.heroStrength, LIGHTING.heroBakeScale, world.doors);
@@ -2802,13 +2844,13 @@ export class WorldView {
     }
   }
 
-  private makeLamp(key: string, x: number, y: number, radius: number, strength: number, scale: number, doors: Door[]): Lamp | null {
+  private makeLamp(key: string, x: number, y: number, radius: number, strength: number, scale: number, doors: Door[], cone: Lamp['cone'] = null): Lamp | null {
     const scene = this.scene;
     const size = Math.ceil(radius * 2 * scale) + 2;
     if (scene.textures.exists(key)) scene.textures.remove(key);
     if (!scene.textures.createCanvas(key, size, size)) return null;
     const stamp = scene.make.image({ key, add: false }).setScale(1 / scale);
-    const lamp: Lamp = { x, y, radius, strength, key, scale, stamp, doors, doorState: -1 };
+    const lamp: Lamp = { x, y, radius, strength, key, scale, stamp, doors, doorState: -1, cone };
     this.bakeLamp(lamp);
     return lamp;
   }
@@ -2840,7 +2882,21 @@ export class WorldView {
     gradient.addColorStop(0, 'rgba(255,255,255,1)');
     gradient.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
+    if (lamp.cone) {
+      // projecteur : seul son faisceau est éclairé ; trois secteurs emboîtés adoucissent ses bords
+      const { angle, half } = lamp.cone;
+      for (const [k, alpha] of [[1, 0.4], [0.82, 0.3], [0.62, 0.3]]) {
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(mid, mid);
+        ctx.arc(mid, mid, lamp.radius * s, angle - half * k, angle + half * k);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillRect(0, 0, size, size);
+    }
     ctx.restore();
     texture.refresh();
     lamp.doorState = this.doorState(lamp.doors);
@@ -2903,6 +2959,55 @@ export class WorldView {
       const o = world.heroes[id];
       if (!o || o.gone || o.arrivalSteps > 0) continue;
       erase(lamp, lamp.strength * (o.charging ? 0.7 + Math.random() * 0.3 : 1) * (o.state === 'dead' ? 0.45 : 1));
+    }
+    this.drawSpotShadows();
+  }
+
+  /**
+   * Ombres portées sous les projecteurs (GD-082) : chaque personnage et chaque meuble marqué, pris dans un
+   * faisceau, jette son ombre à l'opposé du projecteur. Elle s'allonge avec la distance, comme celle d'un
+   * objet éclairé de haut. Plusieurs projecteurs donnent plusieurs ombres.
+   */
+  private drawSpotShadows(): void {
+    const g = this.shadowGfx;
+    if (!g) return;
+    const cam = this.scene.cameras.main;
+    const cfg = LIGHTING.shadow;
+    const world = this.world;
+    g.clear();
+    for (const spot of this.lights) {
+      const cone = spot.cone;
+      if (!cone) continue;
+      const sx = spot.x - cam.scrollX;
+      const sy = spot.y - cam.scrollY;
+      if (sx < -spot.radius || sy < -spot.radius || sx > VIEW.width + spot.radius || sy > VIEW.height + spot.radius) continue;
+      const cast = (outline: { x: number; y: number }[], cx: number, cy: number, height: number): void => {
+        const dx = cx - spot.x;
+        const dy = cy - spot.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 30 || dist > spot.radius || Math.abs(angleDiff(Math.atan2(dy, dx), cone.angle)) > cone.half) return;
+        // triangles semblables : un objet de hauteur h, à la distance d d'une source placée à la hauteur H
+        const length = Math.min(cfg.maxLength, (height * dist) / (cfg.spotHeight - height));
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const spread = 1 + length / 260;
+        const points = outline.concat(outline.map((p) => ({
+          x: cx + (p.x - cx) * spread + ux * length,
+          y: cy + (p.y - cy) * spread + uy * length,
+        })));
+        const hull = convexHull(points).map((p) => new Phaser.Math.Vector2(p.x, p.y));
+        // l'ombre s'efface là où le faisceau faiblit
+        g.fillStyle(0x000000, cfg.alpha * (1 - 0.5 * (dist / spot.radius)));
+        g.fillPoints(hull, true);
+      };
+      const round = (x: number, y: number, r: number): { x: number; y: number }[] =>
+        Array.from({ length: 8 }, (_, i) => ({ x: x + Math.cos((i / 8) * Math.PI * 2) * r, y: y + Math.sin((i / 8) * Math.PI * 2) * r }));
+      for (const npc of world.npcs) cast(round(npc.x, npc.y, npc.def.radius * 0.8), npc.x, npc.y, cfg.characterHeight);
+      for (const h of world.heroes) {
+        if (h.gone || h.state === 'dead' || h.arrivalSteps > 0) continue;
+        cast(round(h.x, h.y, h.def.radius * 0.8), h.x, h.y, cfg.characterHeight);
+      }
+      for (const box of this.shadowBoxes) cast(box.corners, box.x, box.y, box.height);
     }
   }
 

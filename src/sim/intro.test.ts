@@ -81,6 +81,21 @@ test('le plateau de TvTv² est une pièce fermée, avec son sol, ses deux portes
   assert.ok(!w.level.decals.some((d) => d.sprite === 'spr_ventilation'));
   assert.ok(w.level.decals.some((d) => d.sprite === 'spr_tv_riser'));
   assert.ok(!w.level.instances.some((i) => i.object === 'obj_container' && i.x >= r.x0 && i.x < r.x1 && i.y >= r.y0 && i.y < r.y1));
+  // au départ, aucun garde sur le plateau : seulement le présentateur et les deux techniciens des caméras
+  const fresh = new World(ground, sprites, 'PetBot', 2);
+  const inside = fresh.npcs.filter((n) => n.x >= r.x0 && n.x < r.x1 && n.y >= r.y0 && n.y < r.y1);
+  assert.deepEqual(inside.map((n) => n.def.kind), ['civil', 'civil', 'civil']);
+  for (const n of fresh.npcs.filter((o) => o.x > 8256 && o.y > 3000 && o.y < 4700)) assert.ok(fresh.collision.circleFree(n.x, n.y, n.def.radius * 0.5, 1), `personnage dans un obstacle en ${Math.round(n.x)}, ${Math.round(n.y)}`);
+  // quatre projecteurs, chacun avec son faisceau braqué sur le présentateur
+  const beams = w.level.instances.filter((i) => i.object === 'obj_lumiere' && i.props.coneAngle !== undefined);
+  assert.equal(beams.length, 4);
+  for (const beam of beams) {
+    const toAnchor = Math.atan2(TV_STUDIO.anchor.y - beam.y, TV_STUDIO.anchor.x - beam.x);
+    const axis = (-Number(beam.props.coneAngle) * Math.PI) / 180;
+    const off = Math.abs(Math.atan2(Math.sin(toAnchor - axis), Math.cos(toAnchor - axis)));
+    assert.ok(off < 0.1, `le faisceau en ${beam.x}, ${beam.y} vise le présentateur`);
+    assert.ok(Math.hypot(TV_STUDIO.anchor.x - beam.x, TV_STUDIO.anchor.y - beam.y) < Number(beam.props.radius), 'et l\'atteint');
+  }
   for (const sprite of ['spr_tv_desk', 'spr_tv_ledwall', 'spr_tv_spot', 'spr_tv_onair', 'spr_camera']) {
     assert.ok(w.decor.some((d) => d.sprite === sprite), sprite);
     assert.ok(sprites[sprite], `${sprite} est dans le manifeste des sprites`);

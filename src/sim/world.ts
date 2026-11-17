@@ -502,7 +502,7 @@ export class World {
   private addDecor(inst: LevelInstance, sprite: string, frame = 0): void {
     this.decor.push({
       sprite, x: inst.x, y: inst.y, angle: gmAngleToRad(inst.angle), scaleX: inst.scaleX, scaleY: inst.scaleY,
-      tint: inst.tint, alpha: inst.alpha, depth: inst.depth, frame,
+      tint: inst.tint, alpha: inst.alpha, depth: inst.depth, frame, shadow: Number(inst.props.shadow ?? 0),
     });
   }
 

@@ -87,6 +87,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-079 | Dialogues : Espace pour la réplique suivante, Espace tenu pour passer la cinématique | 2026-11-17 | Acceptée ; modifie GD-077 (un appui ne passe plus la séquence) et GD-078 (les répliques n'ont plus de durée fixe) |
 | GD-080 | Introduction, deuxième livraison : le journal de TvTv² et le plateau | 2026-11-17 | Acceptée — à ajuster après essai |
 | GD-081 | Le plateau de TvTv² devient une vraie pièce de studio | 2026-11-17 | Acceptée — à ajuster après essai ; précise et corrige GD-080 |
+| GD-082 | Plateau : des projecteurs qui éclairent vraiment, et aucun garde au départ | 2026-11-17 | Acceptée — à ajuster après essai ; corrige deux points de GD-081 |
 
 ---
 
@@ -1806,3 +1807,23 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Conséquences.** Huit sprites et une texture de sol fabriqués par `npm run make-studio` (`tools/make-studio.ts`, dessin vectoriel dans `tools/lib/draw.ts`) : `spr_cadre_anchor`, `spr_tv_desk`, `spr_tv_riser`, `spr_tv_spot`, `spr_tv_ledwall`, `spr_tv_onair`, `spr_tv_cables`, `til_sol_studio`. La pièce est décrite dans `src/sim/additions.ts`, qui sait désormais ajouter des murs, des sols et des décalques, et retirer ou déplacer des éléments d'origine (ADR-016). `newsOnAir` dans `world.ts`. Le parcours du niveau ne change pas : on entre toujours dans le hall par les deux portes que le bouton de la régie ouvre, puis sur le plateau par ses portes automatiques.
 
 **Points ouverts.** Les sprites sont dessinés par le code : à retoucher ou remplacer si le style ne convient pas. La pièce n'a pas sa propre zone de brouillard : elle se découvre avec la régie, comme avant. Le présentateur n'a pas de siège.
+
+## GD-082 — Plateau : des projecteurs qui éclairent vraiment, et aucun garde au départ
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — à ajuster après essai ; corrige deux points de GD-081
+- **Décidée par** : l'utilisateur (deux retours pendant la réalisation de GD-081 : « les spots devraient faire des lumières vers le présentateur, avec ombre projetée » ; « pas de garde dans le studio au début : ils peuvent s'y déplacer ensuite pendant le jeu ») ; les réglages sont des choix par défaut
+
+**Contexte.** Dans GD-081 les quatre projecteurs étaient des meubles : la lumière du plateau venait de lampes rondes posées au sol, sans rapport avec eux. Et deux policiers gardaient les portes de l'intérieur, un robot bouclier les coulisses.
+
+**Décision.**
+
+- **Chaque projecteur a son faisceau.** Une lampe peut désormais n'éclairer qu'un cône : deux projecteurs de face et deux contre-jours sont braqués sur le présentateur, d'une lumière légèrement chaude. La lumière d'ambiance du plateau est réduite : ce sont eux qui éclairent le décor, et le mur d'écrans y ajoute son bleu. Les murs arrêtent les faisceaux comme toute lumière du jeu (GD-038).
+- **Ombres portées.** Tout personnage pris dans un faisceau, robot du joueur compris, jette une ombre au sol à l'opposé du projecteur ; elle s'allonge avec la distance, comme celle d'un objet éclairé de haut. Le pupitre et les caméras en portent une aussi. Plusieurs projecteurs donnent plusieurs ombres.
+- **Aucun garde sur le plateau quand le niveau commence.** Il n'y reste que le présentateur et les deux techniciens des caméras. Les deux policiers gardent les portes de l'extérieur, le robot bouclier attend sur l'aire de livraison nord. Rien ne les empêche d'entrer pendant la partie, attirés par le bruit ou à la poursuite d'un robot.
+
+**Pourquoi.** Demandes de l'utilisateur. Un plateau vide de gardes laisse le journal de l'introduction se dérouler dans un décor civil, et garde le combat pour l'arrivée des robots.
+
+**Conséquences.** Une lampe du niveau accepte `coneAngle` et `coneHalf` ; un meuble accepte `shadow`, sa hauteur. `bakeLamp` et `drawSpotShadows` dans `WorldView.ts`, réglages dans `LIGHTING.shadow`. Les ombres sont dessinées au sol, sous le mobilier. Ces lampes et ces ombres sont utilisables ailleurs dans le niveau.
+
+**Points ouverts.** Les ombres sont discrètes sur le sol sombre du plateau, plus lisibles sur l'estrade : intensité et longueur à régler en jouant.

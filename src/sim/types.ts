@@ -527,6 +527,8 @@ export interface Zone {
 
 /** Élément de décor fixe, dessiné tel quel par l'affichage. */
 export interface DecorItem {
+  /** Hauteur du meuble, s'il porte une ombre sous les projecteurs (GD-082) ; 0 sinon. */
+  shadow: number;
   sprite: string;
   x: number;
   y: number;

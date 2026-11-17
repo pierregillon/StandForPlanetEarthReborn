@@ -707,10 +707,10 @@
 <text x="8352" y="2104" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
 <circle cx="8480" cy="2496" r="44" fill="#58d868" stroke="#000" stroke-width="6"/>
 <text x="8480" y="2520" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">t</text>
-<circle cx="8480" cy="4180" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
-<text x="8480" y="4204" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
-<circle cx="8480" cy="3540" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
-<text x="8480" y="3564" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
+<circle cx="8480" cy="4480" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
+<text x="8480" y="4504" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
+<circle cx="8480" cy="3230" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
+<text x="8480" y="3254" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
 <circle cx="9312" cy="3008" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
 <text x="9312" y="3032" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">P</text>
 <circle cx="9728" cy="2752" r="44" fill="#ff4b4b" stroke="#000" stroke-width="6"/>
@@ -731,8 +731,8 @@
 <text x="8704" y="4568" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">S</text>
 <circle cx="8544" cy="3040" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
 <text x="8544" y="3064" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">S</text>
-<circle cx="9900" cy="3900" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
-<text x="9900" y="3924" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">B</text>
+<circle cx="9300" cy="3200" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
+<text x="9300" y="3224" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">B</text>
 <circle cx="8896" cy="2560" r="44" fill="#ff9a2e" stroke="#000" stroke-width="6"/>
 <text x="8896" y="2584" font-size="68" font-weight="bold" text-anchor="middle" fill="#000">B</text>
 <circle cx="6560" cy="320" r="60" fill="none" stroke="#fff" stroke-width="12"/>

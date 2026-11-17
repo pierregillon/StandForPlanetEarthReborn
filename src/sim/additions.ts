@@ -29,6 +29,14 @@ const decal = (sprite: string, x: number, y: number, angle = 0, scaleX = 1, scal
 /** Lampe : rayon en pixels, intensité de 0 à 1, teinte et saturation sur 255 comme dans l'original. */
 const lamp = (x: number, y: number, radius: number, intensity: number, hue = 0, sat = 0): LevelInstance =>
   instance('obj_lumiere', 'layer_lumiere', 500, x, y, 0, { radius, hue, sat, lightIntensity: intensity }, radius / 150);
+/**
+ * Projecteur de studio (GD-082) : le meuble et son faisceau, braqués dans la direction `angle` (degrés
+ * GameMaker). `reach` : portée du faisceau en pixels.
+ */
+const spot = (x: number, y: number, angle: number, reach: number): LevelInstance[] => [
+  furniture('obj_tv_spot', x, y, angle),
+  instance('obj_lumiere', 'layer_lumiere', 500, x, y, 0, { radius: reach, hue: 32, sat: 60, lightIntensity: 0.6, coneAngle: angle, coneHalf: 25 }, reach / 150),
+];
 const decor = (sprite: string): LevelObjectInfo => ({ sprite, mask: null, parents: ['obj_mobilier_parent', 'obj_decor_base'], visible: true });
 
 /** Mur fin horizontal, une pièce par case de 32 px ; `capStart`/`capEnd` : il finit par un bout arrondi. */
@@ -119,14 +127,15 @@ const CHANGES: Record<string, Change> = {
       // les conteneurs de livraison et la boîte bonus qui occupaient l'alcôve sortent du plateau
       const inRoom = inst.x >= ROOM.x0 && inst.x < ROOM.x1 && inst.y >= ROOM.y0 && inst.y < ROOM.y1;
       if (inRoom && (inst.object === 'obj_container' || inst.object === 'obj_bonus_box')) return null;
-      // deux policiers gardent les portes, de l'intérieur
-      if (at(inst, 'obj_npc_human_pistol', 10272, 3616)) return { ...inst, x: 8480, y: 3540, angle: 270 };
-      if (at(inst, 'obj_npc_human_pistol', 10016, 4128)) return { ...inst, x: 8480, y: 4180, angle: 90 };
+      // aucun garde sur le plateau au départ (demande de l'utilisateur, GD-082) : les deux policiers de
+      // l'alcôve gardent les portes de l'extérieur. Rien ne les empêche d'entrer ensuite, pendant la partie.
+      if (at(inst, 'obj_npc_human_pistol', 10272, 3616)) return { ...inst, x: 8480, y: 3230, angle: 90 };
+      if (at(inst, 'obj_npc_human_pistol', 10016, 4128)) return { ...inst, x: 8480, y: 4480, angle: 270 };
       // deux techniciens tiennent une caméra : ils ne quittent pas leur poste
       if (at(inst, 'obj_npc_civil_technicien', 10368, 4128)) return { ...inst, x: 8615, y: 3618, angle: 0, props: { ...inst.props, patrolType: 'none' } };
       if (at(inst, 'obj_npc_civil_technicien', 9856, 3680)) return { ...inst, x: 8615, y: 4094, angle: 0, props: { ...inst.props, patrolType: 'none' } };
-      // le robot bouclier garde les coulisses ; le LightBot du quai nord ne reste pas dans le nouveau mur
-      if (at(inst, 'obj_npc_robot_shield', 9120, 3712)) return { ...inst, x: 9900, y: 3900 };
+      // le robot bouclier sort lui aussi, sur l'aire de livraison nord ; le LightBot ne reste pas dans le nouveau mur
+      if (at(inst, 'obj_npc_robot_shield', 9120, 3712)) return { ...inst, x: 9300, y: 3200 };
       if (at(inst, 'obj_npc_robot_lightBot', 8832, 3328)) return { ...inst, y: 3180 };
       // en régie, les techniciens restent assis devant leurs écrans
       if (inst.object === 'obj_npc_civil_technicien' && inst.x > 7800 && inst.x < 7950 && inst.y > 3300 && inst.y < 4500) {
@@ -140,17 +149,20 @@ const CHANGES: Record<string, Change> = {
       instance('obj_tv_onair', 'layer_deco', -250, 8690, ROOM.y0 - 16),
       instance('obj_tv_onair', 'layer_deco', -250, 8690, ROOM.y1 + 16),
       // ---- le plateau : pupitre et présentateur sur l'estrade, caméras, projecteurs
-      furniture('obj_tv_desk', TV_STUDIO.desk.x, TV_STUDIO.desk.y),
+      // `shadow` : hauteur du meuble, pour l'ombre qu'il porte sous les projecteurs
+      instance('obj_tv_desk', 'layer_deco', 200, TV_STUDIO.desk.x, TV_STUDIO.desk.y, 0, { bulletCrossed: true, shadow: 40 }),
       // un civil comme les autres, mais qui reste à son poste tant que rien ne l'effraie
       instance('obj_npc_civil_malette', 'layer_npc', 0, TV_STUDIO.anchor.x, TV_STUDIO.anchor.y, 180, {
         normalSpd: 3, maxHealth: 1, hearRange: 1000, viewRange: 800, genre: 'humain', patrolType: 'none', fearDuration: 30, fearSpeed: '2*normalSpd',
       }),
-      ...TV_STUDIO.cameras.map((c) => furniture('obj_tv_camera', c.x, c.y, c.angle, 1.5)),
+      ...TV_STUDIO.cameras.map((c) => instance('obj_tv_camera', 'layer_deco', 200, c.x, c.y, c.angle, { bulletCrossed: true, shadow: 70 }, 1.5)),
       furniture('obj_ecran', 8790, 3760, 200), furniture('obj_ecran', 8790, 3952, 160),
-      furniture('obj_tv_spot', 8960, 3470, -51), furniture('obj_tv_spot', 8960, 4242, 51),
-      furniture('obj_tv_spot', 9556, 3606, -101), furniture('obj_tv_spot', 9556, 4106, 101),
+      // deux projecteurs de face et deux contre-jours, tous braqués sur le présentateur
+      ...spot(8960, 3470, -35, 980), ...spot(8960, 4242, 35, 980),
+      ...spot(9556, 3606, -100, 520), ...spot(9556, 4106, 100, 520),
       furniture('obj_tv_ledwall', BACKDROP.x - 20, MID, 90),
-      lamp(9280, MID, 560, 0.7), lamp(8700, MID, 420, 0.3), lamp(9560, MID, 420, 0.55, 160, 190),
+      // peu de lumière d'ambiance : ce sont les projecteurs qui éclairent le décor ; le mur d'écrans y ajoute son bleu
+      lamp(9280, MID, 520, 0.22), lamp(8700, MID, 420, 0.3), lamp(9560, MID, 420, 0.5, 160, 190),
       // ---- les coulisses, derrière la cloison : baies techniques, caisses, vestiaires, coin repos
       furniture('obj_serveur', 10010, 3474, 90), furniture('obj_serveur', 10230, 3474, 90), furniture('obj_serveur', 10450, 3474, 90),
       furniture('obj_tv_crate', 9760, 3680), furniture('obj_tv_crate', 9846, 3690, 12), furniture('obj_tv_crate', 9800, 3764, -8),
