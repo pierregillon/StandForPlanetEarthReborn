@@ -116,16 +116,24 @@ test('en jeu : les miroirs suivent le serveur, mon robot est prédit sans attend
     b.play(ib);
     server.tick();
   };
-  // l'introduction : seul l'hôte peut la passer, avec la touche de dash (GD-077)
-  for (let i = 0; i < 30; i++) step(idle, idle);
+  // l'introduction : l'horloge s'arrête sur la première réplique, que seul l'hôte peut faire avancer (GD-079)
+  for (let i = 0; i < 200; i++) step(idle, idle);
+  assert.equal(world.introLine, 0);
   const riding = world.heroes[0].arrivalSteps;
-  assert.ok(riding > 600, 'introduction complète en cours');
-  step(idle, { ...idle, dashPressed: true });
+  step(idle, { ...idle, dashPressed: true, dash: true });
   for (let i = 0; i < 10; i++) step(idle, idle);
-  assert.ok(world.heroes[0].arrivalSteps > riding - 20, 'un autre joueur ne peut pas la passer');
-  step({ ...idle, dashPressed: true }, idle);
+  assert.equal(world.introLine, 0, 'un autre joueur ne fait pas défiler les répliques');
+  step({ ...idle, dashPressed: true, dash: true }, idle);
   for (let i = 0; i < 10; i++) step(idle, idle);
-  assert.equal(world.heroes[0].arrivalSteps, 0, 'l\'hôte la passe');
+  assert.equal(world.introLine, 1, 'l\'hôte passe à la réplique suivante');
+  assert.equal(a.mirror.world.introLine, 1, 'les miroirs suivent la réplique en cours');
+  assert.equal(b.mirror.world.introLine, 1);
+  assert.equal(world.heroes[0].arrivalSteps, riding, 'l\'horloge de l\'arrivée est arrêtée pendant les répliques');
+  // un autre joueur tient la touche : rien ; l'hôte la tient : la séquence est passée
+  for (let i = 0; i < 80; i++) step(idle, { ...idle, dash: true });
+  assert.equal(world.heroes[0].arrivalSteps, riding);
+  for (let i = 0; i < 80; i++) step({ ...idle, dash: true }, idle);
+  assert.equal(world.heroes[0].arrivalSteps, 0, 'l\'hôte passe la séquence en tenant la touche');
   assert.equal(world.heroes[1].arrivalSteps, 0);
   // puis le déploiement
   for (let i = 0; i < 700 && world.heroes.some((h) => h.arrivalSteps > 0 || h.deploySteps > 0); i++) step(idle, idle);

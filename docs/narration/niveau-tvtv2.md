@@ -132,7 +132,7 @@ Les cases vides ne peuvent pas se produire avec la règle ci-dessus.
 
 ## 6. Règles de la séquence
 
-- **Passer** (décidé) : seul l'hôte, avec la barre d'espace. Proposé : l'écran affiche « SPACE: skip » chez l'hôte et « Host can skip » chez les autres. On saute alors au moment où le véhicule est parti et où les robots joués se déploient.
+- **Lire et passer** (décidé, GD-079) : Espace passe à la réplique suivante, Espace tenu passe toute la séquence ; seul l'hôte le peut. Les durées du tableau de la section 4 ne valent donc plus pour les répliques : chacune reste à l'écran jusqu'à l'appui, et le véhicule attend.
 - **À plusieurs** : le serveur tient l'horloge de la séquence ; tous les joueurs voient la même chose au même instant.
 - **Une pince par robot** (proposé) : chaque robot a toujours la même pince, au lieu d'une pince par joueur comme aujourd'hui (GD-060).
 - **Quand elle joue** (proposé) : au premier lancement du niveau. Après un « Retry » qui recommence le niveau depuis le début, seul le largage est rejoué (à partir de 19,0), sans le journal ni la radio. Jamais après un « Retry » au point de sauvegarde ni en commençant à l'étage.

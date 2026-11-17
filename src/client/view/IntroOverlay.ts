@@ -1,10 +1,11 @@
-// Habillage de l'introduction du niveau (GD-077, GD-078) : bandes de cinéma, boîte de dialogue où les
-// répliques s'écrivent lettre par lettre avec le portrait de celui qui parle, et rappel de la touche qui
-// passe la séquence. Référence : obj_cinematique et obj_textBox, écrits mais jamais activés dans l'original.
+// Habillage de l'introduction du niveau (GD-077 à GD-079) : bandes de cinéma, boîte de dialogue où les
+// répliques s'écrivent lettre par lettre avec le portrait de celui qui parle, invite à passer à la suite et
+// jauge de la touche tenue qui passe toute la séquence.
+// Référence : obj_cinematique et obj_textBox, écrits mais jamais activés dans l'original.
 import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
-import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
-import { introLineAt, introLines } from '../../sim/intro.ts';
+import { CONFIG } from '../../sim/config.ts';
+import { introLines, typingSteps } from '../../sim/intro.ts';
 import type { IntroLine } from '../../sim/intro.ts';
 import type { World } from '../../sim/world.ts';
 
@@ -16,8 +17,8 @@ const STYLE = {
   bandSeconds: 0.45,
   box: { width: 1040, height: 156, gap: 28, fill: 0x020a26, alpha: 0.93 },
   portrait: 124,
-  /** Lettres écrites par seconde. */
-  typing: 48,
+  /** Jauge de la touche tenue, dans la bande du bas. */
+  skipBar: { width: 300, height: 8 },
 };
 
 export class IntroOverlay {
@@ -25,18 +26,23 @@ export class IntroOverlay {
   private readonly world: World;
   private readonly top: Phaser.GameObjects.Rectangle;
   private readonly bottom: Phaser.GameObjects.Rectangle;
-  /** La boîte de dialogue entière : fond, portrait, nom et texte. */
+  /** La boîte de dialogue entière : fond, portrait, nom, texte et invite. */
   private readonly panel: Phaser.GameObjects.Container;
   private readonly portrait: Phaser.GameObjects.Image;
   private readonly name: Phaser.GameObjects.Text;
   private readonly text: Phaser.GameObjects.Text;
+  /** « SPACE » qui clignote quand la réplique est écrite en entier. */
+  private readonly prompt: Phaser.GameObjects.Text;
   private readonly hint: Phaser.GameObjects.Text;
+  private readonly skipBar: Phaser.GameObjects.Graphics;
   /** 0 = bandes ouvertes, 1 = fermées. */
   private closed = 0;
   private lines: IntroLine[] = [];
   private linesKey = '';
   private shown: IntroLine | null = null;
   private wrapped = '';
+  /** Appelé quand une nouvelle réplique commence (bruitage). */
+  onLine: (() => void) | null = null;
 
   constructor(scene: Phaser.Scene, world: World) {
     this.scene = scene;
@@ -57,10 +63,12 @@ export class IntroOverlay {
     this.text = scene.add.text(textX, 58, '', {
       fontFamily: 'Aldo', fontSize: '32px', color: '#ffffff', wordWrap: { width: s.box.width - textX - 28 }, lineSpacing: 6,
     });
-    this.panel = scene.add.container((width - s.box.width) / 2, 0, [box, this.portrait, this.name, this.text]).setScrollFactor(0).setDepth(DEPTH + 1);
-    this.hint = scene.add.text(width - 44, height - s.band / 2, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#aab4d8' })
+    this.prompt = scene.add.text(s.box.width - 22, s.box.height - 14, '', { fontFamily: 'Aldo', fontSize: '22px', color: '#ffe36b' }).setOrigin(1, 1);
+    this.panel = scene.add.container((width - s.box.width) / 2, 0, [box, this.portrait, this.name, this.text, this.prompt]).setScrollFactor(0).setDepth(DEPTH + 1);
+    this.hint = scene.add.text(width - 44, height - s.band / 2 - 8, '', { fontFamily: 'Aldo', fontSize: '26px', color: '#aab4d8' })
       .setOrigin(1, 0.5).setScrollFactor(0).setDepth(DEPTH + 1);
-    this.setBoxVisible(false);
+    this.skipBar = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH + 1);
+    this.panel.setVisible(false);
   }
 
   /**
@@ -71,28 +79,34 @@ export class IntroOverlay {
     return STYLE.band * Phaser.Math.Easing.Cubic.Out(this.closed);
   }
 
-  private setBoxVisible(on: boolean): void {
-    this.panel.setVisible(on);
-  }
-
-  /** `canSkip` : ce joueur peut passer la séquence (l'hôte, ou le joueur seul). */
-  update(canSkip: boolean, delta: number): void {
-    const team = this.world.heroes.filter((h) => !h.gone && h.arrivalTotal > 0);
+  /** `host` : ce joueur mène la séquence (l'hôte de la partie, ou le joueur seul). */
+  update(host: boolean, delta: number): void {
+    const world = this.world;
+    const team = world.heroes.filter((h) => !h.gone && h.arrivalTotal > 0);
     const lead = team.find((h) => h.arrivalSteps > 0);
     const s = STYLE;
     const step = delta / 1000 / s.bandSeconds;
     this.closed = Phaser.Math.Clamp(this.closed + (lead ? step : -step), 0, 1);
     const k = Phaser.Math.Easing.Cubic.Out(this.closed);
-    const { height } = this.scene.scale;
+    const { width, height } = this.scene.scale;
     this.top.setY(s.band * k).setVisible(k > 0);
     this.bottom.setY(height - s.band * k).setVisible(k > 0);
     this.hint.setVisible(lead !== undefined).setAlpha(k);
+    this.skipBar.clear();
     if (!lead) {
-      this.setBoxVisible(false);
+      this.panel.setVisible(false);
       this.shown = null;
       return;
     }
-    this.hint.setText(canSkip ? 'SPACE: skip' : 'Host can skip');
+    this.hint.setText(host ? 'SPACE: next      hold SPACE: skip' : 'The host leads the briefing');
+    // jauge de la touche tenue : pleine, la séquence est passée
+    const held = Phaser.Math.Clamp(world.introHold / CONFIG.arrival.skipHoldSteps, 0, 1);
+    if (held > 0) {
+      const x = width - 44 - s.skipBar.width;
+      const y = height - s.band / 2 + 18;
+      this.skipBar.fillStyle(0x3a4468, 1).fillRect(x, y, s.skipBar.width, s.skipBar.height);
+      this.skipBar.fillStyle(0xffe36b, 1).fillRect(x, y, s.skipBar.width * held, s.skipBar.height);
+    }
     const key = `${team.map((h) => h.def.name).join(',')}|${lead.arrivalTotal}`;
     if (key !== this.linesKey) {
       this.linesKey = key;
@@ -102,8 +116,9 @@ export class IntroOverlay {
     const low = lead.y - this.scene.cameras.main.scrollY > height / 2;
     this.panel.setY(low ? s.band + s.box.gap : height - s.band - s.box.gap - s.box.height);
     const t = lead.arrivalTotal - lead.arrivalSteps;
-    const line = introLineAt(this.lines, t);
-    this.setBoxVisible(line !== null);
+    const next = this.lines[world.introLine];
+    const line = next && next.at <= t ? next : null;
+    this.panel.setVisible(line !== null);
     if (!line) {
       this.shown = null;
       return;
@@ -119,8 +134,13 @@ export class IntroOverlay {
         this.portrait.setTexture(texture);
         this.portrait.setScale(s.portrait / Math.max(this.portrait.frame.width, this.portrait.frame.height));
       }
+      this.onLine?.();
     }
-    const letters = Math.floor(((t - line.from) / STEPS_PER_SECOND) * s.typing);
+    const written = world.introLineSteps >= typingSteps(line.text);
+    const letters = written ? this.wrapped.length : Math.floor(world.introLineSteps * CONFIG.arrival.lettersPerStep);
     this.text.setText(this.wrapped.slice(0, Math.max(0, letters)));
+    // la réplique est écrite : l'invite clignote chez celui qui peut passer à la suite
+    const blink = Math.floor(this.scene.time.now / 380) % 2 === 0;
+    this.prompt.setText(host ? 'SPACE  >' : '...').setVisible(written && (blink || !host));
   }
 }

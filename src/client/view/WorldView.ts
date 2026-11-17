@@ -8,7 +8,7 @@ import { BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, angleDiff, localToWorld } from '
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
-import { arrivalPhases, clawOf, introLineAt, introLines } from '../../sim/intro.ts';
+import { arrivalPhases, clawOf, crewReleased, introLines } from '../../sim/intro.ts';
 import type { IntroLine } from '../../sim/intro.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
 import type { Bat, Bullet, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
@@ -2531,11 +2531,12 @@ export class WorldView {
       const p = t / ph.flyIn;
       x = landed.x - a.travel * (1 - p) * (1 - p); // il ralentit en arrivant
       height = 1;
-    } else if (t < ph.hover) {
-      // vol stationnaire : il flotte doucement pendant que les robots parlent
+    } else if (ph.full && t <= ph.hover) {
+      // vol stationnaire : il flotte doucement pendant que les robots parlent (l'horloge est alors arrêtée)
+      const now = this.scene.time.now;
       height = 1;
-      y = landed.y + Math.sin((t - ph.flyIn) / 16) * 7;
-      x = landed.x + Math.sin((t - ph.flyIn) / 27) * 5;
+      y = landed.y + Math.sin(now / 270) * 7;
+      x = landed.x + Math.sin(now / 450) * 5;
     } else if (t < ph.descend) {
       height = 1 - (t - ph.hover) / a.descendSteps;
     } else if (t < ph.hold) {
@@ -2554,8 +2555,8 @@ export class WorldView {
     // l'ombre s'écarte et s'agrandit avec l'altitude, comme dans l'original
     shadow?.setPosition(x + (70 * height + 10) * 0.94, y + (70 * height + 10) * 0.34).setScale(scale * (1 + height / 6));
     const inClaw = (name: string): { x: number; y: number } => ({ x: x + clawOf(name).x * scale, y: y + clawOf(name).y * scale });
-    // les robots joués restent dans leur pince jusqu'à ce qu'elle s'ouvre, au milieu de l'échange du largage
-    const carried = t < ph.release;
+    // les robots joués restent dans leur pince jusqu'à ce qu'elle s'ouvre, quand l'un d'eux répond (GD-078)
+    const carried = !crewReleased(lines, ph, t, this.world.introLine);
     for (const h of team) {
       const p = this.partsOf(h);
       if (!carried) {
@@ -2577,12 +2578,13 @@ export class WorldView {
     }
     // un halo pulse autour du robot qui parle
     voice.clear();
-    const line = introLineAt(lines, t);
+    const next = lines[this.world.introLine];
+    const line = next && next.at <= t ? next : null;
     if (line) {
       const speaker = team.find((h) => h.def.name === line.speaker);
       const at = speaker && !carried ? { x: speaker.x, y: speaker.y } : inClaw(line.speaker);
       const grounded = speaker !== undefined && !carried;
-      const pulse = 0.5 + 0.5 * Math.sin((t - line.from) / 5);
+      const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 85);
       const radius = (grounded ? 62 : 62 * scale) + pulse * 6;
       voice.lineStyle(5, 0xfff3a0, 0.55 + 0.35 * pulse).strokeCircle(at.x, at.y, radius);
       voice.lineStyle(2, 0xffffff, 0.5).strokeCircle(at.x, at.y, radius + 9);

@@ -543,13 +543,19 @@ export const CONFIG = {
   arrival: {
     flyInSteps: s(1.4),
     /**
-     * Vol stationnaire au-dessus du parvis, le temps des répliques radio de l'introduction (GD-078). Il n'a
-     * lieu que la première fois : quand le niveau recommence, le véhicule descend aussitôt.
+     * Le véhicule se stabilise au-dessus du parvis, puis l'horloge s'arrête pour les répliques radio de
+     * l'introduction (GD-078, GD-079). Seulement la première fois : quand le niveau recommence, il descend aussitôt.
      */
-    hoverSteps: s(8.5),
+    hoverSteps: s(0.6),
     descendSteps: s(0.8),
-    /** Posé au sol : l'échange du largage ; les pinces des robots joués s'ouvrent à mi-parcours (0,45 s avant GD-078). */
-    holdSteps: s(3.2),
+    /** Posé au sol : l'horloge s'arrête pour l'échange du largage, puis il attend ce temps avant de redécoller. */
+    holdSteps: s(0.5),
+    /** Répliques (GD-079) : vitesse d'écriture, en lettres par step (48 par seconde). */
+    lettersPerStep: 0.8,
+    /** Sans appui de l'hôte, une réplique écrite en entier laisse la place à la suivante après ce temps. */
+    autoAdvanceSteps: s(12),
+    /** Temps pendant lequel l'hôte doit tenir la touche pour passer toute la séquence. */
+    skipHoldSteps: s(0.8),
     ascendSteps: s(0.6),
     flyOutSteps: s(1.2),
     /**

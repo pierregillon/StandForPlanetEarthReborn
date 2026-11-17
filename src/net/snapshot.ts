@@ -68,6 +68,9 @@ function stateOf(w: World): Entity {
   s.objective = w.session.objective;
   s.carried = [...w.session.carried].sort().join(',');
   s.checkpoint = w.session.checkpoint !== null;
+  s.introLine = w.introLine;
+  s.introLineSteps = w.introLineSteps;
+  s.introHold = w.introHold;
   Object.assign(s, w.stats);
   return s;
 }
@@ -79,6 +82,9 @@ export function applyState(w: World): void {
   w.exitCountdown = Number(s.exitCountdown ?? -1);
   w.zoneCountdown = Number(s.zoneCountdown ?? -1);
   w.session.objective = Number(s.objective ?? 0);
+  w.introLine = Number(s.introLine ?? 0);
+  w.introLineSteps = Number(s.introLineSteps ?? 0);
+  w.introHold = Number(s.introHold ?? 0);
   w.session.carried.clear();
   for (const color of String(s.carried ?? '').split(',')) if (color) w.session.carried.add(color);
   for (const key of Object.keys(w.stats) as (keyof World['stats'])[]) if (typeof s[key] === 'number') w.stats[key] = s[key] as number;

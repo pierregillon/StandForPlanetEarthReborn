@@ -123,26 +123,37 @@ export class Synth {
   }
 
   /**
-   * Véhicule de largage : un grondement de rotors tenu pendant toute sa présence (il peut rester en vol
-   * stationnaire plusieurs secondes, GD-078), puis plus aigu au décollage.
+   * Véhicule de largage : un grondement de rotors qui dure tant qu'il est là. Sa présence n'a pas de durée
+   * connue d'avance, puisque le joueur lit les répliques à son rythme (GD-079) : `vehicleLeaves` y met fin.
    */
-  vehicle(seconds: number): void {
-    const takeOff = Math.min(2, seconds * 0.4);
-    const stay = seconds - takeOff;
-    this.hum('sawtooth', 62, 50, stay + 0.3, 0.1, 0, 0.5, 0.4);
-    this.hum('triangle', 124, 100, stay + 0.3, 0.06, 0, 0.5, 0.4);
-    this.hum('sawtooth', 50, 95, takeOff, 0.12, stay, 0.25, takeOff * 0.7);
-    this.hum('triangle', 100, 190, takeOff, 0.07, stay, 0.25, takeOff * 0.7);
+  vehicle(): void {
+    this.vehicleStop();
+    // dix minutes : bien plus qu'aucune introduction ; le départ ou le passage de la séquence l'arrête avant
+    this.hum('sawtooth', 62, 56, 600, 0.1, 0, 0.5, 0.4);
+    this.hum('triangle', 124, 112, 600, 0.06, 0, 0.5, 0.4);
   }
 
-  /** L'introduction est passée : les rotors se taisent tout de suite. */
-  vehicleStop(): void {
+  /** Il redécolle : le grondement s'éteint sous une montée plus aiguë, pendant qu'il sort de l'écran. */
+  vehicleLeaves(seconds: number): void {
+    this.vehicleStop(0.35);
+    this.hum('sawtooth', 50, 95, seconds, 0.12, 0, 0.25, seconds * 0.7);
+    this.hum('triangle', 100, 190, seconds, 0.07, 0, 0.25, seconds * 0.7);
+  }
+
+  /** Une réplique commence : deux notes brèves, comme un poste radio qui s'ouvre. */
+  radioBlip(): void {
+    this.tone('square', 880, 880, 0.035, 0.05);
+    this.tone('square', 1320, 1320, 0.045, 0.04, 0.05);
+  }
+
+  /** Les rotors se taisent, en `fade` secondes (tout de suite quand l'introduction est passée). */
+  vehicleStop(fade = 0.04): void {
     const ctx = this.ctx;
     if (!ctx) return;
     for (const { osc, gain } of this.rotors) {
       gain.gain.cancelScheduledValues(ctx.currentTime);
-      gain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.04);
-      osc.stop(ctx.currentTime + 0.3);
+      gain.gain.setTargetAtTime(0.0001, ctx.currentTime, fade);
+      osc.stop(ctx.currentTime + fade * 6 + 0.1);
     }
     this.rotors = [];
   }

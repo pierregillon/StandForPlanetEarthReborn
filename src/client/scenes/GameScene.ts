@@ -186,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     this.view = new WorldView(this, this.world, floors);
     this.hud = new Hud(this, this.world);
     this.intro = new IntroOverlay(this, this.world);
+    this.intro.onLine = () => this.synth.radioBlip();
     this.view.playerNames = this.mirror?.playerNames ?? [];
     this.hud.playerNames = this.view.playerNames;
     this.acc = 0;
@@ -283,6 +284,7 @@ export class GameScene extends Phaser.Scene {
       fire2: pointer.rightButtonDown(),
       // les appuis ne comptent que pour le premier step de l'image
       dashPressed: first && Keys.wasPressed(...Bind.dash),
+      dash: Keys.isDown(...Bind.dash),
       use: Keys.isDown(...Bind.use),
       usePressed: first && Keys.wasPressed(...Bind.use),
       reloadPressed: first && Keys.wasPressed(...Bind.reload),
@@ -386,7 +388,8 @@ export class GameScene extends Phaser.Scene {
       else if (e.type === 'deploy') {
         const h = world.heroes[e.hero] ?? world.hero;
         this.playSound(e.sound, h.x, h.y);
-      } else if (e.type === 'vehicleArrives') this.synth.vehicle(e.seconds);
+      } else if (e.type === 'vehicleArrives') this.synth.vehicle();
+      else if (e.type === 'vehicleLeaves') this.synth.vehicleLeaves(e.seconds);
       else if (e.type === 'introSkipped') {
         // l'hôte a passé l'introduction : coupe franche, les robots sont déjà au sol
         this.synth.vehicleStop();

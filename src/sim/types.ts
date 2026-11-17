@@ -104,6 +104,8 @@ export interface Input {
   fire1: boolean;
   fire2: boolean;
   dashPressed: boolean;
+  /** Touche de dash tenue : pendant l'introduction, la tenir passe la séquence (GD-079). */
+  dash: boolean;
   use: boolean;
   usePressed: boolean;
   reloadPressed: boolean;
@@ -115,7 +117,7 @@ export interface Input {
 
 export const NO_INPUT: Input = {
   moveX: 0, moveY: 0, aimX: 0, aimY: 0, fire1: false, fire2: false,
-  dashPressed: false, use: false, usePressed: false, reloadPressed: false, linkPressed: false, ultiPressed: false,
+  dashPressed: false, dash: false, use: false, usePressed: false, reloadPressed: false, linkPressed: false, ultiPressed: false,
 };
 
 // ---------- Entités ----------
@@ -561,6 +563,8 @@ export type SimEvent =
   | { type: 'checkpoint'; x: number; y: number }
   | { type: 'deploy'; sound: string; hero: number }
   | { type: 'vehicleArrives'; seconds: number }
+  /** Le véhicule redécolle ; `seconds` : le temps qu'il met à sortir de l'écran. */
+  | { type: 'vehicleLeaves'; seconds: number }
   /** L'hôte a passé l'introduction : le véhicule disparaît, les robots se déploient. */
   | { type: 'introSkipped' }
   | { type: 'heroHit'; x: number; y: number }

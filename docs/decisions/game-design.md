@@ -84,6 +84,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-076 | L'arc narratif de référence est le document « reborn » de l'utilisateur | 2026-11-17 | Acceptée |
 | GD-077 | Le niveau en construction est TvTv² ; il s'ouvre sur une cinématique en jeu | 2026-11-17 | Acceptée — à réaliser (rien n'est encore changé dans le jeu) |
 | GD-078 | Introduction, première livraison : la radio et le largage | 2026-11-17 | Acceptée — à ajuster après essai |
+| GD-079 | Dialogues : Espace pour la réplique suivante, Espace tenu pour passer la cinématique | 2026-11-17 | Acceptée ; modifie GD-077 (un appui ne passe plus la séquence) et GD-078 (les répliques n'ont plus de durée fixe) |
 
 ---
 
@@ -1732,3 +1733,24 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Conséquences.** `src/sim/intro.ts` (déroulé et répliques), `deployHero`, `skipArrival` et `hostSlot` dans `world.ts`, `startTeam` dans `match.ts`, `introSeen` dans la partie ; `IntroOverlay.ts`, `syncVehicle` et le son des rotors côté affichage. Modifie les durées de GD-035 et l'attribution des pinces de GD-060. Tests : `src/sim/intro.test.ts`, et le passage par l'hôte seul dans `src/net/net.test.ts`.
 
 **Points ouverts.** Le rythme des répliques et leur ton, à juger en jouant. BadaBot resté à bord est montré sans son orbe. Les répliques n'ont pas de son propre (voix ou bip).
+
+## GD-079 — Dialogues : Espace pour la réplique suivante, Espace tenu pour passer la cinématique
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; modifie GD-077 (un appui ne passe plus la séquence) et GD-078 (les répliques n'ont plus de durée fixe)
+- **Décidée par** : l'utilisateur (retour d'essai : appuyer sur Espace pour passer au dialogue suivant, « ça permet au joueur d'avoir le temps de lire à son rythme » ; rester appuyé sur Espace pour sauter la cinématique) ; les précisions ci-dessous sont des choix par défaut de Claude
+
+**Contexte.** Dans la première livraison (GD-078), les répliques défilaient seules à durée fixe et un appui sur Espace passait toute la séquence.
+
+**Décision.**
+
+- **Une réplique reste à l'écran jusqu'à l'appui.** Elle s'écrit lettre par lettre ; un premier appui l'écrit d'un coup, l'appui suivant passe à la réplique d'après. Quand elle est écrite en entier, « SPACE > » clignote dans la boîte.
+- **Le monde attend le lecteur.** Le véhicule reste en vol pendant les répliques radio, et posé pendant l'échange du largage ; il ne repart qu'après la dernière.
+- **Tenir Espace 0,8 s passe toute la séquence.** Une jauge se remplit dans la bande du bas ; relâcher la remet à zéro.
+- *Par défaut* : à plusieurs, c'est l'hôte qui fait défiler les répliques, comme c'est lui qui passe la séquence (GD-077) ; tous voient la même réplique en même temps. Les autres joueurs lisent « The host leads the briefing ».
+- *Par défaut* : sans appui, une réplique écrite laisse la place à la suivante au bout de 12 secondes, pour qu'un hôte absent ne bloque pas les autres.
+- *Par défaut* : Maj fait la même chose qu'Espace, puisque les deux touches sont le dash.
+
+**Pourquoi.** Lire à son rythme est la demande ; faire attendre le véhicule plutôt que couper les répliques garde l'image et le texte accordés.
+
+**Conséquences.** L'horloge de l'arrivée s'arrête pendant une réplique (`stepIntro`, `introLine`, `introLineSteps`, `introHold` dans `world.ts`) ; ces trois valeurs rejoignent l'état commun transmis aux navigateurs. Les entrées des joueurs gagnent la touche de dash tenue (`dash`). Le son des rotors n'a plus de durée connue d'avance : il dure jusqu'au départ du véhicule (`vehicleLeaves`). Réglages : `lettersPerStep`, `autoAdvanceSteps`, `skipHoldSteps` dans `CONFIG.arrival`.

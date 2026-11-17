@@ -29,7 +29,8 @@ export function stepHero(world: World, h: Hero, input: Input): void {
   if (h.arrivalSteps > 0) {
     // le véhicule de largage amène le robot, encore replié
     h.moving = false;
-    if (--h.arrivalSteps === 0) world.emit({ type: 'deploy', sound: deploySound(h), hero: h.id });
+    // l'horloge de l'arrivée s'arrête pendant une réplique (GD-079)
+    if (!world.introWaiting && --h.arrivalSteps === 0) world.emit({ type: 'deploy', sound: deploySound(h), hero: h.id });
     return;
   }
   if (h.deploySteps > 0) {

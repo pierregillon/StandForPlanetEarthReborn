@@ -1,26 +1,26 @@
-// Introduction du niveau (GD-077, GD-078) : déroulé du largage et répliques des robots.
-// Tout se déduit de la durée totale de l'arrivée et de la composition de l'équipe : le serveur et les
-// navigateurs retrouvent ainsi la même séquence sans rien échanger de plus.
+// Introduction du niveau (GD-077, GD-078, GD-079) : déroulé du largage et répliques des robots.
+// L'horloge de la séquence est celle de l'arrivée des héros. Elle s'arrête sur chaque réplique, jusqu'à ce
+// que l'hôte passe à la suivante : le joueur lit à son rythme.
 import { CONFIG } from './config.ts';
 
-/** Instants de l'arrivée, en steps depuis son début. Chaque valeur est la fin de la phase nommée. */
+/** Instants de l'arrivée, en steps de son horloge. Chaque valeur est la fin de la phase nommée. */
 export interface ArrivalPhases {
+  /** Introduction complète (la radio est jouée) ou simple largage. */
+  full: boolean;
   /** Le véhicule est entré et s'est arrêté au-dessus du parvis. */
   flyIn: number;
-  /** Fin du vol stationnaire (les répliques radio) ; égal à `flyIn` quand l'introduction est déjà vue. */
+  /** Il s'est stabilisé en vol : l'horloge s'arrête ici pour les répliques radio. */
   hover: number;
-  /** Le véhicule est posé. */
+  /** Il est posé : l'horloge s'arrête ici pour l'échange du largage. */
   descend: number;
-  /** Les pinces des robots joués s'ouvrent, au milieu de l'échange du largage. */
-  release: number;
-  /** Fin de l'échange : le véhicule redécolle. */
+  /** Il redécolle. */
   hold: number;
   ascend: number;
-  /** Le véhicule est sorti de l'écran : le déploiement commence. */
+  /** Il est sorti de l'écran : le déploiement commence. */
   total: number;
 }
 
-/** Durée de l'arrivée ; l'introduction complète ajoute le vol stationnaire. */
+/** Durée de l'arrivée, répliques non comprises ; l'introduction complète ajoute le vol stationnaire. */
 export function arrivalTotal(fullIntro: boolean): number {
   const a = CONFIG.arrival;
   return a.flyInSteps + (fullIntro ? a.hoverSteps : 0) + a.descendSteps + a.holdSteps + a.ascendSteps + a.flyOutSteps;
@@ -28,12 +28,12 @@ export function arrivalTotal(fullIntro: boolean): number {
 
 export function arrivalPhases(total: number): ArrivalPhases {
   const a = CONFIG.arrival;
-  const hoverSteps = Math.max(0, total - arrivalTotal(false));
+  const full = total > arrivalTotal(false);
   const flyIn = a.flyInSteps;
-  const hover = flyIn + hoverSteps;
+  const hover = flyIn + (full ? a.hoverSteps : 0);
   const descend = hover + a.descendSteps;
   const hold = descend + a.holdSteps;
-  return { flyIn, hover, descend, release: descend + Math.round(a.holdSteps / 2), hold, ascend: hold + a.ascendSteps, total };
+  return { full, flyIn, hover, descend, hold, ascend: hold + a.ascendSteps, total };
 }
 
 /** Pince d'un robot, par rapport à l'origine du véhicule : chaque robot a toujours la même. */
@@ -44,21 +44,22 @@ export function clawOf(heroName: string): { x: number; y: number } {
 }
 
 export interface IntroLine {
-  /** Steps depuis le début de l'arrivée : la réplique est à l'écran de `from` (inclus) à `to` (exclu). */
-  from: number;
-  to: number;
-  /** Nom du robot qui parle. */
+  /** Instant de l'horloge où elle s'arrête pour cette réplique. */
+  at: number;
+  /** Nom de celui qui parle. */
   speaker: string;
   text: string;
+  /** L'échange du largage : les pinces des robots joués s'ouvrent quand cette réplique commence. */
+  release?: boolean;
 }
 
-/** La radio, pendant le vol stationnaire : durée relative et texte de chaque réplique (texte accepté, GD-077). */
-const RADIO: [string, number, string][] = [
-  ['BadaBot', 1.6, 'They are talking about us.'],
-  ['EngiBot', 1.6, 'Good. Then they will listen.'],
-  ['PetBot', 2.4, 'Objective: the control room. One message, on every screen.'],
-  ['BatBot', 1.7, 'And if they don\'t open the door?'],
-  ['BadaBot', 1.2, 'We knock.'],
+/** La radio, pendant le vol stationnaire (texte accepté, GD-077). */
+const RADIO: [string, string][] = [
+  ['BadaBot', 'They are talking about us.'],
+  ['EngiBot', 'Good. Then they will listen.'],
+  ['PetBot', 'Objective: the control room. One message, on every screen.'],
+  ['BatBot', 'And if they don\'t open the door?'],
+  ['BadaBot', 'We knock.'],
 ];
 
 /** Le robot qui reste à bord et passe la main : le premier de cette liste parmi ceux qui ne sont pas joués. */
@@ -99,31 +100,28 @@ export function dropExchange(players: string[]): [string, string][] {
 }
 
 /**
- * Toutes les répliques d'une arrivée, datées. `players` : les robots joués ; `total` : durée de l'arrivée
- * (celle des héros, `arrivalTotal`). Sans vol stationnaire, il ne reste que l'échange du largage.
+ * Toutes les répliques d'une arrivée, dans l'ordre. `players` : les robots joués ; `total` : durée de
+ * l'arrivée (celle des héros, `arrivalTotal`). Sans introduction complète, il ne reste que l'échange du largage.
  */
 export function introLines(players: string[], total: number): IntroLine[] {
   const p = arrivalPhases(total);
   const lines: IntroLine[] = [];
-  const hover = p.hover - p.flyIn;
-  if (hover > 0) {
-    const sum = RADIO.reduce((acc, r) => acc + r[1], 0);
-    let at = 0;
-    for (const [speaker, weight, text] of RADIO) {
-      const from = p.flyIn + Math.round((at / sum) * hover);
-      at += weight;
-      lines.push({ from, to: p.flyIn + Math.round((at / sum) * hover), speaker, text });
-    }
-  }
+  if (p.full) for (const [speaker, text] of RADIO) lines.push({ at: p.hover, speaker, text });
   const exchange = dropExchange(players);
   exchange.forEach(([speaker, text], i) => {
-    // la réponse commence quand les pinces s'ouvrent
-    const from = i === 0 ? p.descend : p.release;
-    lines.push({ from, to: i === exchange.length - 1 ? p.hold : p.release, speaker, text });
+    lines.push({ at: p.descend, speaker, text, release: i === exchange.length - 1 });
   });
   return lines;
 }
 
-export function introLineAt(lines: IntroLine[], t: number): IntroLine | null {
-  return lines.find((l) => t >= l.from && t < l.to) ?? null;
+/** Steps qu'il faut à une réplique pour s'écrire en entier. */
+export function typingSteps(text: string): number {
+  return Math.ceil(text.length / CONFIG.arrival.lettersPerStep);
+}
+
+/** Les robots joués ont-ils quitté leur pince ? `line` : rang de la réplique en cours (World.introLine). */
+export function crewReleased(lines: IntroLine[], phases: ArrivalPhases, t: number, line: number): boolean {
+  if (t > phases.descend) return true;
+  const release = lines.findIndex((l) => l.release);
+  return t === phases.descend && (release < 0 || line >= release);
 }

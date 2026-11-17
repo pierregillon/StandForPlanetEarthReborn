@@ -121,7 +121,10 @@ test('arrivée par le véhicule : le robot attend d\'être posé, puis se déplo
   const total = h.arrivalTotal;
   assert.ok(total > 120 && h.arrivalSteps === total);
   const y0 = h.y;
-  for (let i = 0; i < total - 1; i++) w.step({ ...NO_INPUT, moveY: -1, aimX: h.x, aimY: h.y - 300 });
+  // le joueur fait défiler les répliques de l'introduction en appuyant (GD-079) ; son robot ne bouge pas
+  const press = { ...NO_INPUT, moveY: -1, dashPressed: true, aimX: h.x, aimY: h.y - 300 };
+  for (let i = 0; i < total * 2 && h.arrivalSteps > 1; i++) w.step(press);
+  assert.equal(h.arrivalSteps, 1);
   assert.equal(h.y, y0);
   assert.equal(h.deploySteps, h.deployTotal, 'le déploiement n\'a pas commencé');
   assert.equal(w.damageHero(w.hero, 1), false);

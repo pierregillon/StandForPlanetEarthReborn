@@ -8,7 +8,7 @@ import {
 } from './geom.ts';
 import type { Obstacle } from './geom.ts';
 import { NavGrid } from './nav.ts';
-import { arrivalTotal as arrivalDuration, clawOf } from './intro.ts';
+import { arrivalPhases, arrivalTotal as arrivalDuration, clawOf, introLines, typingSteps } from './intro.ts';
 import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, stepAbilityObjects } from './abilities.ts';
 import type { NewExplosion } from './abilities.ts';
 import { deploySound, stepHero } from './hero.ts';
@@ -248,6 +248,9 @@ export class World {
         this.emit({ type: 'deploy', sound: deploySound(h), hero: h.id });
       }
     }
+    this.introLine = 0;
+    this.introLineSteps = 0;
+    this.introHold = 0;
     if (withVehicle) this.emit({ type: 'vehicleArrives', seconds: arrivalTotal / STEPS_PER_SECOND });
   }
 
@@ -259,8 +262,51 @@ export class World {
     const riding = this.heroes.filter((h) => !h.gone && h.arrivalSteps > 1);
     if (riding.length === 0) return false;
     for (const h of riding) h.arrivalSteps = 1;
+    this.introWaiting = false;
+    this.introHold = 0;
     this.emit({ type: 'introSkipped' });
     return true;
+  }
+
+  /**
+   * Déroulé de l'introduction (GD-079). L'horloge de l'arrivée s'arrête sur chaque réplique : l'hôte appuie
+   * sur la touche de dash pour finir de l'écrire, puis pour passer à la suivante. S'il tient la touche, toute
+   * la séquence est passée.
+   */
+  private stepIntro(host: Input | undefined): void {
+    const a = CONFIG.arrival;
+    this.introWaiting = false;
+    const team = this.heroes.filter((h) => !h.gone && h.arrivalTotal > 0);
+    const lead = team.find((h) => h.arrivalSteps > 0);
+    if (!lead) {
+      this.introHold = 0;
+      return;
+    }
+    if (host?.dash) {
+      if (++this.introHold >= a.skipHoldSteps) {
+        this.skipArrival();
+        return;
+      }
+    } else {
+      this.introHold = 0;
+    }
+    const t = lead.arrivalTotal - lead.arrivalSteps;
+    const phases = arrivalPhases(lead.arrivalTotal);
+    const lines = introLines(team.map((h) => h.def.name), lead.arrivalTotal);
+    const line = lines[this.introLine];
+    if (!line || line.at > t) {
+      if (t === phases.hold) this.emit({ type: 'vehicleLeaves', seconds: (phases.total - phases.hold) / STEPS_PER_SECOND });
+      return;
+    }
+    this.introWaiting = true;
+    const written = typingSteps(line.text);
+    if (host?.dashPressed && this.introLineSteps < written) {
+      // premier appui : la réplique s'écrit d'un coup
+      this.introLineSteps = written;
+    } else if (host?.dashPressed || ++this.introLineSteps >= written + a.autoAdvanceSteps) {
+      this.introLine++;
+      this.introLineSteps = 0;
+    }
   }
 
   /** Chaises à roulettes : poussées par les héros, elles roulent puis ralentissent ; les murs les arrêtent. */
@@ -594,14 +640,20 @@ export class World {
   }
 
   /** Avance d'un step. `inputs` : l'entrée du joueur en solo, ou une entrée par héros, dans l'ordre de l'équipe. */
-  /** Rang du héros dont le joueur peut passer l'introduction : l'hôte de la partie (0 en solo). */
+  /** Rang du héros dont le joueur mène l'introduction : l'hôte de la partie (0 en solo). */
   hostSlot = 0;
+  /** Introduction : rang de la réplique en cours (ou de la prochaine), et steps depuis qu'elle s'écrit. */
+  introLine = 0;
+  introLineSteps = 0;
+  /** Steps depuis lesquels l'hôte tient la touche qui passe la séquence. */
+  introHold = 0;
+  /** Une réplique est à l'écran : l'horloge de l'arrivée est arrêtée. */
+  introWaiting = false;
 
   step(inputs: Input | Input[]): void {
     this.tick++;
     const list = Array.isArray(inputs) ? inputs : [inputs];
-    // pendant l'arrivée, la touche de dash de l'hôte passe l'introduction
-    if (list[this.hostSlot]?.dashPressed) this.skipArrival();
+    this.stepIntro(list[this.hostSlot]);
     this.stepChairs();
     for (const o of this.outlets) o.inUse = false;
     for (const button of this.buttons) if (button.pressedSteps >= 0) button.pressedSteps++;
