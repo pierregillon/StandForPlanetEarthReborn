@@ -82,6 +82,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-074 | Le dash passe avant tout et annule l'action en cours | 2026-11-17 | Appliquée |
 | GD-075 | Un soldat qui retrouve sa cible met un instant à tirer | 2026-11-17 | Appliquée |
 | GD-076 | L'arc narratif de référence est le document « reborn » de l'utilisateur | 2026-11-17 | Acceptée |
+| GD-077 | Le niveau en construction est TvTv² ; il s'ouvre sur une cinématique en jeu | 2026-11-17 | Acceptée — à réaliser (rien n'est encore changé dans le jeu) |
 
 ---
 
@@ -1671,3 +1672,37 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Conséquences.** `AGENTS.md`, créé à la racine, est le guide unique d'un agent : règles de travail (reprises de `CLAUDE.md`), règle de lecture de l'arc narratif, index du dépôt. `CLAUDE.md` ne contient plus qu'une ligne qui l'importe (demande de l'utilisateur : tout dans un seul fichier). Le cadre du MVP (§2), `docs/reference/README.md` et `README.md` renvoient au document.
 
 **Points ouverts.** Les questions de la section 7 du document. Le rattachement des niveaux existants à l'arc reste à faire avec l'utilisateur : le niveau jouable aujourd'hui (monde 2 : traverser le bâtiment, détruire les foreuses, battre SallyBot) ressemble à la mission de l'acte I de SFPE, « détruire des foreuses » — c'est un rapprochement fait par Claude, pas une décision.
+
+## GD-077 — Le niveau en construction est TvTv² ; il s'ouvre sur une cinématique en jeu
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée — à réaliser (rien n'est encore changé dans le jeu)
+- **Décidée par** : l'utilisateur ; la mise en scène en trois temps et le texte sont des propositions de Claude qu'il a acceptées
+
+**Contexte.** Le niveau jouable est le monde 2 du code de 2019 : un bâtiment de bureaux sur deux étages, puis une zone de forage et le boss SallyBot (GD-009, GD-010). L'utilisateur précise que ce niveau est la tour de télévision TvTv², c'est-à-dire la mission de l'acte II de SFPE dans l'arc narratif (« L'ultimatum »), et non l'acte I comme Claude l'avait supposé dans GD-076. Il veut une cinématique d'introduction faite avec les éléments du jeu, qui présente la mission et se raccorde au largage par le véhicule (GD-035, GD-060).
+
+**Décision.**
+
+- **Le niveau est TvTv²**, acte II de SFPE. La zone de forage et SallyBot sortent de ce niveau : les foreuses appartiennent à la mission de l'acte I.
+- **Objectifs** : la suite de consignes est à réécrire. Principe proposé par Claude, accepté dans ses grandes lignes : entrer, prendre le plateau, trouver la carte de la régie, diffuser le message, sortir face à l'armée. Le détail et la fin du niveau restent à fixer ; d'ici là le jeu garde les consignes de GD-010.
+- **Cinématique d'introduction en trois temps**, 25 à 30 secondes :
+  1. *Le direct* : le journal de TvTv² passe sur les écrans du hall, des civils et des gardes regardent. Le présentateur résume, du point de vue des humains, ce que les robots ont fait.
+  2. *La radio* : bruit de rotors, l'image saute, la caméra sort du bâtiment ; les robots échangent quelques répliques qui énoncent l'objectif.
+  3. *Le largage* existant, le déploiement, puis la première consigne.
+- **Texte accepté** (en anglais, comme tous les textes du jeu) :
+  - ANCHOR : « ...a third drilling site destroyed this month. The 'Stand For Planet Earth' unit is now considered out of control. »
+  - ANCHOR : « Authorities say there is no reason to panic. Stay with us on TvTv², right after th— »
+  - BADABOT : « They are talking about us. »
+  - ENGIBOT : « Good. Then they will listen. »
+  - PETBOT : « Objective: the control room. One message, on every screen. »
+  - BATBOT : « And if they don't open the door? »
+  - BADABOT : « We knock. »
+- **Les quatre robots sont toujours là.** Le véhicule porte toujours les quatre robots, un par pince, et les quatre parlent, quels que soient le nombre de joueurs et les robots choisis. Au sol, il ne largue que ceux qui sont incarnés par des joueurs et repart avec les autres. Un court échange au moment du largage l'explique : un robot qui reste passe la main, un robot qui descend répond (exemple de l'utilisateur, avec BadaBot et PetBot joués — EngiBot : « Bon les gars, on vous laisse gérer la situation » ; BadaBot : « Ça suffira avec PetBot, on s'en sortira »). La cinématique est donc la même pour toutes les parties, seule cette fin change.
+- **Passer la cinématique** : seul l'hôte de la partie le peut, avec la barre d'espace.
+- **Ce que l'introduction ne dit pas** : aucune date ni époque (règle de l'arc narratif), rien sur SFHB, pas le virus de l'acte III. Pas de commandant humain qui donnerait un briefing : depuis la fin de l'acte I, les robots décident seuls.
+
+**Pourquoi.** Dans un niveau qui est une chaîne de télévision, le journal télévisé expose la situation sans sortir du jeu. Il prépare deux échos : à la fin de la mission, les mêmes écrans montreront les robots à la place du présentateur ; et dans la campagne SFHB (acte III, « Les traces du passé »), ce journal et l'ultimatum peuvent être les enregistrements que les robots retrouvent dans le bâtiment en ruine.
+
+**Conséquences.** Tranche le point ouvert de GD-076 sur le rattachement du niveau à l'arc. Remplacera GD-009 et GD-010 pour le contenu et les consignes du niveau quand la suite d'objectifs sera fixée. Complétera GD-035 et GD-060 pour le largage.
+
+**Points ouverts.** L'emplacement du plateau et de la régie dans les salles existantes ; la façon de montrer l'émission dans un jeu vu du dessus, où l'on ne voit pas la surface d'un écran ; les répliques du largage pour chaque composition d'équipe ; la fin du niveau sans SallyBot.
