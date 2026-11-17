@@ -1668,6 +1668,6 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 - C'est le document de l'utilisateur : on ne le modifie qu'à sa demande. Une question en suspens (sa section 7) se tranche avec lui ; la réponse est reportée dans le document et tracée ici.
 - Il ne change ni les mécaniques ni le périmètre du jeu déjà construit : pour le gameplay, les sources de vérité restent celles du cadre du MVP (les décisions de ce dépôt, puis le code de 2019).
 
-**Conséquences.** `AGENTS.md`, créé à la racine, indexe le dépôt et dit quoi lire selon le travail ; `CLAUDE.md` l'importe et rappelle la règle de lecture. Le cadre du MVP (§2), `docs/reference/README.md` et `README.md` renvoient au document.
+**Conséquences.** `AGENTS.md`, créé à la racine, est le guide unique d'un agent : règles de travail (reprises de `CLAUDE.md`), règle de lecture de l'arc narratif, index du dépôt. `CLAUDE.md` ne contient plus qu'une ligne qui l'importe (demande de l'utilisateur : tout dans un seul fichier). Le cadre du MVP (§2), `docs/reference/README.md` et `README.md` renvoient au document.
 
 **Points ouverts.** Les questions de la section 7 du document. Le rattachement des niveaux existants à l'arc reste à faire avec l'utilisateur : le niveau jouable aujourd'hui (monde 2 : traverser le bâtiment, détruire les foreuses, battre SallyBot) ressemble à la mission de l'acte I de SFPE, « détruire des foreuses » — c'est un rapprochement fait par Claude, pas une décision.

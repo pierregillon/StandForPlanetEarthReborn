@@ -8,7 +8,7 @@ Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du 
 
 | Document | Contenu |
 |---|---|
-| [AGENTS.md](AGENTS.md) | Index du dépôt : où se trouve quoi, quoi lire selon le travail |
+| [AGENTS.md](AGENTS.md) | Guide pour un agent : règles de travail, quoi lire selon le travail, où se trouve quoi |
 | [docs/narration/arc-narratif.md](docs/narration/arc-narratif.md) | L'histoire du jeu : les actes SFPE et SFHB, les personnages, le dénouement. Référence pour tout travail de scénario |
 | [docs/01-cadre-mvp.md](docs/01-cadre-mvp.md) | Ce que contient la première version jouable, et les points encore ouverts |
 | [docs/02-feuille-de-route.md](docs/02-feuille-de-route.md) | Les 4 étapes de livraison et l'avancement |

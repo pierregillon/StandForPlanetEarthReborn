@@ -206,4 +206,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Rechargement de PetBot : nouveau sprite fabriqué, trois doses de sérum pompées du dos vers l'arme par le tuyau (GD-072). |
 | 2026-11-17 | Plus de chargeur éjecté au rechargement (GD-071, GD-072) ; BadaBot : salve de trois boules, effet de tir plasma, bouclier à cinq balles par énergie (GD-073) ; dash prioritaire qui annule l'action en cours (GD-074). |
 | 2026-11-17 | BadaBot : chargeur de douze boules, quatre salves (GD-073) ; un soldat qui retrouve sa cible attend 0,35 s avant de tirer (GD-075). |
-| 2026-11-17 | Documentation : l'arc narratif de l'utilisateur entre dans le dépôt (`docs/narration/arc-narratif.md`) et devient la référence pour tout travail de scénario (GD-076) ; `AGENTS.md` indexe le dépôt, importé par `CLAUDE.md`. |
+| 2026-11-17 | Documentation : l'arc narratif de l'utilisateur entre dans le dépôt (`docs/narration/arc-narratif.md`) et devient la référence pour tout travail de scénario (GD-076) ; `AGENTS.md` devient le guide unique d'un agent (règles de travail et index du dépôt) ; `CLAUDE.md` ne fait plus que l'importer. |
