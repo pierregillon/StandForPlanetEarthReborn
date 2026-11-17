@@ -1082,3 +1082,31 @@ Repris de l'original : les sprites, l'animation des rotors, la position de la pi
 **Pourquoi.** Des drones qui suivent leur robot avec un temps de retard paraissent vivants ; une figure collée à lui paraît plaquée sur l'écran.
 
 **Conséquences.** Affichage seulement (`swarmX`, `swarmY` dans `syncPets`, repris par `syncEffects`, `WorldView.ts`) : rien ne change pour la simulation ni pour le réseau.
+
+## GD-051 — Ulti de BadaBot : une vague d'énergie à la place du mur
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; remplace le mur d'énergie de GD-044
+- **Décidée par** : l'utilisateur (le principe, la mise en scène, la largeur, la projection à deux écrans) ; choix par défaut pour les points marqués « par défaut »
+
+**Contexte.** L'ulti de BadaBot était un mur d'énergie infranchissable (GD-044). L'utilisateur le remplace par une vague d'énergie qui repousse tout.
+
+**Décision.**
+
+- **Canalisation** (les 2 s de lancement) : BadaBot est immobile, ses deux boucliers au repos, dans sa position normale. Son énergie monte de son corps vers les deux boucliers, qui se mettent à luire et à crépiter.
+- **Frappe** : soudain il frappe ses deux boucliers l'un contre l'autre, avec les images de son bouclier jouées d'un coup (un dixième de seconde), un éclat blanc au point de choc, une secousse de l'écran et un fracas de métal.
+- **Vague** : de ce choc jaillit une vague d'énergie qui file droit devant lui. Elle fait la largeur des deux boucliers (200 px) et avance vite (2 400 px/s, deux fois la vitesse d'une balle).
+- **Elle repousse tout sur son passage**, projeté à deux écrans de là (3 840 px) : les ennemis, les chaises, les débris (membres, éclats de verre) et les balles.
+- *Par défaut* :
+  - la vague elle-même parcourt un écran (1 920 px) et **s'arrête au premier mur** ou à une porte fermée ; elle passe au-dessus des meubles et fait éclater les vitres ;
+  - ce qui est projeté **s'arrête contre le premier mur ou meuble** ; un mur entre l'axe de la vague et un ennemi le protège ;
+  - **aucun dégât**, ni de la vague ni du choc contre un mur : l'ulti éloigne, il ne tue pas ;
+  - un ennemi projeté tournoie et ne peut rien faire pendant son vol, puis **reste sonné 1,5 s** à l'arrivée ;
+  - **les balles ennemies emportées changent de camp** : elles repartent dans le sens de la vague et blessent les ennemis. Les balles des héros ne sont pas déviées ;
+  - **les héros et leurs objets ne sentent rien** : coéquipiers, tourelle d'EngiBot, battes de BatBot, mini-bots de PetBot. Les cartes d'accès au sol ne bougent pas non plus, pour ne pas envoyer un objet de quête au loin ;
+  - **le boss est trop lourd** : il n'est pas déplacé, seulement sonné 1,5 s (et donc vulnérable pendant ce temps, comme sous la grenade d'EngiBot) ; ses foreuses ne bougent pas ;
+  - le fracas de métal est un son de synthèse (des partiels sans rapport simple entre eux, un coup sourd, puis le souffle de la vague) : le jeu d'origine n'a pas de son de ce genre pour BadaBot.
+
+**Pourquoi.** Une vague qui balaie un couloir donne à BadaBot, le tank, un outil de contrôle : il dégage le passage, renvoie les balles et met un groupe hors de combat le temps de se replacer.
+
+**Conséquences.** Simulation : effet `wave` dans `src/sim/ulti.ts` (`sweepWave`, `stepThrown`), champs `thrown`, `thrownAngle` et `daze` des PNJ, `thrown` des chaises ; réglages dans `CONFIG.ulti.badaBot`. Le mur (obstacle, sprite `spr_BadaBot_ulti_wall`, posture `spr_BadaBot_ulti_cast`) est retiré. Sprite fabriqué `spr_BadaBot_ulti_wave`. Les débris emportés ne sont que de l'affichage : chaque joueur voit voler les siens. Vu à l'écran en solo : la canalisation sur les boucliers, la frappe, la vague qui emporte trois ennemis à deux écrans, puis leur étourdissement. Pas essayé en réseau ; les chaises, les balles et les murs ne sont couverts que par les tests ; le son n'a pas pu être écouté.

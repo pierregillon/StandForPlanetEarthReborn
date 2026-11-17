@@ -256,7 +256,10 @@ export class World {
       }
       this.nav.mark(o, -1);
       o.active = false; // la chaise ne se heurte pas à elle-même
-      const res = this.collision.resolveCircle(o.cx + chair.vx, o.cy + chair.vy, cfg.radius, BLOCK_MOVE);
+      // par petits pas : une chaise projetée par la vague de BadaBot va trop vite pour un seul contrôle
+      const hops = Math.ceil(v / 16);
+      let res = { x: o.cx, y: o.cy, hit: false };
+      for (let i = 0; i < hops && !res.hit; i++) res = this.collision.resolveCircle(res.x + chair.vx / hops, res.y + chair.vy / hops, cfg.radius, BLOCK_MOVE);
       o.active = true;
       this.collision.update(o, () => {
         o.cx = res.x;
@@ -266,7 +269,9 @@ export class World {
       chair.x = res.x - chair.offsetX;
       chair.y = res.y - chair.offsetY;
       chair.angle += v * 0.012;
-      const keep = res.hit ? 0.4 : cfg.friction;
+      // tant qu'elle est projetée, elle ne ralentit pas ; un mur l'arrête
+      chair.thrown = res.hit ? 0 : Math.max(0, chair.thrown - v);
+      const keep = res.hit ? 0.4 : chair.thrown > 0 ? 1 : cfg.friction;
       chair.vx *= keep;
       chair.vy *= keep;
     }
@@ -484,7 +489,7 @@ export class World {
       this.nav.mark(o, 1);
       this.chairs.push({
         id: this.nextId++, sprite: spriteName ?? '', x: inst.x, y: inst.y, angle, scaleX: inst.scaleX, scaleY: inst.scaleY, tint: inst.tint,
-        vx: 0, vy: 0, offsetX: o.cx - inst.x, offsetY: o.cy - inst.y, obstacle: o,
+        vx: 0, vy: 0, thrown: 0, offsetX: o.cx - inst.x, offsetY: o.cy - inst.y, obstacle: o,
       });
     } else if (isA(level, inst.object, 'obj_decor_base')) {
       // mobilier et autres obstacles fixes

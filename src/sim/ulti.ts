@@ -2,13 +2,12 @@
 // de lancement, immobile et vulnérable, puis le coup propre à chaque robot :
 //   BatBot  : il bondit dans la mêlée et son atterrissage explose autour de lui ;
 //   PetBot  : ses mini-bots tournent autour de lui et répandent un essaim de nanomachines qui soigne les alliés ;
-//   BadaBot : un mur d'énergie infranchissable se dresse devant lui ;
+//   BadaBot : il frappe ses boucliers, une vague d'énergie file devant lui et projette tout au loin ;
 //   EngiBot : une grenade électromagnétique désactive les robots ennemis, sans effet sur les humains.
 import { CONFIG } from './config.ts';
-import { BLOCK_BULLET, BLOCK_MOVE, BLOCK_SIGHT, DEG, IS_WINDOW, makeBox, rotateToward } from './geom.ts';
-import type { Obstacle } from './geom.ts';
+import { BLOCK_MOVE, BLOCK_SIGHT, DEG, IS_WINDOW, rotateToward } from './geom.ts';
 import { dropDonors, unlink } from './link.ts';
-import type { Hero, Input, UltiEffect } from './types.ts';
+import type { Hero, Input, Npc, UltiEffect, WindowPane } from './types.ts';
 import type { World } from './world.ts';
 
 const U = CONFIG.ulti;
@@ -90,9 +89,15 @@ function release(world: World, h: Hero, input: Input): void {
     world.effects.push({ ...base, kind: 'nanos', x: h.x, y: h.y, total: U.petBot.steps, radius: U.petBot.radius });
   } else if (h.def.kind === 'BadaBot') {
     const cfg = U.badaBot;
-    const wall: UltiEffect = { ...base, kind: 'wall', x: h.x + c * cfg.distance, y: h.y + s * cfg.distance, total: cfg.steps, radius: cfg.halfThickness, length: cfg.halfLength };
-    world.effects.push(wall);
-    raiseWall(world, wall);
+    // la vague naît devant lui, là où ses boucliers se heurtent, et s'arrête au premier mur
+    const reach = cfg.start + cfg.range;
+    const hit = world.collision.raycast(h.x, h.y, h.x + c * reach, h.y + s * reach, BLOCK_SIGHT);
+    const length = Math.max(0, (hit ? reach * hit.t : reach) - cfg.start);
+    const x = h.x + c * cfg.start;
+    const y = h.y + s * cfg.start;
+    world.effects.push({
+      ...base, kind: 'wave', x, y, fromX: x, fromY: y, total: Math.ceil(length / cfg.speed) + cfg.fadeSteps, radius: cfg.halfWidth, length,
+    });
   } else {
     const cfg = U.engiBot;
     // la grenade vole vers le point visé et s'arrête au premier mur
@@ -150,44 +155,106 @@ function land(world: World, h: Hero): void {
 
 // ---------- Effets laissés dans le monde ----------
 
-/** Obstacle de chaque mur d'énergie (il n'est pas transmis sur le réseau : chaque monde construit le sien). */
-const wallObstacles = new WeakMap<UltiEffect, Obstacle>();
+/** Ce que chaque vague a déjà projeté : elle ne reprend pas deux fois le même (côté serveur seulement). */
+const swept = new WeakMap<UltiEffect, Set<number>>();
 
-/**
- * Dresse le mur de BadaBot : il arrête les déplacements et les balles, dans les deux sens et pour tout le
- * monde, mais pas le regard. Ceux qui se trouvent à son emplacement sont repoussés du côté le plus proche.
- * Appelé aussi par le client d'une partie en réseau, pour son monde miroir.
- */
-export function raiseWall(world: World, wall: UltiEffect): void {
-  if (wallObstacles.has(wall)) return;
-  const o = world.collision.add(makeBox(wall.x, wall.y, wall.radius, wall.length, wall.angle, BLOCK_MOVE | BLOCK_BULLET, wall));
-  wallObstacles.set(wall, o);
-  world.nav.mark(o, 1);
-  const c = Math.cos(wall.angle);
-  const s = Math.sin(wall.angle);
-  const eject = (body: { x: number; y: number }, radius: number): void => {
-    const dx = body.x - wall.x;
-    const dy = body.y - wall.y;
-    const across = dx * c + dy * s;
-    const along = -dx * s + dy * c;
-    const reach = wall.radius + radius + 2;
-    if (Math.abs(across) >= reach || Math.abs(along) >= wall.length + radius) return;
-    const push = (across >= 0 ? reach : -reach) - across;
-    body.x += c * push;
-    body.y += s * push;
-  };
-  for (const npc of world.npcs) eject(npc, npc.def.radius);
-  for (const h of world.heroes) if (!h.gone) eject(h, h.def.radius);
+/** Position du front de la vague de BadaBot d'après le temps écoulé. Sert aussi au client d'une partie en réseau. */
+export function placeWave(e: UltiEffect): void {
+  const d = Math.min(e.length, U.badaBot.speed * e.steps);
+  e.x = e.fromX + Math.cos(e.angle) * d;
+  e.y = e.fromY + Math.sin(e.angle) * d;
 }
 
-export function dropWall(world: World, wall: UltiEffect): void {
-  const o = wallObstacles.get(wall);
-  if (!o) return;
-  wallObstacles.delete(wall);
-  world.nav.mark(o, -1);
-  world.collision.update(o, () => {
-    o.active = false;
-  });
+/**
+ * La vague avance d'un pas : tout ce que son front rencontre est projeté droit devant (GD-051). Les ennemis et
+ * les chaises partent à sa vitesse ; les balles ennemies sont emportées et changent de camp ; les vitres
+ * éclatent. Les héros et leurs objets ne sentent rien. Le boss est trop lourd : il est seulement sonné.
+ */
+function sweepWave(world: World, e: UltiEffect): void {
+  const cfg = U.badaBot;
+  const d0 = Math.min(e.length, cfg.speed * (e.steps - 1));
+  const d1 = Math.min(e.length, cfg.speed * e.steps);
+  if (d1 <= d0) return;
+  const c = Math.cos(e.angle);
+  const s = Math.sin(e.angle);
+  let done = swept.get(e);
+  if (!done) swept.set(e, (done = new Set()));
+  // les vitres sur le passage du front, sur toute sa largeur
+  for (const side of [-1, 0, 1]) {
+    const ox = e.fromX - s * side * e.radius;
+    const oy = e.fromY + c * side * e.radius;
+    const glass = world.collision.raycast(ox + c * d0, oy + s * d0, ox + c * d1, oy + s * d1, IS_WINDOW);
+    if (glass) world.breakWindow(glass.obstacle.owner as WindowPane, e.angle);
+  }
+  /** Le front atteint-il ce corps à ce pas ? Un mur entre l'axe de la vague et lui le protège. */
+  const caught = (x: number, y: number, radius: number): boolean => {
+    const along = (x - e.fromX) * c + (y - e.fromY) * s;
+    const across = -(x - e.fromX) * s + (y - e.fromY) * c;
+    if (Math.abs(across) > e.radius + radius || along < d0 - radius || along > d1 + radius) return false;
+    const reach = Math.max(0, Math.min(e.length, along));
+    return !world.shotBlocked(e.fromX + c * reach, e.fromY + s * reach, x, y);
+  };
+  for (const npc of world.npcs) {
+    if (done.has(npc.id) || !caught(npc.x, npc.y, npc.def.radius)) continue;
+    done.add(npc.id);
+    npc.active = true;
+    if (npc.def.kind === 'boss') {
+      npc.stun = Math.max(npc.stun, cfg.dazeSteps);
+      continue;
+    }
+    npc.thrown = cfg.throwDistance;
+    npc.thrownAngle = e.angle;
+    npc.path = null;
+    npc.state = 'standing';
+  }
+  for (const chair of world.chairs) {
+    if (done.has(chair.id) || !caught(chair.obstacle.cx, chair.obstacle.cy, CONFIG.chair.radius)) continue;
+    done.add(chair.id);
+    chair.vx = c * cfg.speed;
+    chair.vy = s * cfg.speed;
+    chair.thrown = cfg.throwDistance;
+  }
+  for (const b of world.bullets) {
+    if (b.owner !== 'enemy' || !caught(b.x, b.y, b.def.radius)) continue;
+    // la balle est emportée : elle repart droit devant, et c'est maintenant celle de BadaBot
+    b.owner = 'hero';
+    b.ownerId = e.owner;
+    b.angle = e.angle;
+    b.speed = Math.max(b.speed, cfg.speed);
+    b.startX = b.x;
+    b.startY = b.y;
+    b.lastHit = -1;
+  }
+}
+
+/**
+ * Un ennemi projeté par la vague file tout droit en tournoyant, ralentit sur la fin, et s'arrête net contre un
+ * mur ou un meuble. Il reste ensuite sonné un moment. Appelé par la boucle des PNJ à la place de son comportement.
+ */
+export function stepThrown(world: World, npc: Npc): void {
+  const cfg = U.badaBot;
+  const speed = Math.min(cfg.speed, npc.thrown, Math.max(6, npc.thrown * 0.12));
+  const c = Math.cos(npc.thrownAngle);
+  const s = Math.sin(npc.thrownAngle);
+  // par petits pas, pour ne traverser aucun mur
+  const hops = Math.ceil(speed / 12);
+  const hop = speed / hops;
+  let stopped = false;
+  for (let i = 0; i < hops && !stopped; i++) {
+    const res = world.collision.resolveCircle(npc.x + c * hop, npc.y + s * hop, npc.def.radius * 0.5, BLOCK_MOVE);
+    // l'obstacle le dévie à peine : il glisse le long ; il lui barre la route : il s'arrête
+    stopped = res.hit && (res.x - npc.x) * c + (res.y - npc.y) * s < hop * 0.35;
+    npc.x = res.x;
+    npc.y = res.y;
+  }
+  npc.thrown = stopped ? 0 : Math.max(0, npc.thrown - speed);
+  npc.angle += 0.4;
+  npc.dir = npc.angle;
+  if (npc.thrown < 1) {
+    npc.thrown = 0;
+    npc.daze = cfg.dazeSteps;
+    if (stopped) world.emit({ type: 'impact', x: npc.x + c * npc.def.radius, y: npc.y + s * npc.def.radius, angle: npc.thrownAngle, surface: 'wall' });
+  }
 }
 
 /** Position de la grenade d'EngiBot pendant son vol. */
@@ -217,9 +284,11 @@ export function stepEffects(world: World): void {
     } else if (e.kind === 'emp') {
       placeGrenade(e);
       if (e.steps === U.engiBot.flySteps) detonate(world, e);
+    } else {
+      placeWave(e);
+      sweepWave(world, e);
     }
     if (!over) continue;
-    if (e.kind === 'wall') dropWall(world, e);
     world.effects.splice(i, 1);
   }
 }
@@ -235,6 +304,5 @@ function detonate(world: World, e: UltiEffect): void {
 
 /** Retire tous les effets (changement de salle). */
 export function clearEffects(world: World): void {
-  for (const e of world.effects) if (e.kind === 'wall') dropWall(world, e);
   world.effects.length = 0;
 }

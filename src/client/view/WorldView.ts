@@ -9,7 +9,7 @@ import { visibilityPolygon } from '../../sim/visibility.ts';
 import { batHand, petAnchors } from '../../sim/abilities.ts';
 import { muzzlePosition } from '../../sim/hero.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm } from '../../sim/ulti.ts';
-import type { Bat, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, WindowPane } from '../../sim/types.ts';
+import type { Bat, Button, Chair, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
 const DEPTH = {
@@ -75,7 +75,7 @@ const ORB_SHIELD_X = [141, 158, 158, 147];
 function orbOffset(bodySprite: string, frame: number): { x: number; y: number } {
   const i = Math.max(0, Math.floor(frame));
   if (bodySprite === 'spr_BadaBot_move') return { x: 0, y: ORB_WALK_Y[i % ORB_WALK_Y.length] - 137 };
-  if (bodySprite === 'spr_BadaBot_fire2' || bodySprite === 'spr_BadaBot_ulti_cast') return { x: ORB_SHIELD_X[Math.min(i, ORB_SHIELD_X.length - 1)] - 141, y: 0 };
+  if (bodySprite === 'spr_BadaBot_fire2') return { x: ORB_SHIELD_X[Math.min(i, ORB_SHIELD_X.length - 1)] - 141, y: 0 };
   return { x: 0, y: 0 };
 }
 /** Logement de la munition sur l'arme de chaque robot, dans le repère de son sprite. */
@@ -108,7 +108,12 @@ interface Debris {
   vx: number;
   vy: number;
   spin: number;
+  /** Emporté par la vague de BadaBot : distance qu'il parcourt encore sans ralentir. */
+  glide?: number;
 }
+
+/** BadaBot frappe ses boucliers sur les derniers steps de son lancement (GD-051). */
+const SLAM_STEPS = 6;
 
 function tintOf(hex: string): number {
   return parseInt(hex.replace('#', ''), 16);
@@ -249,7 +254,7 @@ export class WorldView {
   private readonly explosionImgs = new Map<number, Img>();
   private readonly batImgs = new Map<number, Img>();
   /** Effets d'ultis en cours : image principale et, selon l'effet, une seconde (zone de soin, impulsion). */
-  private readonly effectImgs = new Map<number, { main: Img; extra: Img | Phaser.GameObjects.Arc | null }>();
+  private readonly effectImgs = new Map<number, { main: Img; extra: Img | Phaser.GameObjects.Shape | null }>();
   private turretImg: Img | null = null;
   private fogLayer!: Phaser.GameObjects.RenderTexture;
   private readonly drillParts = new Map<number, { contours: Img | null; beam: Img | null }>();
@@ -265,6 +270,9 @@ export class WorldView {
   private readonly zoneImgs: Img[] = [];
   private readonly anims: PlayingAnim[] = [];
   private readonly debris: Debris[] = [];
+  /** Restes qui ont volé (membres, éclats de verre) : la vague de BadaBot peut les emporter. Et par quelle vague ils l'ont déjà été. */
+  private readonly loose = new WeakSet<Img>();
+  private readonly sweptBy = new WeakMap<Img, number>();
   private readonly remains: Img[] = [];
   private readonly parts = new Map<number, HeroParts>();
   /** Noms des joueurs, par rang de héros (partie en réseau). */
@@ -573,8 +581,10 @@ export class WorldView {
       this.setFrame(p.chargeTop, 'spr_ulti_charge_top', frame);
       // comme l'enveloppe de surcharge, toute l'énergie part du bleu clair et prend la couleur du robot
       const tint = { main: mixColor(OVERCHARGE_COLOR, colors.main, k * 3), light: mixColor(ULTI_COLORS.emp.light, colors.light, k * 3) };
-      p.chargeUnder.setVisible(true).setPosition(h.x, h.y).setScale(scale).setTint(tint.main);
-      p.chargeTop.setVisible(true).setPosition(h.x, h.y).setScale(scale).setTint(tint.light);
+      // BadaBot ne concentre pas l'énergie sur lui mais dans ses deux boucliers (GD-051)
+      const shields = h.def.kind === 'BadaBot';
+      p.chargeUnder.setVisible(!shields).setPosition(h.x, h.y).setScale(scale).setTint(tint.main);
+      p.chargeTop.setVisible(!shields).setPosition(h.x, h.y).setScale(scale).setTint(tint.light);
       // le halo reste près du robot : une charge d'énergie, pas une lampe. Il apparaît au deuxième tiers du
       // lancement et s'étend un peu au troisième.
       const appear = Math.max(0, Math.min(1, k * 3 - 1));
@@ -582,7 +592,8 @@ export class WorldView {
       p.glow.setVisible(appear > 0).setPosition(h.x, h.y)
         .setScale((0.6 + 0.28 * spread * spread * (3 - 2 * spread)) * (1 + 0.03 * Math.sin(scene.time.now / 45)))
         .setAlpha(0.3 * appear + 0.2 * spread);
-      this.drawChargeArcs(h, k, tint);
+      if (shields) this.drawShieldCharge(h, k, tint);
+      else this.drawChargeArcs(h, k, tint);
     } else {
       p.glow?.setVisible(false);
       p.chargeUnder?.setVisible(false);
@@ -603,20 +614,69 @@ export class WorldView {
     }
   }
 
+  /** Hasard qui ne change que vingt fois par seconde : assez pour crépiter, sans scintiller à chaque image. */
+  private flicker(h: Hero): () => number {
+    let seed = (Math.floor(this.scene.time.now / 50) * 7919 + h.id * 104729) | 0;
+    return (): number => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /**
+   * Lancement de l'ulti de BadaBot (GD-051) : l'énergie monte de son corps vers ses deux boucliers au repos,
+   * qui se mettent à luire et à crépiter. Sur les derniers steps, il les frappe l'un contre l'autre : les deux
+   * lueurs se rejoignent devant lui, là où la vague va naître.
+   */
+  private drawShieldCharge(h: Hero, k: number, colors: { main: number; light: number }): void {
+    const g = this.ultiArcs;
+    const rand = this.flicker(h);
+    const c = Math.cos(h.angle);
+    const s = Math.sin(h.angle);
+    const at = (lx: number, ly: number): { x: number; y: number } => ({ x: h.x + lx * c - ly * s, y: h.y + lx * s + ly * c });
+    const slam = Math.max(0, Math.min(1, 1 - (CONFIG.ulti.castSteps - h.ultiSteps) / SLAM_STEPS));
+    for (const side of [-1, 1]) {
+      // le bouclier au repos est une lame courbe sur le flanc du robot ; à la frappe, il passe devant
+      const core = at(-34 + 100 * slam, side * (72 - 50 * slam));
+      // l'énergie monte du corps vers le bouclier, en zigzag
+      const mid = at(-17 + 50 * slam + (rand() - 0.5) * 18, side * (36 - 25 * slam) + (rand() - 0.5) * 18);
+      for (const pass of [0, 1]) {
+        g.lineStyle(pass === 0 ? 3 + 4 * k : 1.5, pass === 0 ? colors.main : 0xffffff, (pass === 0 ? 0.3 : 0.6) * (0.4 + 0.6 * k));
+        g.beginPath().moveTo(h.x, h.y).lineTo(mid.x, mid.y).lineTo(core.x, core.y).strokePath();
+      }
+      // la lueur du bouclier, de plus en plus grosse
+      g.fillStyle(colors.main, 0.16 + 0.26 * k).fillCircle(core.x, core.y, 22 + 30 * k);
+      g.fillStyle(colors.light, 0.25 + 0.45 * k).fillCircle(core.x, core.y, 9 + 13 * k);
+      g.fillStyle(0xffffff, 0.2 + 0.6 * k).fillCircle(core.x, core.y, 3 + 6 * k);
+      if (slam > 0) continue;
+      // des arcs courent le long de la lame, de sa pointe arrière à sa pointe avant
+      const count = 1 + Math.floor(k * 2.99);
+      for (let n = 0; n < count; n++) {
+        const blade = [at(-66, side * 30), at(-58, side * 56), at(-38, side * 78), at(-10, side * 90), at(14, side * 94)];
+        for (const pass of [0, 1]) {
+          g.lineStyle(pass === 0 ? 5 : 1.5, pass === 0 ? colors.main : 0xffffff, (pass === 0 ? 0.4 : 0.85) * (0.5 + 0.5 * k));
+          g.beginPath();
+          blade.forEach((p, j) => {
+            const x = p.x + (rand() - 0.5) * 22;
+            const y = p.y + (rand() - 0.5) * 22;
+            if (j === 0) g.moveTo(x, y);
+            else g.lineTo(x, y);
+          });
+          g.strokePath();
+        }
+      }
+    }
+  }
+
   /**
    * Lancement d'un ulti : des arcs électriques courent autour du robot, de plus en plus nombreux et de plus
    * en plus vifs à mesure que l'énergie monte (`k` de 0 à 1).
    */
   private drawChargeArcs(h: Hero, k: number, colors: { main: number; light: number }): void {
     const g = this.ultiArcs;
-    // les arcs changent vingt fois par seconde : assez pour crépiter, sans scintiller à chaque image
-    let seed = (Math.floor(this.scene.time.now / 50) * 7919 + h.id * 104729) | 0;
-    const rand = (): number => {
-      seed = (seed + 0x6d2b79f5) | 0;
-      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    const rand = this.flicker(h);
     const body = Math.max(62, h.def.radius * 1.15);
     const count = 1 + Math.floor(k * 2.99);
     for (let n = 0; n < count; n++) {
@@ -960,6 +1020,16 @@ export class WorldView {
   /** Sprite et image du corps du héros selon son état. */
   private heroPose(h: Hero): { sprite: string; frame: number } {
     const def = h.def;
+    // BadaBot (GD-051) : il canalise immobile, boucliers au repos, puis les frappe l'un contre l'autre d'un
+    // coup, avec les images de son bouclier jouées bien plus vite ; il les tient un instant et les rouvre
+    if (def.kind === 'BadaBot' && h.ultiPhase === ULTI_CAST) {
+      const left = CONFIG.ulti.castSteps - h.ultiSteps;
+      return { sprite: 'spr_BadaBot_fire2', frame: left >= SLAM_STEPS ? 0 : Math.min(2, Math.floor((1 - left / SLAM_STEPS) * 3)) };
+    }
+    if (def.kind === 'BadaBot' && h.ultiPhase === ULTI_RECOVER) {
+      const k = h.ultiSteps / CONFIG.ulti.recoverSteps;
+      return { sprite: 'spr_BadaBot_fire2', frame: k < 0.25 ? 2 : k < 0.8 ? 3 : 0 };
+    }
     // lancement d'un ulti : la posture de concentration propre au robot (sprites fabriqués, GD-044)
     const cast = `spr_${def.name}_ulti_cast`;
     if (h.ultiPhase === ULTI_CAST && this.scene.textures.exists(frameKey(cast, 0))) {
@@ -1096,7 +1166,31 @@ export class WorldView {
     this.syncEffects();
   }
 
-  /** Effets laissés par les ultis (GD-044) : nuage de nanomachines de PetBot, mur de BadaBot, grenade d'EngiBot. */
+  /**
+   * La vague de BadaBot emporte les débris qu'elle rencontre (membres, éclats de verre) : ils filent avec elle
+   * en tournoyant, jusqu'au premier mur. Affichage seulement : chaque joueur voit voler ses propres débris.
+   */
+  private sweepRemains(e: UltiEffect, reach: number): void {
+    const cfg = CONFIG.ulti.badaBot;
+    const c = Math.cos(e.angle);
+    const s = Math.sin(e.angle);
+    for (const img of this.remains) {
+      if (!this.loose.has(img) || this.sweptBy.get(img) === e.id) continue;
+      const along = (img.x - e.fromX) * c + (img.y - e.fromY) * s;
+      if (along > reach || along < reach - cfg.speed * 3) continue;
+      if (Math.abs(-(img.x - e.fromX) * s + (img.y - e.fromY) * c) > e.radius) continue;
+      this.sweptBy.set(img, e.id);
+      let entry = this.debris.find((d) => d.img === img);
+      if (!entry) this.debris.push((entry = { img, vx: 0, vy: 0, spin: 0 }));
+      const speed = cfg.speed * STEPS_PER_SECOND * (0.75 + Math.random() * 0.25);
+      entry.vx = c * speed;
+      entry.vy = s * speed;
+      entry.spin = (Math.random() - 0.5) * 26;
+      entry.glide = cfg.throwDistance * (0.4 + Math.random() * 0.6);
+    }
+  }
+
+  /** Effets laissés par les ultis (GD-044) : nuage de nanomachines de PetBot, vague de BadaBot, grenade d'EngiBot. */
   private syncEffects(): void {
     const scene = this.scene;
     const now = scene.time.now / 1000;
@@ -1122,13 +1216,24 @@ export class WorldView {
         const cy = swarm ? swarm.swarmY : e.y;
         parts.main.setPosition(cx, cy).setScale(e.radius / 246).setAlpha(0.6 * fade);
         parts.extra?.setPosition(cx, cy).setAlpha(0.07 * fade + 0.02 * Math.sin(now * 5));
-      } else if (e.kind === 'wall') {
-        parts ??= { main: this.image('spr_BadaBot_ulti_wall', 0, e.x, e.y, DEPTH.door + 1).setRotation(e.angle), extra: null };
-        const info = this.info('spr_BadaBot_ulti_wall');
-        this.setFrame(parts.main, 'spr_BadaBot_ulti_wall', (now * info.speed) % info.frames);
-        // il se dresse en un instant, d'un bout à l'autre ; les plots dessinés dépassent de 30 px
-        const rise = Math.min(1, e.steps / 8);
-        parts.main.setScale(1, ((e.length * 2 + 60) / info.h) * rise).setAlpha(0.55 + 0.45 * fade);
+      } else if (e.kind === 'wave') {
+        const cfg = CONFIG.ulti.badaBot;
+        parts ??= {
+          main: this.image('spr_BadaBot_ulti_wave', 0, e.x, e.y, DEPTH.fx + 3).setRotation(e.angle),
+          // son sillage au sol : une bande claire de la largeur de la vague, du point de départ jusqu'au front
+          extra: scene.add.rectangle(e.fromX, e.fromY, 1, e.radius * 2, ULTI_COLORS.BadaBot.main).setOrigin(0, 0.5).setRotation(e.angle)
+            .setDepth(DEPTH.remains + 1).setBlendMode(Phaser.BlendModes.ADD),
+        };
+        const info = this.info('spr_BadaBot_ulti_wave');
+        this.setFrame(parts.main, 'spr_BadaBot_ulti_wave', (now * info.speed) % info.frames);
+        const reach = Math.min(e.length, cfg.speed * e.steps);
+        // elle jaillit des boucliers, file, puis s'étale et s'éteint en bout de course
+        const burst = Math.min(1, 0.4 + 0.15 * e.steps);
+        const dying = Math.max(0, Math.min(1, (e.total - e.steps) / cfg.fadeSteps));
+        // le front dessiné fait 105 px de demi-largeur
+        parts.main.setPosition(e.x, e.y).setScale(1 + 0.3 * (1 - dying), (e.radius / 105) * burst * (1 + 0.25 * (1 - dying))).setAlpha(dying);
+        parts.extra?.setScale(Math.max(1, reach), 1).setAlpha(0.1 * dying);
+        this.sweepRemains(e, reach);
       } else {
         const fly = CONFIG.ulti.engiBot.flySteps;
         parts ??= {
@@ -1609,7 +1714,7 @@ export class WorldView {
     if (h.def.magazine === 0) return;
     const img = scene.add.image(slot.x, slot.y, this.clipTexture(h.def.kind)).setDepth(DEPTH.remains).setRotation(h.angle).setTint(0x9a9a9a);
     const side = h.angle + Math.PI / 2 + (Math.random() - 0.5) * 0.6;
-    this.debris.push({ img, vx: Math.cos(side) * 320, vy: Math.sin(side) * 320, spin: 9 });
+    this.toss({ img, vx: Math.cos(side) * 320, vy: Math.sin(side) * 320, spin: 9 });
     this.keepRemains(img);
   }
 
@@ -1883,9 +1988,18 @@ export class WorldView {
       // un ulti part : un éclat à la couleur du robot (ou l'onde de la grenade quand elle éclate)
       const color = (ULTI_COLORS[e.kind] ?? ULTI_COLORS.EngiBot).main;
       const big = e.kind === 'emp';
-      const flash = scene.add.circle(e.x, e.y, big ? 220 : 90, color).setDepth(DEPTH.fx + 1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.75);
+      // BadaBot : l'éclat naît là où ses boucliers se heurtent, devant lui, et le choc secoue l'écran
+      const bada = e.kind === 'BadaBot' ? this.world.heroOf('BadaBot') : null;
+      const reach = bada ? CONFIG.ulti.badaBot.start : 0;
+      const fx = e.x + (bada ? Math.cos(bada.angle) * reach : 0);
+      const fy = e.y + (bada ? Math.sin(bada.angle) * reach : 0);
+      const flash = scene.add.circle(fx, fy, big ? 220 : 90, color).setDepth(DEPTH.fx + 1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.75);
       scene.tweens.add({ targets: flash, alpha: 0, scale: big ? 2.6 : 2, duration: big ? 380 : 260, onComplete: () => flash.destroy() });
-      if (big && this.nearView(e.x, e.y)) scene.cameras.main.shake(260, 0.009);
+      if (bada) {
+        const spark = scene.add.circle(fx, fy, 34, 0xffffff).setDepth(DEPTH.fx + 2).setBlendMode(Phaser.BlendModes.ADD);
+        scene.tweens.add({ targets: spark, alpha: 0, scale: 2.4, duration: 140, onComplete: () => spark.destroy() });
+      }
+      if ((big || bada) && this.nearView(e.x, e.y)) scene.cameras.main.shake(big ? 260 : 220, big ? 0.009 : 0.013);
     } else if (e.type === 'heroDead') {
       // l'écran ne tremble que pour ce qui arrive près de soi
       if (this.nearView(e.x, e.y)) scene.cameras.main.shake(300, 0.01);
@@ -1942,7 +2056,7 @@ export class WorldView {
       // projetés du côté opposé au tireur, en éventail (comme dans l'original)
       const a = angle + (Math.random() - 0.5) * 1.1;
       const speed = 250 + Math.random() * 650;
-      this.debris.push({ img: shard, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: (Math.random() - 0.5) * 12 });
+      this.toss({ img: shard, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: (Math.random() - 0.5) * 12 });
       this.keepRemains(shard);
     }
   }
@@ -1982,7 +2096,7 @@ export class WorldView {
         .setRotation(Math.random() * Math.PI * 2).setScale(robot ? 1.3 + Math.random() * 0.9 : 1);
       const a = Math.random() * Math.PI * 2;
       const speed = (20 + Math.random() * 20) * STEPS_PER_SECOND * (robot ? 0.5 : 0.35);
-      this.debris.push({ img, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: 1 + Math.random() * 3 });
+      this.toss({ img, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, spin: 1 + Math.random() * 3 });
       this.keepRemains(img);
     }
   }
@@ -2012,9 +2126,40 @@ export class WorldView {
     }
   }
 
+  /** Lance un débris : il vole, puis reste au sol. */
+  private toss(d: Debris): void {
+    this.loose.add(d.img);
+    this.debris.push(d);
+  }
+
   private stepDebris(dt: number): void {
     for (let i = this.debris.length - 1; i >= 0; i--) {
       const d = this.debris[i];
+      if (d.glide && d.glide > 0) {
+        // emporté par la vague de BadaBot : tout droit et sans ralentir, par petits pas, jusqu'au premier mur
+        const dist = Math.hypot(d.vx, d.vy) * dt;
+        const hops = Math.max(1, Math.ceil(dist / 16));
+        let x = d.img.x;
+        let y = d.img.y;
+        let free = true;
+        for (let j = 0; j < hops && free; j++) {
+          const nx = x + (d.vx * dt) / hops;
+          const ny = y + (d.vy * dt) / hops;
+          free = this.world.collision.circleFree(nx, ny, 4, BLOCK_MOVE);
+          if (free) {
+            x = nx;
+            y = ny;
+          }
+        }
+        d.img.setPosition(x, y);
+        d.img.rotation += d.spin * dt;
+        d.glide = free ? d.glide - dist : 0;
+        if (!free) {
+          d.vx *= -0.12;
+          d.vy *= -0.12;
+        }
+        continue;
+      }
       const nx = d.img.x + d.vx * dt;
       const ny = d.img.y + d.vy * dt;
       if (this.world.collision.circleFree(nx, ny, 4, BLOCK_MOVE)) {

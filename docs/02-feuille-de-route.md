@@ -168,3 +168,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Lancement d'un ulti : robot immobile, arcs d'énergie autour de lui (GD-048). Corrigé : les sprites d'énergie du lancement et le nuage de poussière de BatBot n'étaient jamais chargés. |
 | 2026-11-17 | Lancement d'un ulti en trois temps : l'énergie de surcharge prend la couleur du robot, halo discret quatre fois plus petit (GD-049). |
 | 2026-11-17 | Ulti de PetBot : la ronde des mini-bots et le nuage suivent PetBot avec un léger retard (GD-050). |
+| 2026-11-17 | Ulti de BadaBot refait : il frappe ses boucliers, une vague d'énergie projette ennemis, chaises, débris et balles à deux écrans ; le mur est retiré (GD-051). 70 tests. |

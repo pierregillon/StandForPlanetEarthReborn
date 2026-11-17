@@ -332,8 +332,12 @@ export const CONFIG = {
     batBot: { range: 760, leapSteps: 26, radius: 360, damage: 14 },
     /** PetBot : l'essaim de nanomachines le suit et soigne tous les alliés dans son rayon. */
     petBot: { steps: s(8), radius: 420, healPerStep: 1.5 / STEPS_PER_SECOND },
-    /** BadaBot : mur d'énergie dressé devant lui, en travers de sa visée. */
-    badaBot: { steps: s(8), distance: 150, halfLength: 270, halfThickness: 24 },
+    /**
+     * BadaBot (GD-051) : il frappe ses deux boucliers, une vague d'énergie en jaillit et file droit devant lui.
+     * Elle fait la largeur des deux boucliers, parcourt un écran et projette tout ce qu'elle rencontre à deux
+     * écrans de là. `start` : distance entre BadaBot et le point où la vague naît.
+     */
+    badaBot: { start: 70, halfWidth: 100, speed: 40, range: 1920, throwDistance: 3840, dazeSteps: s(1.5), fadeSteps: 10 },
     /** EngiBot : la grenade vole puis éclate ; les robots ennemis du rayon sont désactivés. */
     engiBot: { range: 760, flySteps: 34, pulseSteps: 45, radius: 750, stunSteps: s(6) },
   },

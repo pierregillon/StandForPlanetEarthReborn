@@ -218,20 +218,20 @@ export interface Hero {
 /** Effet laissé dans le monde par un ulti (GD-044) : essaim de PetBot, mur de BadaBot, grenade d'EngiBot. */
 export interface UltiEffect {
   id: number;
-  kind: 'nanos' | 'wall' | 'emp';
+  kind: 'nanos' | 'wave' | 'emp';
   /** Rang du héros qui l'a lancé. */
   owner: number;
   x: number;
   y: number;
-  /** Direction du lancer (la grenade vole dans cette direction, le mur lui est perpendiculaire). */
+  /** Direction du lancer (la grenade et la vague avancent dans cette direction). */
   angle: number;
   fromX: number;
   fromY: number;
   steps: number;
   total: number;
-  /** Rayon d'action (essaim, grenade) ou demi-épaisseur (mur). */
+  /** Rayon d'action (essaim, grenade) ou demi-largeur (vague). */
   radius: number;
-  /** Demi-longueur du mur, ou distance de vol de la grenade. */
+  /** Distance parcourue par la vague, ou distance de vol de la grenade. */
   length: number;
 }
 
@@ -339,6 +339,11 @@ export interface Npc {
   alertTimer: number;
   /** Steps pendant lesquels ce robot est désactivé par une grenade électromagnétique. */
   stun: number;
+  /** Projeté par la vague de BadaBot (GD-051) : distance qu'il lui reste à parcourir, et dans quelle direction. */
+  thrown: number;
+  thrownAngle: number;
+  /** Steps pendant lesquels il reste sonné après avoir été projeté : il ne bouge pas et ne tire pas. */
+  daze: number;
   /** Coups que le bouclier frontal peut encore encaisser (robot bouclier). */
   shieldHp: number;
   shieldBroken: boolean;
@@ -425,6 +430,8 @@ export interface Chair {
   tint: string;
   vx: number;
   vy: number;
+  /** Projetée par la vague de BadaBot : distance qu'il lui reste à parcourir sans ralentir. */
+  thrown: number;
   /** Décalage entre la position de l'instance et le centre de sa boîte de collision. */
   offsetX: number;
   offsetY: number;

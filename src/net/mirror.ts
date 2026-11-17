@@ -6,7 +6,7 @@
 import { CONFIG } from '../sim/config.ts';
 import { BLOCK_BULLET, IS_WINDOW, angleDiff } from '../sim/geom.ts';
 import { steerHero } from '../sim/hero.ts';
-import { ULTI_ACTION, ULTI_CAST, dropWall, placeGrenade, placeLeap, raiseWall } from '../sim/ulti.ts';
+import { ULTI_ACTION, ULTI_CAST, placeGrenade, placeLeap, placeWave } from '../sim/ulti.ts';
 import { createSession } from '../sim/session.ts';
 import type { Bullet, Chair, Door, Hero, Input, LevelData, SimEvent, SpriteManifest, UltiEffect, WindowPane } from '../sim/types.ts';
 import { World } from '../sim/world.ts';
@@ -84,11 +84,9 @@ export class Mirror {
         else if (list === 'chairs' && (keys.includes('x') || keys.includes('y'))) this.moveChair(e as unknown as Chair);
         else if (list === 'windows' && keys.includes('broken')) (e as unknown as WindowPane).obstacle.flags &= ~IS_WINDOW;
         else if (list === 'bullets') e.spent = false;
-        else if (list === 'effects' && e.kind === 'wall') raiseWall(world, e as unknown as UltiEffect);
       },
       removed: (list, e) => {
         this.glides.delete(e);
-        if (list === 'effects') dropWall(world, e as unknown as UltiEffect);
       },
     });
     for (const e of events) world.emit(e);
@@ -164,6 +162,7 @@ export class Mirror {
     for (const e of this.world.effects) {
       e.steps++;
       if (e.kind === 'emp') placeGrenade(e);
+      else if (e.kind === 'wave') placeWave(e);
       else if (e.kind === 'nanos' && this.world.heroes[e.owner]) {
         e.x = this.world.heroes[e.owner].x;
         e.y = this.world.heroes[e.owner].y;

@@ -8,6 +8,7 @@ import type { NpcDef, SoldierDef } from './config.ts';
 import { BLOCK_MOVE, BLOCK_SIGHT, DEG, TAU, gmAngleToRad, localToWorld, rotateToward } from './geom.ts';
 import type { Point } from './nav.ts';
 import type { Hero, LevelInstance, Npc } from './types.ts';
+import { stepThrown } from './ulti.ts';
 import type { World } from './world.ts';
 
 const N = CONFIG.npc;
@@ -34,7 +35,7 @@ export function createNpc(world: World, id: number, inst: LevelInstance, def: Np
     attackRange: soldier ? world.rng.int(soldier.attackRangeMin, soldier.attackRangeMax) : 0,
     ammo: soldier ? soldier.magazine : 0,
     fireTimer: 0, reloadTimer: 0, repathTimer: 0, surpriseTimer: 0, spotted: false, viewRange: N.viewRange,
-    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0,
+    alerted: false, alertX: 0, alertY: 0, alertTimer: 0, stun: 0, thrown: 0, thrownAngle: 0, daze: 0,
     shieldHp: soldier && soldier.frontShield ? N.shieldHits : 0, shieldBroken: false,
     fear: false, fearTimer: 0, stateSteps: 0, walkDist: 0,
   };
@@ -52,6 +53,16 @@ export function stepNpcs(world: World): void {
     if (boss) guardBoss(boss);
     if (npc.hp <= 0) {
       world.killNpc(npc);
+      continue;
+    }
+    if (npc.thrown > 0) {
+      // projeté par la vague de BadaBot : il ne fait rien d'autre que voler
+      stepThrown(world, npc);
+      continue;
+    }
+    if (npc.daze > 0) {
+      // sonné après sa chute
+      npc.daze--;
       continue;
     }
     if (npc.stun > 0) {

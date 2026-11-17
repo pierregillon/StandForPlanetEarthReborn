@@ -110,7 +110,7 @@ export class Synth {
     this.boost = 1;
   }
 
-  /** Un ulti produit son effet (GD-044) : essaim, mur, lancer de grenade, puis son impulsion. */
+  /** Un ulti produit son effet (GD-044) : essaim, choc des boucliers et vague, lancer de grenade, puis son impulsion. */
   ultiFx(kind: string): void {
     this.boost = 2;
     if (kind === 'PetBot') {
@@ -118,9 +118,13 @@ export class Synth {
       this.tone('triangle', 500, 1500, 0.5, 0.1);
       this.tone('sine', 750, 2200, 0.5, 0.06, 0.05);
     } else if (kind === 'BadaBot') {
-      // le mur se dresse : un claquement grave et sa résonance
-      this.tone('square', 60, 180, 0.12, 0.2);
-      this.tone('sine', 180, 360, 0.6, 0.12, 0.08);
+      // ses deux boucliers se heurtent (GD-051) : un fracas de métal (des partiels sans rapport simple entre
+      // eux, comme une plaque qu'on frappe), le coup sourd du choc, puis le souffle de la vague qui s'éloigne
+      const partials: [number, number, number][] = [[587, 0.55, 0.15], [1321, 0.42, 0.13], [1873, 0.32, 0.11], [2741, 0.24, 0.09], [3517, 0.17, 0.07], [4489, 0.11, 0.05]];
+      for (const [pitch, seconds, volume] of partials) this.tone('square', pitch, pitch * 0.96, seconds, volume);
+      this.tone('sawtooth', 2400, 280, 0.07, 0.2);
+      this.tone('sine', 140, 36, 0.5, 0.26);
+      this.tone('sawtooth', 900, 110, 0.9, 0.08, 0.05);
     } else if (kind === 'EngiBot') {
       this.tone('square', 300, 140, 0.12, 0.12);
     } else {

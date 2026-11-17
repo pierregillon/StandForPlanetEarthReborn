@@ -235,25 +235,84 @@ test('ulti de PetBot : un essaim le suit et soigne les allies autour de lui', ()
   assert.equal(w.drones.length, 3, 'la salve repart une fois l\'essaim disperse');
 });
 
-test('ulti de BadaBot : un mur arrete deplacements et balles, pas le regard, puis disparait', () => {
+test('ulti de BadaBot : une vague projette au loin ennemis, chaises et balles sur son passage', () => {
   const w = team(['BadaBot', 'PetBot'], 200);
   const [bada, pet] = w.heroes;
-  const wallX = bada.x + CONFIG.ulti.badaBot.distance;
-  // un coequipier se tient la ou le mur va se dresser : il est repousse
-  pet.x = wallX;
+  const cfg = CONFIG.ulti.badaBot;
+  const model = new World(ground, sprites, 'PetBot', 2).npcs.filter((n) => n.def.kind === 'soldier');
+  const [front, beside, behind] = model;
+  // la vague part vers la gauche (terrain degage) : un ennemi sur son passage, un a cote, un dans le dos
+  front.x = bada.x - 400;
+  front.y = bada.y + 40;
+  beside.x = bada.x - 400;
+  beside.y = bada.y + cfg.halfWidth + beside.def.radius + 60;
+  behind.x = bada.x + 300;
+  behind.y = bada.y - 300;
+  for (const npc of [front, beside, behind]) {
+    npc.active = false;
+    npc.fireTimer = 100000;
+  }
+  w.npcs = [front, beside, behind];
+  // un coequipier dans l'axe : il ne sent rien
+  pet.x = bada.x - 250;
   pet.y = bada.y;
-  castUlti(w, { ...NO_INPUT, aimX: bada.x + 600, aimY: bada.y });
-  const wall = w.effects[0];
-  assert.equal(wall.kind, 'wall');
-  assert.ok(Math.abs(wall.x - wallX) < 1);
-  assert.ok(Math.abs(pet.x - wall.x) >= CONFIG.ulti.badaBot.halfThickness + pet.def.radius, 'personne ne reste dans le mur');
-  assert.equal(w.shotBlocked(bada.x, bada.y, bada.x + 500, bada.y), true, 'les balles sont arretees');
-  assert.equal(w.sightBlocked(bada.x, bada.y, bada.x + 500, bada.y), false, 'on voit a travers');
-  assert.equal(w.collision.circleFree(wall.x, wall.y + 200, 20, 1), false, 'on ne le traverse pas');
-  assert.equal(w.collision.circleFree(wall.x, wall.y + CONFIG.ulti.badaBot.halfLength + 80, 20, 1), true, 'on peut le contourner');
-  run(w, CONFIG.ulti.badaBot.steps);
-  assert.equal(w.effects.length, 0);
-  assert.equal(w.shotBlocked(bada.x, bada.y, bada.x + 500, bada.y), false, 'le mur a disparu');
+  // une balle ennemie qui arrive sur BadaBot, loin devant
+  w.spawnBullet(front.def.kind === 'soldier' && front.def.bullet ? front.def.bullet : pet.def.bullet, 'enemy', bada.x - 1500, bada.y - 20, 0);
+  const bullet = w.bullets[0];
+  bullet.speed = 0;
+  const aim = { ...NO_INPUT, aimX: bada.x - 600, aimY: bada.y };
+  castUlti(w, aim);
+  const wave = w.effects[0];
+  assert.equal(wave.kind, 'wave');
+  assert.equal(wave.radius, cfg.halfWidth);
+  assert.ok(wave.length > 1000, 'terrain degage : la vague va loin');
+  const start = { front: front.x, beside: beside.x, behind: behind.x, pet: pet.x };
+  run(w, 14, [aim]);
+  assert.ok(wave.x < bada.x - 500, 'le front avance vite');
+  assert.ok(front.thrown > 0, 'l\'ennemi sur le passage est projete');
+  assert.ok(front.x < start.front - 100, 'il part dans le sens de la vague');
+  assert.equal(beside.thrown, 0, 'celui d\'a cote ne bouge pas');
+  assert.equal(behind.thrown, 0);
+  assert.equal(pet.x, start.pet, 'les allies ne sont pas repousses');
+  run(w, 400, [aim]);
+  assert.equal(w.effects.length, 0, 'la vague s\'eteint');
+  assert.equal(front.thrown, 0);
+  assert.ok(start.front - front.x > 600, `il a ete projete loin (${Math.round(start.front - front.x)} px)`);
+  assert.equal(beside.x, start.beside);
+  assert.equal(bullet.owner, 'hero', 'la balle ennemie emportee change de camp');
+  assert.ok(Math.abs(Math.cos(bullet.angle) + 1) < 1e-6, 'elle repart dans le sens de la vague');
+});
+
+test('vague de BadaBot : un ennemi projete reste sonne, un mur arrete la vague', () => {
+  const w = team(['BadaBot'], 200);
+  const bada = w.heroes[0];
+  const cfg = CONFIG.ulti.badaBot;
+  const npc = new World(ground, sprites, 'PetBot', 2).npcs.find((n) => n.def.kind === 'soldier');
+  assert.ok(npc);
+  npc.x = bada.x - 300;
+  npc.y = bada.y;
+  npc.active = false;
+  w.npcs = [npc];
+  const aim = { ...NO_INPUT, aimX: bada.x - 600, aimY: bada.y };
+  castUlti(w, aim);
+  // on attend qu'il s'arrete : il est alors sonne, ne bouge plus et ne se retourne plus
+  let guard = 0;
+  while ((npc.thrown > 0 || npc.daze === 0) && guard++ < 2000) w.step([aim]);
+  assert.ok(npc.daze > 0, 'sonne a l\'arrivee');
+  assert.ok(w.collision.circleFree(npc.x, npc.y, npc.def.radius * 0.4, 1), 'il n\'est pas dans un mur');
+  const at = { x: npc.x, y: npc.y, angle: npc.angle };
+  run(w, cfg.dazeSteps - 2, [aim]);
+  assert.deepEqual({ x: npc.x, y: npc.y, angle: npc.angle }, at);
+  run(w, 4, [aim]);
+  assert.equal(npc.daze, 0, 'puis il reprend ses esprits');
+  // face a un mur tout proche, la vague ne va pas plus loin que lui
+  const wall = w.collision.raycast(bada.x, bada.y, bada.x, bada.y - 5000, 4);
+  if (wall) {
+    const up = { ...NO_INPUT, aimX: bada.x, aimY: bada.y - 600 };
+    castUlti(w, up);
+    const wave = w.effects[0];
+    assert.ok(wave.length <= 5000 * wall.t - cfg.start + 1, 'la vague s\'arrete au mur');
+  }
 });
 
 test('ulti d\'EngiBot : la grenade desactive les robots, pas les humains', () => {
