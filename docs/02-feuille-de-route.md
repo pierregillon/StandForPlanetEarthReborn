@@ -203,3 +203,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-17 | Traces de pas moins nettes : bords grignotés, manques, traînées, usure croissante (GD-069). |
 | 2026-11-17 | Rechargement d'EngiBot : nouveau sprite fabriqué, le fusil en accordéon se comprime, chauffe et se détend (GD-071). |
 | 2026-11-17 | L'éclair de fin de rechargement est retiré pour tous les héros (GD-071). |
+| 2026-11-17 | Rechargement de PetBot : nouveau sprite fabriqué, trois doses de sérum pompées du dos vers l'arme par le tuyau (GD-072). |

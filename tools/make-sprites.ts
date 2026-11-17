@@ -726,9 +726,151 @@ function engiBotReload(): Made {
   return { name: 'spr_EngiBot_reload', width: size, height: size, ox: body.ox + pad, oy: body.oy + pad, fps: 20, frames };
 }
 
+// ---------- PetBot : le rechargement ----------
+
+/**
+ * Rechargement de PetBot (GD-072) : une transfusion. PetBot est le soigneur ; un tuyau annelé relie son dos,
+ * frappé d'une croix rouge, à son arme, dont le canon porte trois voyants. Il se recharge en pompant trois
+ * doses de sérum de son dos vers son arme. Tout est tiré de sa posture de repos (`spr_PetBot_move`, image 0) :
+ *  - la culasse, sous le canon, recule, et les trois voyants s'éteignent d'avant en arrière ;
+ *  - trois fois de suite, la croix de son dos s'illumine, une dose verte file le long du tuyau jusqu'à l'arme,
+ *    et un voyant s'allume en vert, d'arrière en avant ;
+ *  - la culasse claque en avant, les trois voyants jettent un éclat et reviennent au rouge : l'arme est prête.
+ * La dernière image est sa posture de repos, à l'identique.
+ */
+function petBotReload(): Made {
+  const base = loadFrame('spr_PetBot_move', 0);
+  const size = 154;
+  const count = 24;
+  const SERUM: Rgb = [112, 255, 146];
+  const SERUM_CORE: Rgb = [230, 255, 236];
+  const OFF: Rgb = [38, 50, 42];
+  const GLOW: Rgb = [255, 96, 104];
+  // repères relevés sur le sprite
+  const lights = [{ x: 93, y: 96.5 }, { x: 111.5, y: 96.5 }, { x: 130, y: 96.5 }]; // voyants, de l'arrière vers l'avant
+  const cross = { x: 17.5, y: 72.5 };
+  /** Axe du tuyau, du dos jusqu'à l'arme. */
+  const hose = [[17.5, 86], [19, 90], [22.5, 95], [26, 100], [29.5, 105], [33.5, 110], [38.5, 114], [44.5, 118.5], [51.5, 121.5], [60, 122.5], [69, 122], [77, 121], [83, 120.5]];
+  const lengths = hose.map((p, i) => (i === 0 ? 0 : Math.hypot(p[0] - hose[i - 1][0], p[1] - hose[i - 1][1])));
+  const total = lengths.reduce((a, b) => a + b, 0);
+  /** Point du tuyau à `d` pixels de son départ. */
+  const along = (d: number): { x: number; y: number } => {
+    let left = Math.max(0, Math.min(total, d));
+    for (let i = 1; i < hose.length; i++) {
+      if (left <= lengths[i] || i === hose.length - 1) {
+        const k = lengths[i] > 0 ? Math.min(1, left / lengths[i]) : 0;
+        return { x: hose[i - 1][0] + (hose[i][0] - hose[i - 1][0]) * k, y: hose[i - 1][1] + (hose[i][1] - hose[i - 1][1]) * k };
+      }
+      left -= lengths[i];
+    }
+    return { x: hose[0][0], y: hose[0][1] };
+  };
+  /** La culasse : le bloc qui coulisse sous le canon. */
+  const isSlide = (x: number, y: number): boolean => x >= 100 && x <= 116 && y >= 104 && y <= 113;
+  const pixel = (x: number, y: number): [number, number, number, number] => {
+    if (x < 0 || y < 0 || x >= base.width || y >= base.height) return [0, 0, 0, 0];
+    const i = (y * base.width + x) * 4;
+    return [base.data[i], base.data[i + 1], base.data[i + 2], base.data[i + 3] / 255];
+  };
+
+  const travel = 0.2; // part du rechargement que met une dose à parcourir le tuyau
+  const arrivals = [0.31, 0.6, 0.88];
+  const lockAt = 0.9;
+
+  const frames = Array.from({ length: count }, (_, index) => {
+    const t = index / (count - 1);
+    const img = canvas(size, size);
+    // recul de la culasse : elle recule au début, reste en arrière, puis claque en avant et dépasse d'un pixel
+    let back = 6;
+    if (t < 0.02) back = 0;
+    else if (t < 0.09) back = 6 * (1 - (1 - (t - 0.02) / 0.07) ** 2);
+    else if (t >= lockAt) {
+      const u = Math.min(1, (t - lockAt) / 0.05);
+      back = u < 1 ? 6 * (1 - u) ** 2 - 1.2 * Math.sin(u * Math.PI) : 0;
+    }
+    back = Math.round(back);
+    // 1. la culasse, dessous : elle rentre sous le raccord de l'arme
+    for (let y = 104; y <= 113; y++) {
+      for (let x = 92; x <= 118; x++) {
+        if (!isSlide(x + back, y)) continue;
+        const [r, g, b, a] = pixel(x + back, y);
+        if (a > 0) over(img, x, y, [r, g, b], a);
+      }
+    }
+    // 2. le robot, sans sa culasse
+    for (let y = 0; y < base.height; y++) {
+      for (let x = 0; x < base.width; x++) {
+        if (isSlide(x, y)) continue;
+        const [r, g, b, a] = pixel(x, y);
+        if (a > 0) over(img, x, y, [r, g, b], a);
+      }
+    }
+    // 3. les voyants du canon : éteints d'avant en arrière, puis rallumés en vert un à un par les doses
+    lights.forEach((light, i) => {
+      const offAt = 0.03 + (2 - i) * 0.03;
+      if (t < offAt || t >= 0.97) return; // rouge d'origine
+      if (t >= 0.93) {
+        // l'éclat final : blanc, qui retombe sur le rouge d'origine
+        const u = (t - 0.93) / 0.04;
+        disc(img, light.x, light.y, 6 * (1 - u * 0.4), WHITE, 0.55 * (1 - u));
+        disc(img, light.x, light.y, 2.3, WHITE, 1 - u);
+        return;
+      }
+      const since = t - arrivals[i];
+      if (since < 0) {
+        disc(img, light.x, light.y, 2.3, OFF, 1);
+        return;
+      }
+      const pop = Math.max(0, 1 - since / 0.07);
+      disc(img, light.x, light.y, 4.6 + 3 * pop, SERUM, 0.28 + 0.4 * pop);
+      disc(img, light.x, light.y, 2.3, SERUM, 1);
+      disc(img, light.x, light.y, 1.2, SERUM_CORE, 0.7 + 0.3 * pop);
+    });
+    // 4. la croix du dos s'illumine au départ de chaque dose
+    for (const arrival of arrivals) {
+      const u = (t - (arrival - travel)) / 0.1;
+      if (u < 0 || u >= 1) continue;
+      disc(img, cross.x, cross.y, 11, GLOW, 0.3 * (1 - u));
+      for (let y = 64; y <= 81; y++) {
+        for (let x = 9; x <= 25; x++) {
+          const [r, g] = pixel(x, y);
+          if (r > 180 && g < 110) over(img, x, y, [255, 236, 236], 0.75 * (1 - u));
+        }
+      }
+    }
+    // 5. les doses : une goutte lumineuse qui file le long du tuyau, avec sa traînée
+    for (const arrival of arrivals) {
+      const u = (t - (arrival - travel)) / travel;
+      if (u < 0 || u >= 1) continue;
+      const d = u * total;
+      const appear = Math.min(1, u / 0.12);
+      for (let k = 5; k >= 1; k--) {
+        const p = along(d - k * 3.2);
+        if (d - k * 3.2 < 0) continue;
+        disc(img, p.x, p.y, 5 - k * 0.6, SERUM, 0.5 * (1 - k / 6) * appear);
+      }
+      const head = along(d);
+      disc(img, head.x, head.y, 5.6, SERUM, 0.9 * appear);
+      disc(img, head.x, head.y, 2.9, SERUM_CORE, 0.95 * appear);
+    }
+    // la dose entre dans l'arme : un éclat au bout du tuyau
+    for (const arrival of arrivals) {
+      const u = (t - arrival) / 0.07;
+      if (u < 0 || u >= 1) continue;
+      const end = along(total);
+      disc(img, end.x + 2, end.y, 6 + 3 * u, SERUM, 0.55 * (1 - u));
+    }
+    // 6. la culasse claque : une étincelle à son bout
+    const spark = (t - (lockAt + 0.03)) / 0.07;
+    if (spark >= 0 && spark < 1) disc(img, 117, 108.5, 2.5 + 3 * spark, WHITE, 0.85 * (1 - spark));
+    return img;
+  });
+  return { name: 'spr_PetBot_reload', width: size, height: size, ox: 43, oy: 73, fps: 20, frames };
+}
+
 export function makeSprites(): void {
   write([
-    batBotCast(), petBotCast(), engiBotCast(), engiBotReload(),
+    batBotCast(), petBotCast(), engiBotCast(), engiBotReload(), petBotReload(),
     ...ultiCharge(), dustCloud(),
     batBotLeap(), batBotBlast(), batBotCrater(),
     petBotNanos(), engiBotGrenade(), engiBotPulse(),

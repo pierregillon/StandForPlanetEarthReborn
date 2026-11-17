@@ -80,8 +80,6 @@ const GORE = {
   drops: { count: [40, 56], near: 70, far: 360, flight: [0.16, 0.34], stain: [0.12, 0.5] },
   splash: { range: 230, marks: [2, 4], life: 14, fade: 3 },
 };
-/** Nombre d'images de la fin du déploiement de PetBot utilisées pour son rechargement. */
-const PETBOT_RELOAD_FRAMES = 29;
 /**
  * Position de la tête de BadaBot sur chaque image, dans la toile de ses sprites (tables de obj_plasmaBawl,
  * projet de 2019) : ordonnée pendant la marche (22 images), abscisse bouclier levé (4 images).
@@ -1764,15 +1762,12 @@ export class WorldView {
       if (h.fire2Anim >= 0 && def.sprites.fire2) return { sprite: def.sprites.fire2, frame: Math.min(2, h.fire2Anim / 6) };
       return h.moving ? walkCycle(def.sprites.move) : { sprite: def.sprites.stand, frame: 0 };
     }
-    // rechargement de PetBot (GD-034) : les 30 dernières images de son déploiement montrent l'arme qui se
-    // rebranche et se réarme ; on les joue à l'envers (l'arme se replie) puis à l'endroit (elle se réarme)
-    if (def.kind === 'PetBot' && h.reloadTimer > 0 && this.scene.textures.exists(frameKey('spr_PetBot_deploy', 0))) {
-      const last = this.info('spr_PetBot_deploy').frames - 1;
-      const first = Math.max(0, last - PETBOT_RELOAD_FRAMES);
-      const p = 1 - h.reloadTimer / Math.max(1, def.reloadSteps);
-      const fold = 0.25;
-      const frame = p < fold ? last - (p / fold) * (last - first) : first + ((p - fold) / (1 - fold)) * (last - first);
-      return { sprite: 'spr_PetBot_deploy', frame };
+    // rechargement de PetBot (GD-072) : une transfusion. Il pompe trois doses de sérum de son dos vers son arme,
+    // par son tuyau ; l'animation, fabriquée (ADR-015), est jouée une fois sur toute la durée du rechargement
+    if (def.kind === 'PetBot' && h.reloadTimer > 0 && this.scene.textures.exists(frameKey('spr_PetBot_reload', 0))) {
+      const frames = this.info('spr_PetBot_reload').frames;
+      const done = 1 - h.reloadTimer / Math.max(1, def.reloadSteps);
+      return { sprite: 'spr_PetBot_reload', frame: Math.min(frames - 1, done * frames) };
     }
     // rechargement d'EngiBot (GD-071) : son fusil en accordéon se comprime, chauffe, puis se détend ; l'animation,
     // fabriquée (ADR-015), est jouée une fois sur toute la durée du rechargement
@@ -2490,7 +2485,7 @@ export class WorldView {
 
   /**
    * Rechargement dessiné sur le robot (GD-032) : l'orbe de BadaBot se reforme en aspirant de l'énergie. Ceux de
-   * PetBot (GD-034) et d'EngiBot (GD-071) sont des animations de sprites.
+   * PetBot (GD-072) et d'EngiBot (GD-071) sont des animations de sprites.
    */
   private drawReload(h: Hero, progress: number): void {
     const g = this.heroFx;

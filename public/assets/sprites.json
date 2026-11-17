@@ -46,6 +46,7 @@
   "spr_PetBot_mort": { "w": 360, "h": 360, "ox": 170, "oy": 178, "frames": 15, "bbox": [127, 135, 213, 221], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 10, "speedType": 0 },
   "spr_PetBot_move": { "w": 154, "h": 154, "ox": 43, "oy": 73, "frames": 8, "bbox": [0, 30, 86, 116], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_PetBot_pointingArrow": { "w": 360, "h": 360, "ox": 180, "oy": 177, "frames": 1, "bbox": [127, 135, 213, 221], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 10, "speedType": 0 },
+  "spr_PetBot_reload": { "w": 154, "h": 154, "ox": 43, "oy": 73, "frames": 24, "bbox": [0, 0, 153, 153], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 20, "speedType": 0 },
   "spr_PetBot_shot": { "w": 154, "h": 154, "ox": 43, "oy": 73, "frames": 15, "bbox": [0, 30, 86, 116], "bboxmode": 2, "colkind": 2, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_PetBot_ulti_cast": { "w": 178, "h": 178, "ox": 55, "oy": 85, "frames": 16, "bbox": [0, 0, 177, 177], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 8, "speedType": 0 },
   "spr_PetBot_ulti_nanos": { "w": 512, "h": 512, "ox": 256, "oy": 256, "frames": 24, "bbox": [0, 0, 511, 511], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 24, "speedType": 0 },

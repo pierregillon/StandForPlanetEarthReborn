@@ -1524,3 +1524,21 @@ Le bras droit, qui tient le canon, suit le mouvement en pivotant à l'épaule. L
 **Plus d'éclair en fin de rechargement, pour aucun robot** (demande de l'utilisateur après essai : « les animations doivent se suffire à elles-mêmes »). Le petit disque lumineux qui apparaissait sur l'arme à la fin du rechargement (blanc, violet pour BadaBot, GD-032) est retiré pour les quatre héros. Le son de fin de rechargement est conservé.
 
 **Conséquences.** Sprite `spr_EngiBot_reload`, fabriqué par `npm run make-sprites` (ADR-015) à partir de la posture de tir d'origine, redessinée image par image : aucun dessin à la main, mêmes couleurs et mêmes traits que l'original. Les images « preShot » d'origine ne servent plus au rechargement. Affichage seulement : la durée du rechargement ne change pas.
+
+## GD-072 — Rechargement de PetBot : une transfusion
+
+- **Date** : 2026-11-17
+- **Statut** : Appliquée
+- **Décidée par** : l'utilisateur (une vraie animation de rechargement, cohérente avec le personnage, à la place de celle du déploiement de l'arme) ; l'idée de la transfusion et son déroulé sont un choix par défaut, l'utilisateur n'ayant pas d'idée arrêtée
+
+**Contexte.** Depuis GD-034, le rechargement de PetBot rejouait les trente dernières images de son déploiement, à l'envers puis à l'endroit : l'arme se repliait et se redéployait, ce qui montrait un déploiement et non une recharge.
+
+**Décision.** PetBot est le soigneur : un tuyau annelé relie son dos, frappé d'une croix rouge, à son arme, dont le canon porte trois voyants. Il se recharge en pompant du sérum de son dos vers son arme. L'animation, de 24 images, est jouée une fois sur toute la durée du rechargement :
+
+1. **L'arme se vide** : la culasse, sous le canon, recule de 6 px ; les trois voyants s'éteignent, d'avant en arrière.
+2. **Trois doses** : trois fois de suite, la croix de son dos s'illumine, une goutte verte file le long du tuyau jusqu'à l'arme, et un voyant s'allume en vert, d'arrière en avant. Les doses arrivent à peu près aux tiers du rechargement, comme les trois carrés de munitions affichés près de l'arme.
+3. **Verrouillage** : la culasse claque en avant avec une étincelle, les trois voyants jettent un éclat et reviennent au rouge : l'arme est prête.
+
+Le robot lui-même ne bouge pas (GD-048). La dernière image est sa posture de repos, à l'identique.
+
+**Conséquences.** Sprite `spr_PetBot_reload`, fabriqué par `npm run make-sprites` (ADR-015) à partir de sa posture de repos d'origine. Les images de déploiement ne servent plus au rechargement (GD-034 est remplacée sur ce point). Affichage seulement : la durée du rechargement ne change pas.
