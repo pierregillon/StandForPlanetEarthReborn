@@ -53,15 +53,17 @@ Décidé par l'utilisateur le 2026-11-17. Le rectangle du niveau ne change pas ;
 |---|---|---|
 | **Dépose-minute** | Angle nord-est, derrière les portails 3 | Les voitures entrent, déposent les invités (des personnalités, des ministres) et repartent. Un vrai parking : bitume, marquages, trottoir |
 | **Salon d'attente** | Au nord du plateau, côté régie | Canapés, fauteuils, de quoi patienter. On y entre depuis le dépose-minute par une porte, ou depuis le couloir par la porte à bouton |
-| **Maquillage** | Dans le décrochement du salon, sous le bouton 3 | Coiffeuses à miroir, portants à vêtements |
+| **Maquillage** | Dans le décrochement du salon | Coiffeuses à miroir, un siège devant chacune, portants à vêtements |
+| **Toilettes** | Au-dessus du maquillage (GD-084) | Trois cabines, trois lavabos ; on y entre depuis le salon, à côté du distributeur |
 | **Plateau** | Au centre, de la même hauteur que la régie : ses murs nord et sud sont dans l'alignement des siens | Le studio de GD-081, agrandi. On y entre par la porte nord, on en sort par la porte sud |
-| **Salon de sortie** | Au sud du plateau | Le pendant du salon d'attente : les invités y reprennent leurs affaires avant de partir |
+| **Salon de sortie** | Au sud du plateau | On le traverse pour partir : pas de canapés, des casiers de consigne et un poste de sécurité (GD-084) |
+| **Local technique** | Au sud du plateau, le long du parking, jusqu'au mur extérieur (GD-084) | Étagères de matériel, baies, caméras de réserve. Deux portes sur le parking, pour que la police entre en nombre |
 | **Parking sud** | Angle sud-est, derrière les portails 4 | Le pendant du dépose-minute : les voitures y attendent les invités qui repartent |
 
 **Ce qui se passe après la diffusion du message** (à réaliser, étape suivante) :
 
 1. Le message est diffusé depuis la place du présentateur, derrière le pupitre.
-2. La police intervient en grand nombre, par le sud : des fourgons entrent par les portails 4 et déploient 40 à 50 ennemis sur le parking sud. Leur point de ralliement est le plateau : ils remontent par le salon de sortie, entrent dans le studio et cherchent les robots.
+2. La police intervient en grand nombre, par le sud : des fourgons entrent par les portails 4 et déploient 40 à 50 ennemis sur le parking sud. Leur point de ralliement est le plateau : ils entrent par les deux portes du local technique, traversent le salon de sortie, entrent dans le studio et cherchent les robots.
 3. Le plan d'exfiltration des robots était de revenir au point de largage, donc par le sud. Ils s'y engagent, tombent nez à nez avec cette armée, et changent de plan.
 4. Ils s'exfiltrent par le nord : le salon d'attente, le dépose-minute, puis les portails 3.
 

@@ -110,19 +110,35 @@ test('le plateau de TvTv² est une pièce fermée, avec son sol, ses deux portes
   }
 });
 
-test('l\'aile est : salons, maquillage, vestiaire et parkings se suivent du nord au sud (GD-083)', () => {
+test('l\'aile est : salons, maquillage, toilettes, local technique et parkings (GD-083, GD-084)', () => {
   const w = new World(ground, sprites, 'PetBot', 2);
   w.npcs = [];
   const open = (x1: number, y1: number, x2: number, y2: number): boolean => !w.collision.segmentBlocked(x1, y1, x2, y2, 1);
   const { north, south } = TV_STUDIO.lounges;
   // chaque salon communique avec son décrochement, et une porte automatique mène au parking
   assert.ok(open(8600, 2350, 9100, 2350), 'salon d\'attente et maquillage ne font qu\'une pièce');
-  assert.ok(open(8600, 5150, 9100, 5150), 'salon de sortie et vestiaire aussi');
-  for (const [name, y] of [['nord', 2848], ['sud', 5088]] as [string, number][]) {
+  assert.ok(open(8600, 5150, 9100, 5150), 'salon de sortie et local technique aussi');
+  // trois portes automatiques donnent sur les parkings : une au nord, deux au sud pour le local technique,
+  // par où la police entrera en nombre (GD-084)
+  for (const [name, y] of [['du salon d\'attente', 2848], ['haute du local technique', 5088], ['basse du local technique', 6016]] as [string, number][]) {
     const door = w.doors.find((d) => d.kind === 'auto' && Math.abs(d.x - 9584) < 2 && Math.abs(d.y - y) < 2);
-    assert.ok(door, `porte du salon ${name} vers son parking`);
-    assert.ok(!open(9400, y, 9760, y), 'fermée, elle arrête');
-    assert.ok(!open(9400, y - 300, 9760, y - 300) || name === 'sud', 'la cloison est pleine ailleurs');
+    assert.ok(door, `porte ${name} vers le parking`);
+    assert.ok(!open(9480, y, 9700, y), 'fermée, elle arrête');
+  }
+  assert.ok(!open(9480, 5500, 9700, 5500) && !open(9480, 6220, 9700, 6220), 'la cloison du local technique est pleine entre et sous ses portes');
+  // le local technique descend jusqu'au mur extérieur, d'un seul tenant
+  const tech = TV_STUDIO.techRoom;
+  assert.ok(open(9410, tech.y0 + 110, 9410, tech.y1 - 110), 'aucun mur ne coupe le local technique');
+  // les toilettes : une pièce fermée côté parking, où l'on entre depuis le salon par une porte
+  const wc = TV_STUDIO.toilets;
+  assert.ok(!open(9500, 1700, 9700, 1700), 'les toilettes ne donnent pas sur le parking');
+  assert.ok(w.doors.some((d) => d.kind === 'auto' && Math.abs(d.x - 8976) < 2 && Math.abs(d.y - 1728) < 2), 'porte des toilettes, dans le mur du salon');
+  assert.ok(!open(8900, 1728, 9060, 1728) && !open(8900, 1500, 9060, 1500), 'fermée elle arrête, et le mur est plein à côté');
+  assert.equal(w.level.instances.filter((i) => i.object === 'obj_wc' && i.x >= wc.x0 && i.x < wc.x1 && i.y >= wc.y0 && i.y < wc.y1).length, 3, 'trois cabines');
+  // personne n'est enfermé dans les toilettes ni dans le local technique au départ
+  const start = new World(ground, sprites, 'PetBot', 2);
+  for (const zone of [wc, tech]) {
+    assert.equal(start.npcs.filter((n) => n.x >= zone.x0 && n.x < zone.x1 && n.y >= zone.y0 && n.y < zone.y1).length, 0);
   }
   // les parkings sont refaits : bitume, marquages, plus de fourgons géants ni de route hors d'échelle
   for (const p of [TV_STUDIO.parkings.north, TV_STUDIO.parkings.south]) {
@@ -130,14 +146,22 @@ test('l\'aile est : salons, maquillage, vestiaire et parkings se suivent du nord
   }
   assert.ok(!w.level.instances.some((i) => i.object === 'obj_car_van'));
   assert.ok(!w.level.decals.some((d) => /^spr_route/.test(d.sprite)));
-  assert.ok(w.level.decals.filter((d) => d.sprite === 'spr_pk_line').length >= 20);
+  // les places sont toutes le long du mur extérieur ; les seules lignes verticales sont celles des deux entrées
+  const lines = w.level.decals.filter((d) => d.sprite === 'spr_pk_line');
+  assert.equal(lines.filter((d) => d.angle === 0).length, 10, 'limites de places');
+  assert.equal(lines.filter((d) => d.angle !== 0).length, 2, 'une ligne médiane par entrée');
   assert.equal(w.level.decals.filter((d) => d.sprite === 'spr_pk_zebra').length, 2);
   // le mobilier propre à chaque zone
   const has = (object: string, zone: { x0: number; x1: number; y0: number; y1: number }): number =>
     w.level.instances.filter((i) => i.object === object && i.x >= zone.x0 && i.x < zone.x1 && i.y >= zone.y0 && i.y < zone.y1).length;
   assert.equal(has('obj_tv_makeup', north), 3, 'trois coiffeuses au nord');
-  assert.ok(has('obj_canape', north) >= 2 && has('obj_canape', south) >= 2, 'des canapés dans les deux salons');
-  assert.ok(has('obj_tv_rack', south) >= 2 && has('obj_casierModulable', south) >= 3, 'portants et casiers du vestiaire');
+  assert.ok(has('obj_canape', north) >= 2, 'des canapés dans le salon d\'attente');
+  assert.equal(has('obj_canape', south), 0, 'aucun au sud');
+  assert.equal(has('obj_siege_accueil', north), 3, 'un siège par coiffeuse');
+  assert.ok(has('obj_serveur', tech) >= 2 && has('obj_tv_camera', tech) >= 3 && [1, 2, 3, 4].reduce((n, k) => n + has(`obj_etager${k}`, tech), 0) >= 4,
+    'baies, caméras de réserve et étagères du local technique');
+  // devant les deux portes du local technique, le passage est libre pour une troupe
+  for (const y of [5088, 6016]) assert.ok(open(9300, y, 9540, y), `rien devant la porte en y = ${y}`);
   // aucun garde dans les salons au départ, sauf un policier devant chaque porte du plateau
   const fresh = new World(ground, sprites, 'PetBot', 2);
   // (un salon est en L : sa grande pièce à l'ouest de x = 8960, et son décrochement contre le plateau ; le
@@ -149,8 +173,14 @@ test('l\'aile est : salons, maquillage, vestiaire et parkings se suivent du nord
     assert.equal(guards.length, 1, `gardes du salon : ${guards.map((n) => `${Math.round(n.x)},${Math.round(n.y)}`).join(' ')}`);
     assert.ok(Math.abs(guards[0].x - 8480) < 2, 'devant la porte du plateau');
   }
-  // les portails d'origine sont toujours là : la sortie par le nord (3) et l'arrivée de la police par le sud (4)
+  // les portails d'origine sont toujours là : la sortie par le nord (3) et l'arrivée de la police par le sud (4).
+  // Leurs boutons sont sur la cloison, côté parking, là où un robot peut les atteindre.
   assert.equal(fresh.doors.filter((d) => d.kind === 'button' && (d.doorId === 3 || d.doorId === 4)).length, 4);
+  for (const id of [3, 4]) {
+    const button = fresh.buttons.find((b) => b.doorId === id);
+    assert.ok(button && Math.abs(button.x - 9616) < 2, `bouton ${id} sur la cloison`);
+    assert.ok(fresh.collision.circleFree(button.x + 60, button.y, 40, 1), `bouton ${id} accessible depuis le parking`);
+  }
   // le brouillard se lève zone par zone : entrer dans la régie ne découvre plus les salons ni les parkings
   const fogs = fresh.fogs.filter((f) => f.x + f.w > 8240 && f.x < 10976);
   assert.ok(fogs.length >= 8);
@@ -158,7 +188,7 @@ test('l\'aile est : salons, maquillage, vestiaire et parkings se suivent du nord
   fresh.hero.y = 3968;
   for (let i = 0; i < 30; i++) fresh.step(NO_INPUT);
   assert.ok(fresh.fogs.some((f) => f.x === 8240 && f.y === 1392 && !f.enabled), 'le salon d\'attente reste caché');
-  assert.ok(fresh.fogs.some((f) => f.x === 8976 && f.y === 1392 && !f.enabled), 'le dépose-minute aussi');
+  assert.ok(fresh.fogs.some((f) => f.x === 9584 && f.y === 1392 && !f.enabled), 'le dépose-minute aussi');
 });
 
 test('pendant le journal, personne ne bouge : ni les gardes en ronde, ni les civils (GD-081)', () => {
@@ -184,7 +214,8 @@ test('le présentateur est à son poste derrière le pupitre, face à trois cam�
   assert.equal(anchor.def.kind, 'civil');
   assert.equal(anchor.patrolType, 'none', 'il ne quitte pas son pupitre');
   assert.ok(w.collision.circleFree(anchor.x, anchor.y, anchor.def.radius, 1), 'il n\'est pas dans un obstacle');
-  assert.equal(w.decor.filter((d) => d.sprite === 'spr_camera').length, 3);
+  const r = TV_STUDIO.room;
+  assert.equal(w.decor.filter((d) => d.sprite === 'spr_camera' && d.x >= r.x0 && d.x < r.x1 && d.y >= r.y0 && d.y < r.y1).length, 3);
   assert.ok(w.decor.some((d) => d.sprite === 'spr_tv_desk' && d.x === TV_STUDIO.desk.x));
   // il reste à sa place tant que rien ne l'effraie
   for (let i = 0; i < 600; i++) w.step(NO_INPUT);

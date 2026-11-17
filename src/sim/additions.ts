@@ -76,6 +76,13 @@ function wallColumn(x: number, y0: number, y1: number): LevelWall[] {
   return walls;
 }
 
+/** Mur fin vertical sans bouts : il rejoint un autre mur à chaque extrémité. */
+function wallRun(x: number, y0: number, y1: number): LevelWall[] {
+  const walls: LevelWall[] = [];
+  for (let y = y0; y < y1; y += 32) walls.push({ object: 'obj_mur_fin', thick: false, x: x + 16, y: y + 16, angle: 90, scaleX: 1 });
+  return walls;
+}
+
 /** Une instance d'origine se reconnaît à son objet et à sa position. */
 const at = (inst: LevelInstance, object: string, x: number, y: number): boolean =>
   inst.object === object && Math.abs(inst.x - x) < 2 && Math.abs(inst.y - y) < 2;
@@ -93,8 +100,14 @@ const MID = (ROOM.y0 + ROOM.y1) / 2;
 const DOOR = { x: 8480, half: 128 };
 /** Fond de décor : une cloison qui sépare le plateau des coulisses, avec un passage de chaque côté. */
 const BACKDROP = { x: 9632, y0: MID - 400, y1: MID + 400 };
-/** Cloison d'origine entre les salons et les parkings, percée d'une porte de chaque côté du plateau. */
-const SIDE = { x: 9568, north: { y0: 2720, y1: 2976 }, south: { y0: 4960, y1: 5216 } };
+/**
+ * Cloison entre les salons et les parkings, à x = 9568. Celle d'origine est percée d'une porte de chaque côté
+ * du plateau ; elle est prolongée au nord pour fermer les toilettes, au sud pour fermer le local technique,
+ * qui a une seconde porte en bas (`low`).
+ */
+const SIDE = { x: 9568, north: { y0: 2720, y1: 2976 }, south: { y0: 4960, y1: 5216 }, low: { y0: 5888, y1: 6144 } };
+/** Les toilettes, au-dessus du maquillage : on y entre depuis le salon d'attente, par une porte à côté du distributeur. */
+const WC = { x0: 8992, x1: 9568, y0: 1408, y1: 1920, door: { y0: 1600, y1: 1856 } };
 /** Les parkings : la chaussée commence après le trottoir, et les places longent le mur extérieur. */
 const KERB = 9792;
 const BAYS = 10560;
@@ -114,6 +127,9 @@ export const TV_STUDIO = {
   shots: { studio: { x: 8700, y: MID }, hall: { x: 4660, y: 5380 } },
   /** Salon d'attente et maquillage au nord, salon de sortie et vestiaire au sud. */
   lounges: { north: { x0: 8256, x1: 9568, y0: 1408, y1: 3040 }, south: { x0: 8256, x1: 9568, y0: 4896, y1: 6272 } },
+  /** Toilettes au nord, au-dessus du maquillage ; local technique au sud, du plateau au mur extérieur. */
+  toilets: WC,
+  techRoom: { x0: 8992, x1: 9568, y0: 4896, y1: 6272 },
   /** Dépose-minute au nord (portails 3), parking de départ au sud (portails 4). */
   parkings: { north: { x0: 9600, x1: 10944, y0: 1408, y1: 3040 }, south: { x0: 9600, x1: 10944, y0: 4896, y1: 6272 } },
 };
@@ -126,14 +142,14 @@ const seating = (y: number): { instances: LevelInstance[]; decals: LevelDecal[] 
   decals: [decal('spr_tapis', 8520, y)],
   instances: [furniture('obj_canape', 8338, y, 90), furniture('obj_table_attente', 8520, y, 90), furniture('obj_fauteuil', 8710, y, 270)],
 });
+/** Les canapés ne sont qu'au nord, là où l'on attend d'entrer en plateau (GD-084). */
 const loungeNorth = [seating(2100), seating(2560)];
-const loungeSouth = [seating(5300), seating(5740)];
 
 /**
  * Marquages d'un parking. `gateY` : ordonnée du portail ; `dir` : +1 si le parking s'étend vers le sud depuis
  * son portail (parking nord), -1 s'il s'étend vers le nord (parking sud). `doorY` : la porte du salon.
  */
-function parkingMarks(gateY: number, dir: 1 | -1, doorY: number, bays: number[], bandBays: number[]): LevelDecal[] {
+function parkingMarks(gateY: number, dir: 1 | -1, doorY: number, bays: number[]): LevelDecal[] {
   const away = dir === 1 ? 270 : 90; // « en s'éloignant du portail », en degrés GameMaker
   return [
     // l'entrée : une voie dans chaque sens, séparées par une ligne. On roule à droite : vers le sud du côté
@@ -141,10 +157,8 @@ function parkingMarks(gateY: number, dir: 1 | -1, doorY: number, bays: number[],
     decal('spr_pk_line', 10304, gateY + dir * 40, away, 1.15),
     decal('spr_pk_arrow', 10140, gateY + dir * 300, 180),
     decal('spr_pk_arrow', 10470, gateY + dir * 300, 0),
-    // les places le long du mur extérieur
+    // les places, toutes le long du mur extérieur : on s'y gare en marche avant depuis la voie (GD-084)
     ...bays.map((y) => decal('spr_pk_line', BAYS, y, 0, 0.94)),
-    // les places le long du mur du fond, dans la partie étroite
-    ...bandBays.map((x) => decal('spr_pk_line', x, gateY + dir * 40, away, 0.85)),
     // la dépose devant le trottoir, et le passage piéton vers la porte du salon
     decal('spr_pk_hatch', 10030, doorY - dir * 420, 90),
     decal('spr_pk_zebra', 10010, doorY),
@@ -171,6 +185,11 @@ const CHANGES: Record<string, Change> = {
       ...wallRow(ROOM.x0, DOOR.x - DOOR.half, ROOM.y0 - 32, false, true), ...wallRow(DOOR.x + DOOR.half, ROOM.x1, ROOM.y0 - 32, true),
       ...wallRow(ROOM.x0, DOOR.x - DOOR.half, ROOM.y1, false, true), ...wallRow(DOOR.x + DOOR.half, ROOM.x1, ROOM.y1, true),
       ...wallColumn(BACKDROP.x, BACKDROP.y0, BACKDROP.y1),
+      // les toilettes : la cloison monte jusqu'au mur extérieur, et deux séparations entre les cabines
+      ...wallRun(SIDE.x, WC.y0, WC.y1), ...wallRun(9184, WC.y0, WC.y0 + 160), ...wallRun(9376, WC.y0, WC.y0 + 160),
+      // le local technique : la cloison descend jusqu'au mur extérieur, autour de sa porte du bas
+      ...wallRun(SIDE.x, 5632, SIDE.low.y0), ...wallRun(SIDE.x, SIDE.low.y1, 6272),
+      { object: 'obj_mur_fin', thick: false, x: 8976, y: 5648, angle: 90, scaleX: 1 },
     ],
     wallRects: [
       [ROOM.x0, ROOM.y0 - 32, DOOR.x - DOOR.half - ROOM.x0, 32, 0], [DOOR.x + DOOR.half, ROOM.y0 - 32, ROOM.x1 - DOOR.x - DOOR.half, 32, 0],
@@ -178,16 +197,28 @@ const CHANGES: Record<string, Change> = {
       [BACKDROP.x, BACKDROP.y0, 32, BACKDROP.y1 - BACKDROP.y0, 0],
       // la cloison entre salons et parkings, refaite autour de ses deux nouvelles portes
       [SIDE.x, 1952, 32, SIDE.north.y0 - 1952, 0], [SIDE.x, SIDE.north.y1, 32, ROOM.y0 - 32 - SIDE.north.y1, 0],
-      [SIDE.x, ROOM.y1 + 32, 32, SIDE.south.y0 - ROOM.y1 - 32, 0], [SIDE.x, SIDE.south.y1, 32, 5632 - SIDE.south.y1, 0],
+      [SIDE.x, ROOM.y1 + 32, 32, SIDE.south.y0 - ROOM.y1 - 32, 0], [SIDE.x, SIDE.south.y1, 32, SIDE.low.y0 - SIDE.south.y1, 0],
+      [SIDE.x, SIDE.low.y1, 32, 6272 - SIDE.low.y1, 0],
+      // le coin du mur qui sépare le salon de sortie du local technique reste en place
+      [8960, 5632, 32, 32, 0],
+      // les toilettes : cloison côté parking, séparations des cabines, et le mur du salon percé d'une porte
+      [SIDE.x, WC.y0, 32, WC.y1 - WC.y0, 0], [9184, WC.y0, 32, 160, 0], [9376, WC.y0, 32, 160, 0],
+      [8960, 1376, 32, WC.door.y0 - 1376, 0], [8960, WC.door.y1, 32, 1920 - WC.door.y1, 0],
     ],
     // les deux murs de l'ancienne alcôve disparaissent dans le plateau, ainsi que le bout de cloison qui y
     // descendait ; la cloison entre salons et parkings est remplacée par ses morceaux ci-dessus
-    dropWallRect: (r) => same(r, 9568, 3360, 1376, 32) || same(r, 9568, 4320, 1376, 32) || same(r, 9568, 4672, 32, 960) || same(r, 9568, 1952, 32, 1088),
+    dropWallRect: (r) => same(r, 9568, 3360, 1376, 32) || same(r, 9568, 4320, 1376, 32) || same(r, 9568, 4672, 32, 960) || same(r, 9568, 1952, 32, 1088)
+      // le mur entre le vestiaire d'origine et le bas du parking : le local technique va jusqu'en bas
+      || same(r, 8960, 5632, 640, 32)
+      // le mur du salon d'attente, refait autour de la porte des toilettes
+      || same(r, 8960, 1376, 32, 544),
     dropWall: (w) => !w.thick && (
       (w.x >= 9568 && w.x < ROOM.x1 && (w.y === 3376 || w.y === 4336))
       || (w.x === SIDE.x + 16 && w.y > 4672 && w.y < ROOM.y1 + 32)
       || (w.x === SIDE.x + 16 && w.y > SIDE.north.y0 && w.y < SIDE.north.y1)
       || (w.x === SIDE.x + 16 && w.y > SIDE.south.y0 && w.y < SIDE.south.y1)
+      || (w.y === 5648 && w.x >= 8976 && w.x <= SIDE.x + 16)
+      || (w.x === 8976 && w.y > WC.door.y0 && w.y < WC.door.y1)
     ),
 
     // ---- les sols : résine de studio, parquet des salons, carrelage du maquillage, bitume et trottoir des parkings
@@ -196,13 +227,13 @@ const CHANGES: Record<string, Change> = {
       { object: 'obj_textureGenerator_parquet', tileset: 'til_sol_parquet', x: 8256, y: 1408, w: 720, h: 1632, phaseX: 0, phaseY: 0 },
       { object: 'obj_textureGenerator_carrelage', tileset: 'til_sol_carrelage', x: 8976, y: 1952, w: 592, h: 1088, phaseX: 0, phaseY: 0 },
       { object: 'obj_textureGenerator_parquet', tileset: 'til_sol_parquet', x: 8256, y: 4896, w: 720, h: 1376, phaseX: 0, phaseY: 0 },
-      { object: 'obj_textureGenerator_moquette1', tileset: 'til_sol_moquette1', x: 8976, y: 4896, w: 592, h: 736, phaseX: 0, phaseY: 0 },
-      { object: 'obj_textureGenerator_asphalte', tileset: 'til_sol_asphalte', x: 8992, y: 1408, w: 1952, h: 512, phaseX: 0, phaseY: 0 },
-      { object: 'obj_textureGenerator_asphalte', tileset: 'til_sol_asphalte', x: 9600, y: 1920, w: 1344, h: 1120, phaseX: 272, phaseY: 176 },
+      { object: 'obj_textureGenerator_carrelage', tileset: 'til_sol_carrelage', x: 8976, y: WC.y0, w: 592, h: WC.y1 - WC.y0, phaseX: 0, phaseY: 0 },
+      // le local technique : un caillebotis métallique, du plateau jusqu'au mur extérieur
+      { object: 'obj_textureGenerator_grille', tileset: 'til_sol_grille', x: 8976, y: 4896, w: 592, h: 1376, phaseX: 0, phaseY: 0 },
+      { object: 'obj_textureGenerator_asphalte', tileset: 'til_sol_asphalte', x: 9600, y: 1408, w: 1344, h: 1632, phaseX: 0, phaseY: 0 },
       { object: 'obj_textureGenerator_pave', tileset: 'til_sol_pave', x: 9600, y: 1952, w: KERB - 9600, h: 1088, phaseX: 0, phaseY: 0 },
-      { object: 'obj_textureGenerator_asphalte', tileset: 'til_sol_asphalte', x: 9600, y: 4896, w: 1344, h: 768, phaseX: 0, phaseY: 0 },
-      { object: 'obj_textureGenerator_asphalte', tileset: 'til_sol_asphalte', x: 8992, y: 5664, w: 1952, h: 608, phaseX: 64, phaseY: 96 },
-      { object: 'obj_textureGenerator_pave', tileset: 'til_sol_pave', x: 9600, y: 4896, w: KERB - 9600, h: 736, phaseX: 0, phaseY: 0 },
+      { object: 'obj_textureGenerator_asphalte', tileset: 'til_sol_asphalte', x: 9600, y: 4896, w: 1344, h: 1376, phaseX: 0, phaseY: 0 },
+      { object: 'obj_textureGenerator_pave', tileset: 'til_sol_pave', x: 9600, y: 4896, w: KERB - 9600, h: 1376, phaseX: 0, phaseY: 0 },
     ],
     // la route et la grille de ventilation d'origine, hors d'échelle, disparaissent
     dropDecal: (d) => d.sprite === 'spr_ventilation' || /^spr_(route|coin)/.test(d.sprite),
@@ -211,9 +242,10 @@ const CHANGES: Record<string, Change> = {
       decal('spr_tv_cables', 8520, MID - 156), decal('spr_tv_cables', 8530, MID + 154, 0, 1, -1),
       decal('spr_tv_cables', 10000, MID + 300, 20),
       decal('spr_tapis', 9440, 4690, 0, 0.8, 0.8),
-      ...loungeNorth.flatMap((s) => s.decals), ...loungeSouth.flatMap((s) => s.decals),
-      ...parkingMarks(1408, 1, (SIDE.north.y0 + SIDE.north.y1) / 2, [2000, 2190, 2380, 2570, 2760, 2950], [9080, 9270, 9460, 9650, 9840]),
-      ...parkingMarks(6272, -1, (SIDE.south.y0 + SIDE.south.y1) / 2, [4950, 5140, 5330, 5520], [9080, 9270, 9460, 9650, 9840]),
+      ...loungeNorth.flatMap((s) => s.decals),
+      ...parkingMarks(1408, 1, (SIDE.north.y0 + SIDE.north.y1) / 2, [2000, 2190, 2380, 2570, 2760, 2950]),
+      ...parkingMarks(6272, -1, (SIDE.south.y0 + SIDE.south.y1) / 2, [4950, 5140, 5330, 5520]),
+      decal('spr_tv_cables', 9250, 5720, 200),
     ],
 
     instance: (inst) => {
@@ -233,7 +265,10 @@ const CHANGES: Record<string, Change> = {
         at(inst, object, x, y) ? { ...inst, x: toX, y: toY, angle } : null;
       const moved = move('obj_npc_human_pistol', 10272, 3616, 8480, 2910, 90) ?? move('obj_npc_human_pistol', 10016, 4128, 8480, 5030, 270)
         ?? move('obj_npc_human_pistol', 9312, 3008, 9700, 2300) ?? move('obj_npc_human_pistol', 10816, 3104, 10780, 2930)
-        ?? move('obj_npc_human_pistol', 9952, 4608, 9700, 5420)
+        ?? move('obj_npc_human_pistol', 9952, 4608, 9700, 5420) ?? move('obj_npc_human_pistol', 9344, 6080, 9900, 6060)
+        ?? move('obj_npc_human_pistol', 9536, 1664, 9900, 1740)
+        // les boutons des portails étaient sur un mur désormais intérieur : ils passent sur la cloison, côté parking
+        ?? move('obj_button', 9008, 1632, SIDE.x + 48, 1632) ?? move('obj_button', 9008, 5952, SIDE.x + 48, 5760)
         ?? move('obj_npc_robot_shield', 9120, 3712, 10400, 2300) ?? move('obj_npc_robot_shield', 8896, 2560, 10400, 5380)
         ?? move('obj_npc_robot_lightBot', 8832, 3328, 9950, 2640)
         ?? move('obj_npc_robot_shotBot', 8544, 3040, 10250, 1700) ?? move('obj_npc_robot_shotBot', 8704, 4544, 10250, 5960)
@@ -251,10 +286,13 @@ const CHANGES: Record<string, Change> = {
       // ---- portes : les deux du plateau, et une de chaque salon vers son parking
       autoDoor(DOOR.x, ROOM.y0 - 16, 180), autoDoor(DOOR.x, ROOM.y1 + 16, 0),
       autoDoor(SIDE.x + 16, (SIDE.north.y0 + SIDE.north.y1) / 2, 90), autoDoor(SIDE.x + 16, (SIDE.south.y0 + SIDE.south.y1) / 2, 90),
+      // le local technique a une seconde porte sur le parking, en bas : la police entrera par les deux (GD-084)
+      autoDoor(SIDE.x + 16, (SIDE.low.y0 + SIDE.low.y1) / 2, 90),
+      autoDoor(8976, (WC.door.y0 + WC.door.y1) / 2, 90),
       instance('obj_tv_onair', 'layer_deco', -250, 8690, ROOM.y0 - 16), instance('obj_tv_onair', 'layer_deco', -250, 8690, ROOM.y1 + 16),
       // ---- brouillard : le décrochement de chaque salon se lève avec lui, chaque parking à part
-      fog(8976, 1936, 608, 1120, null, 18), fog(8976, 1392, 2000, 544, 118, null), fog(9584, 1936, 1392, 1120, null, 118),
-      fog(8976, 4880, 608, 768, null, 17), fog(9584, 4880, 1392, 768, 117, null), fog(8976, 5648, 2000, 656, null, 117),
+      fog(8976, 1936, 608, 1120, null, 18), fog(8976, 1392, 608, 544, null, 18), fog(9584, 1392, 1392, 544, 118, null), fog(9584, 1936, 1392, 1120, null, 118),
+      fog(8976, 4880, 608, 1424, null, 17), fog(9584, 4880, 1392, 768, 117, null), fog(9584, 5648, 1392, 656, null, 117),
 
       // ======== LE PLATEAU ========
       // `shadow` : hauteur du meuble, pour l'ombre qu'il porte sous les projecteurs
@@ -293,16 +331,22 @@ const CHANGES: Record<string, Change> = {
 
       // ======== AU NORD : SALON D'ATTENTE, MAQUILLAGE, DÉPOSE-MINUTE ========
       ...loungeNorth.flatMap((s) => s.instances),
-      ...[0, 1, 2, 3].map((i) => furniture('obj_chaise_marron', 8905, 1480 + i * 105, 270)),
-      furniture('obj_distributeur', 8700, 1492), furniture('obj_plante', 8300, 1870), furniture('obj_plante', 8300, 2330), furniture('obj_plante', 8300, 2980),
+      furniture('obj_chaise_marron', 8425, 1466), furniture('obj_chaise_marron', 8520, 1466),
+      furniture('obj_chaise_marron', 8905, 2020, 270), furniture('obj_chaise_marron', 8905, 2125, 270),
+      furniture('obj_distributeur', 8700, 1492),
+      // les toilettes : trois cabines contre le mur extérieur, les lavabos en face
+      furniture('obj_wc', 9090, 1474), furniture('obj_wc', 9296, 1474), furniture('obj_wc', 9478, 1474),
+      furniture('obj_lavabo', 9110, 1872, 180), furniture('obj_lavabo', 9290, 1872, 180), furniture('obj_lavabo', 9470, 1872, 180),
+      lamp(9280, 1660, 440, 0.5), furniture('obj_plante', 8300, 1870), furniture('obj_plante', 8300, 2330), furniture('obj_plante', 8300, 2980),
       civil('obj_npc_civil_malette', 8580, 2300, 200, false), civil('obj_npc_civil_femme', 8620, 2760, 30, false),
       lamp(8600, 2050, 700, 0.45), lamp(8600, 2700, 620, 0.4),
       // le maquillage, dans le décrochement : deux coiffeuses contre le mur nord, une contre la cloison, les portants en face
       furniture('obj_tv_makeup', 9150, 2036), furniture('obj_tv_makeup', 9420, 2036), furniture('obj_tv_makeup', 9516, 2360, 270),
-      furniture('obj_siege_accueil', 9150, 2140), furniture('obj_siege_accueil', 9420, 2140), furniture('obj_siege_accueil', 9410, 2360),
+      // un siège devant chaque coiffeuse, tourné vers son miroir
+      furniture('obj_siege_accueil', 9150, 2128, 180), furniture('obj_siege_accueil', 9420, 2128, 180), furniture('obj_siege_accueil', 9424, 2360, 90),
       furniture('obj_tv_rack', 9150, 2994), furniture('obj_tv_rack', 9410, 2994),
       furniture('obj_plante', 9040, 2640),
-      civil('obj_npc_civil_femme', 9285, 2180, 180, true), civil('obj_npc_civil_malette', 9150, 2230, 90, true),
+      civil('obj_npc_civil_femme', 9285, 2240, 135, true), civil('obj_npc_civil_malette', 9060, 2300, 20, true),
       lamp(9280, 2450, 580, 0.5),
       // le dépose-minute : trottoir et potelets devant la porte, la chaussée, les places
       ...[2000, 2170, 2340, 2510, 2680, 3010].map((y) => furniture('obj_pk_bollard', KERB + 16, y)),
@@ -310,18 +354,27 @@ const CHANGES: Record<string, Change> = {
       lamp(10250, 2450, 780, 0.45), lamp(9900, 1660, 660, 0.4), lamp(10700, 1660, 520, 0.35),
 
       // ======== AU SUD : SALON DE SORTIE, VESTIAIRE, PARKING ========
-      ...loungeSouth.flatMap((s) => s.instances),
+      // le salon de sortie : pas de canapés, on n'y attend pas (GD-084). Des casiers de consigne, un poste de
+      // sécurité et son employée, quelques chaises ; le milieu reste dégagé
+      furniture('obj_casierModulable', 8306, 5200, 90), furniture('obj_casierModulable', 8306, 5400, 90), furniture('obj_casierModulable', 8306, 5600, 90),
+      furniture('obj_table0', 8700, 5600, 90), furniture('obj_lampeBureau', 8700, 5490), furniture('obj_ecran', 8690, 5640),
+      civil('obj_npc_civil_femme', 8830, 5600, 180, true),
       ...[0, 1, 2, 3].map((i) => furniture('obj_chaise_marron', 8905, 5760 + i * 105, 270)),
-      furniture('obj_distributeur', 8700, 6188, 180), furniture('obj_plante', 8300, 4960), furniture('obj_plante', 8300, 5520),
+      furniture('obj_distributeur', 8700, 6188, 180), furniture('obj_plante', 8300, 4960), furniture('obj_plante', 8300, 5800),
       lamp(8600, 5300, 700, 0.45), lamp(8600, 5900, 620, 0.4),
-      // le vestiaire, dans le décrochement : portants contre le plateau, casiers au fond, comptoir et son employée
-      furniture('obj_tv_rack', 9150, 4944), furniture('obj_tv_rack', 9410, 4944),
-      furniture('obj_casierModulable', 9100, 5582), furniture('obj_casierModulable', 9290, 5582), furniture('obj_casierModulable', 9480, 5582),
-      furniture('obj_table0', 9200, 5300), furniture('obj_lampeBureau', 9100, 5300), furniture('obj_ecran', 9290, 5290, 90),
-      civil('obj_npc_civil_femme', 9200, 5430, 90, true),
-      lamp(9280, 5260, 540, 0.5),
+      // le local technique, du plateau jusqu'au mur extérieur : étagères de matériel, baies, caméras de réserve,
+      // établi. Rien devant ses deux portes.
+      furniture('obj_etager1', 9130, 4946), furniture('obj_etager2', 9400, 4946),
+      furniture('obj_table1', 9200, 5240), furniture('obj_lampeBureau', 9090, 5240), furniture('obj_ecran', 9300, 5230, 90),
+      instance('obj_tv_camera', 'layer_deco', 200, 9150, 5470, -30, { bulletCrossed: true }, 1.5),
+      instance('obj_tv_camera', 'layer_deco', 200, 9250, 5510, 25, { bulletCrossed: true }, 1.5),
+      instance('obj_tv_camera', 'layer_deco', 200, 9170, 5570, -80, { bulletCrossed: true }, 1.5),
+      furniture('obj_tv_crate', 9460, 5360), furniture('obj_tv_crate', 9470, 5450, 9), furniture('obj_tv_spot', 9380, 5600, 200),
+      furniture('obj_serveur', 9076, 5790), furniture('obj_serveur', 9076, 6020),
+      furniture('obj_etager3', 9210, 6222), furniture('obj_etager4', 9470, 6222),
+      lamp(9280, 5260, 540, 0.45), lamp(9280, 5950, 520, 0.45),
       // le parking de départ
-      ...[4940, 5290, 5450, 5610].map((y) => furniture('obj_pk_bollard', KERB + 16, y)),
+      ...[4940, 5290, 5450, 5610, 5770, 6200].map((y) => furniture('obj_pk_bollard', KERB + 16, y)),
       furniture('obj_plante', 9690, 5580), furniture('obj_poubelle', 9690, 5320),
       lamp(10250, 5300, 780, 0.45), lamp(9900, 5990, 660, 0.4), lamp(10700, 5990, 520, 0.35),
     ],

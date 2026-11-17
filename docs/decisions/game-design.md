@@ -89,6 +89,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-081 | Le plateau de TvTv² devient une vraie pièce de studio | 2026-11-17 | Acceptée — à ajuster après essai ; précise et corrige GD-080 |
 | GD-082 | Plateau : des projecteurs qui éclairent vraiment, et aucun garde au départ | 2026-11-17 | Acceptée — à ajuster après essai ; corrige deux points de GD-081 |
 | GD-083 | L'aile est se réorganise autour du trajet des invités ; la police arrivera par le sud | 2026-11-17 | Acceptée — aménagement réalisé, scénario de fin à réaliser |
+| GD-084 | Aile est, retouches : toilettes, local technique à deux portes, places de parking | 2026-11-17 | Acceptée ; modifie GD-083 |
 
 ---
 
@@ -1852,3 +1853,25 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Pourquoi.** Demande de l'utilisateur : des salles qui ont une fonction lisible, et un décor crédible pour la pièce où le niveau commence et finit. Le sens de circulation nord → plateau → sud donne aussi son sens au retournement final : la sortie prévue est celle par où l'ennemi arrive.
 
 **Conséquences.** `src/sim/additions.ts` porte tout l'aménagement (ADR-016), qui sait maintenant retirer des rectangles de mur d'origine. Nouveaux sprites et sol par `npm run make-studio`. `docs/narration/niveau-tvtv2.md`, section 2 bis. Le parcours ne change pas pour le joueur : la carte violette ouvre l'aile est, le bouton de la régie ouvre les deux portes à bouton, qui donnent désormais sur les salons.
+
+## GD-084 — Aile est, retouches : toilettes, local technique à deux portes, places de parking
+
+- **Date** : 2026-11-17
+- **Statut** : Acceptée ; modifie GD-083
+- **Décidée par** : l'utilisateur (cinq retours après avoir parcouru l'aile est en caméra libre) ; le mobilier précis et l'emplacement des boutons sont des choix par défaut
+
+**Contexte.** GD-083 a réorganisé l'aile est. En la parcourant, l'utilisateur relève cinq points à reprendre.
+
+**Décision.**
+
+- **Maquillage** : un siège est placé juste devant chaque coiffeuse, tourné vers son miroir.
+- **Toilettes** : la partie du dépose-minute située au-dessus du maquillage devient une pièce fermée, avec trois cabines et trois lavabos. On y entre depuis le salon d'attente, par une porte à côté du distributeur ; les chaises qui longeaient ce mur sont déplacées.
+- **Places de parking** : il ne reste que celles qui longent le mur extérieur, où l'on se gare en marche avant depuis la voie. Celles du mur du fond, où l'on n'avait pas la place de manœuvrer, sont retirées, au nord comme au sud.
+- **Local technique** : au sud du plateau, la pièce rouge du vestiaire devient un local technique (étagères de matériel, baies, caméras de réserve, établi), sur un sol de caillebotis. Il est prolongé jusqu'au mur extérieur, à la place des anciennes places de parking, et il a **deux portes sur le parking**, une en haut et une en bas : quand la police arrivera en nombre (GD-083), elle entrera par les deux.
+- **Salon de sortie** : les canapés en sont retirés. On n'attend qu'au nord, avant d'entrer en plateau. Le salon sud garde un milieu dégagé, avec des casiers de consigne, un poste de sécurité et quelques chaises.
+- *Par défaut* : les boutons des portails 3 et 4, qui se trouvaient sur un mur désormais intérieur (toilettes, local technique), passent sur la cloison côté parking.
+- *Par défaut* : l'employée du vestiaire tient maintenant le poste de sécurité du salon de sortie ; trois gardes d'origine qui se retrouvaient dans les nouvelles pièces sont replacés sur les parkings.
+
+**Pourquoi.** Demandes de l'utilisateur : des toilettes là où l'on attend, des places où l'on peut vraiment se garer, et une entrée large pour la troupe qui viendra du sud.
+
+**Conséquences.** `src/sim/additions.ts` (`WC`, `SIDE.low`, `TV_STUDIO.toilets`, `TV_STUDIO.techRoom`). Le brouillard des toilettes se lève avec le salon d'attente, celui du local technique avec le salon de sortie. Tests dans `src/sim/intro.test.ts`.
