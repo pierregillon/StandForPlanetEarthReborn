@@ -314,8 +314,11 @@ export class GameScene extends Phaser.Scene {
       this.world.skipArrival();
       for (let i = 0; i < CONFIG.hero.maxDeploySteps + 4 && (this.world.hero.arrivalSteps > 0 || this.world.hero.deploySteps > 0); i++) this.world.step(this.idleInput());
     }
-    this.free = { zoom: 1, lights: true };
+    // sans éclairage au départ : on vient voir les salles et leurs textures, et la pénombre est ce qui
+    // coûte le plus à dessiner (la touche L la rallume)
+    this.free = { zoom: 1, lights: false };
     this.view.reveal = true;
+    this.view.lightsOff = true;
     this.hud.hidden = true;
     this.freeLabel.setVisible(true);
     this.input.setDefaultCursor('default');

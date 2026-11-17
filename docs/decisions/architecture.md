@@ -312,7 +312,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 
 - **On y entre** par « Explore the level » au menu principal, par « Free camera » au menu de pause, par la touche V en jeu, ou en ouvrant `http://localhost:3000/?view`. On en sort par V ou Échap.
 - **On s'y déplace** avec les touches de mouvement (Maj pour aller vite) et on change d'échelle à la molette, de 14 % (la salle entière) à 150 % ; la touche 1 revient à l'échelle du jeu.
-- **Le brouillard de guerre n'est pas dessiné.** L'éclairage du jeu est montré à l'échelle 1 et se coupe avec L ; aux autres échelles tout est en pleine lumière, parce que la pénombre est calculée pour la vue normale.
+- **Le brouillard de guerre n'est pas dessiné, et l'éclairage est coupé au départ** : tout est montré en pleine lumière. La touche L rallume l'éclairage du jeu, à l'échelle 1 seulement, parce que la pénombre est calculée pour la vue normale. Il était allumé par défaut dans la première version ; l'utilisateur l'a fait couper le 2026-11-17 (« ça fait lagger, l'idée est juste de voir les textures et les rooms »). Mesure sur sa machine, plateau de TvTv² à l'échelle 1 : 9,5 ms par image avec l'éclairage, 5,5 ms sans, à toutes les échelles.
 - **En solo le jeu s'arrête** : personne ne bouge, le robot ne risque rien, et l'introduction en cours est passée d'un coup. En réseau la partie continue et le robot reste immobile.
 - L'interface de jeu est masquée ; un bandeau rappelle les commandes, l'échelle et l'état de l'éclairage.
 
