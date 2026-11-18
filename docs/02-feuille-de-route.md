@@ -2,145 +2,122 @@
 
 Dernière mise à jour : 2026-11-18.
 
-Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque étape, le jeu se lance et se joue ; l'utilisateur teste et corrige la direction avant l'étape suivante.
+**Ce fichier est le guide pour livrer la première version du jeu : la démo TvTv².** Il dit ce qu'on vise, ce qui reste à trancher et ce qui reste à faire, étape par étape. Le tenir à jour : cocher ce qui est fait, noter la date, réécrire « État actuel » quand la situation ou la prochaine action change. L'historique des modifications est dans git (`git log`) ; le pourquoi de chaque choix, dans les [journaux de décisions](decisions/).
 
-**Tenir ce fichier à jour** : cocher ce qui est fait, noter la date, et réécrire « État actuel » quand la situation ou la prochaine action change. L'historique des modifications est dans git (`git log`).
+## L'objectif : la démo TvTv² (GD-096)
+
+| Question | Réponse de l'utilisateur (2026-11-18) |
+|---|---|
+| Pour qui | Des amis joueurs, qui la partageront à leur petite communauté : des joueurs et rétro-joueurs qui aiment essayer de nouveaux jeux. Plus tard, peut-être une plateforme (itch.io ou autre) |
+| Quoi | Le niveau TvTv² seul, en entier, du largage à l'extraction : « 100 % de la carte complète » |
+| Comment on joue | **En solo, obligatoirement**, avec chacun des quatre robots ; et à plusieurs, avec du défi |
+| Comment on y accède | Par un lien, dans le navigateur, sans rien installer |
+| Retours | Demandés directement aux joueurs contactés ; pas de mesure automatique dans le jeu |
+| Droits | Les sprites, sons et musiques sont libres de diffusion et d'utilisation |
+
+**La démo est prête quand** un joueur qui ne connaît pas le jeu reçoit un lien, comprend quoi faire, termine TvTv² seul avec le robot de son choix, et qu'une partie à plusieurs reste un défi.
 
 ## État actuel
 
-**Les 4 étapes du MVP sont livrées (2026-11-16) — l'étape 4 attend les essais de l'utilisateur.**
-**Depuis, TvTv² a été réécrit pour l'acte II de l'arc narratif (GD-076 à GD-089) et se joue du largage à l'écran de fin (2026-11-18)** : introduction, régie, ultimatum, barrage de police au sud, repli par le garage nord, extraction. La zone de forage et SallyBot ne font plus partie de ce niveau (jouables depuis le menu).
-**Éditeur de niveaux, étapes 1 et 2 livrées (2026-11-18, ADR-018)** : mobilier, lumières, décalques, portes, fenêtres, murs et sols se retouchent dans le jeu, la sauvegarde réécrit le fichier de la salle, sans commit (ADR-019). À essayer par l'utilisateur ; suite et limites dans [editeur-niveaux.md](editeur-niveaux.md).
-Prochaine action : recueillir les retours de l'utilisateur sur l'éditeur ; et toujours sur le nouveau tir de PetBot (GD-093, GD-094 : vitesse du drone, rayon de recherche, puissance) et sur la fin du niveau (face-à-face du parking, dernier combat devant le portail nord, extraction), en premier lieu la difficulté ; puis décider de la suite (voir « Après le MVP »).
+- Le MVP d'origine (4 étapes, GD-015) est livré, et bien dépassé : jeu à plusieurs jusqu'à 4, link, attaques ultimes, ombres portées, cinématiques.
+- TvTv² a été réécrit pour l'acte II de l'arc narratif et se joue du largage à l'écran de fin (GD-076 à GD-094).
+- L'éditeur de niveaux a ses étapes 1 et 2 (ADR-018, ADR-019) : mobilier, lumières, décalques, murs, sols, portes et fenêtres se retouchent dans le jeu. À essayer par l'utilisateur ; suite et limites dans [editeur-niveaux.md](editeur-niveaux.md).
 
-## Prérequis (début de l'étape 1)
+**Prochaine action** : trancher avec l'utilisateur les décisions ci-dessous, en commençant par le rôle du link et de la surcharge (elles orientent l'étape 5), puis commencer l'étape 5.
 
-Connexion internet limitée : **annoncer la taille et attendre l'accord avant chaque téléchargement**.
+## Décisions à trancher
 
-- [x] Node 22.23.5 en copie portable dans `.tools/node22` (35,6 Mo téléchargés), Node 14 intact. nvm-windows n'a pas été installé (ADR-009).
-- [x] Dépendances du projet installées : 33 Mo téléchargés, 183 Mo sur disque (ADR-010).
-- [x] Projet GameMaker de 2019 extrait dans `.cache/reference` (287 Mo, non versionné) ; sprites, sols et sons utiles copiés dans `public/assets` (29 Mo).
+Chacune donne une entrée dans le [journal de game design](decisions/game-design.md) une fois tranchée.
 
-## Étape 1 — Rez-de-chaussée jouable avec un héros
+- [ ] **Le link, mécanique centrale.** Aujourd'hui il transmet de l'énergie et accélère sa récupération (GD-043, GD-044) : est-ce assez pour donner envie de se lier ? Pistes de l'utilisateur : coups plus forts quand on est lié ; un effet quand on prend une balle en étant lié ; le link permet de dépasser le seuil d'énergie habituel, et ce dépassement apporte d'autres avantages.
+- [ ] **La surcharge d'énergie.** Pistes de l'utilisateur : à pleine énergie, plus de dégâts ; en surcharge, une balle reçue retire de l'énergie au lieu de la vie, ou moins de vie.
+- [ ] **L'identité de chaque robot.** Ce que chacun incarne (sa personnalité, sa voix : [niveau-tvtv2.md](narration/niveau-tvtv2.md) §5), et les mécaniques qui en découlent. PetBot et BadaBot sont jugés intéressants à jouer ; BatBot et EngiBot le sont moins.
+- [ ] **BatBot, seul robot au corps à corps.** Face à des ennemis qui tirent presque tous, il est trop faible pour finir seul. Pistes de l'utilisateur : dash illimité ; dash qui blesse ; touche pour revenir d'un dash à son point de départ.
+- [ ] **Les points de sauvegarde.** Aujourd'hui, le seul est sur le plateau, après l'ultimatum (GD-087) : mourir à l'étage fait tout recommencer. En ajouter, ou garder la difficulté d'un niveau sans filet ? Emplacements proposés par l'utilisateur : l'arrivée à l'escalier, le retour au rez-de-chaussée, l'arrivée sur le plateau.
+- [ ] **L'hébergement.** Le solo doit pouvoir tourner sans serveur de jeu (la simulation tourne dans le navigateur), donc sur un hébergement de site statique ; le jeu à plusieurs a besoin du serveur Node, allumé en permanence. Où, et à quel coût ?
 
-- [x] Squelette du projet : TypeScript, Phaser 3, serveur Node, commande unique de lancement (`start.cmd`).
-- [x] Convertisseur des salles GameMaker vers JSON ; les trois salles du monde 2 sont converties, sans écart de comptage avec l'original.
-- [x] Affichage de la salle : sols, murs, mobilier, fenêtres, décalques.
-- [x] PetBot : déplacement, visée, dash, tir principal, rechargement avec R, PV, énergie.
-- [x] Caméra et HUD (énergie, PV sur le portrait, chargeur, consigne).
-- [x] Les 4 types d'ennemis avec l'IA du code ; les civils (patrouille, panique, fuite).
-- [x] Portes automatiques et à bouton.
-- [x] Prises de courant (bornes de recharge, GD-020).
-- [x] Mort du héros : « YOU LOSE », Retry, Exit.
-- [x] Menu minimal : titre → jeu → pause.
+## Les étapes vers la démo
 
-### Ce qui a été vérifié, et comment
+Chaque étape se termine par un essai de l'utilisateur, comme jusqu'ici.
 
-- Par tests automatiques (`npm test`, 8 tests sur le vrai niveau) : chargement du niveau (36 soldats, 52 civils, 36 portes, 4 boutons, 20 fenêtres, 10 bornes), marche, tir et rechargement, énergie et bornes, dégâts et mort, robot bouclier (coup, repoussement, vulnérable seulement de dos), vitre brisée par une balle qui continue, 60 secondes de simulation sans erreur.
-- À l'écran dans le navigateur : menu, affichage du rez-de-chaussée, HUD, soldats au pistolet qui repèrent, tirent et meurent, civils qui paniquent, 26 portes automatiques traversées, porte à bouton, pause, écran de défaite et Retry, 60 images par seconde.
+### Étape 5 — Les mécaniques : robots, link, énergie
 
-### À vérifier par l'utilisateur (non contrôlé à la fin de l'étape 1)
+- [ ] Appliquer les décisions sur le link et la surcharge.
+- [ ] Repasser sur chaque robot : mécaniques cohérentes avec ce qu'il incarne, jouable seul de bout en bout, plaisir de jeu propre à chacun. Qu'aucun ne soit celui qu'on ne veut pas jouer.
+  - [ ] BatBot : le rendre viable seul face aux tireurs.
+  - [ ] EngiBot : le rendre plus intéressant à jouer.
+  - [ ] PetBot : régler le drone à tête chercheuse après essai (GD-093, GD-094 : vitesse, rayon de recherche, puissance).
+  - [ ] BadaBot : vérifier qu'il reste intéressant après les changements des autres.
 
-- Sensations de jeu : vitesse, glissement contre les murs et le mobilier, dash, difficulté (GD-018).
-- Robot bouclier : logique testée automatiquement, pas observée à l'écran. LightBot et ShotBot : même code que le soldat au pistolet avec d'autres réglages, pas observés en combat.
-- Sons (tirs, mort d'un PNJ) et musique : chargés, pas écoutés.
-- Éclats de vitre, débris et flaques à la mort d'un PNJ : effets visuels pas observés à l'écran.
-- Emplacement des 10 bornes de recharge (GD-020).
+**Terminée quand** l'utilisateur a joué les quatre robots et veut rejouer chacun.
 
-### Limites connues de l'étape 1
+### Étape 6 — L'équilibrage et la difficulté
 
-- L'escalier affiche « The upper floor is not open yet. » : l'étage arrive à l'étape 3.
-- Portes à carte fermées, pas de cartes, pas de boîtes bonus, pas de brouillard ni de lumières (étapes 3 et 4).
-- Pas de tir secondaire (clic droit) : étape 2. L'énergie se recharge mais ne sert pas encore.
-- L'effet « glitch » du héros touché est remplacé par un clignotement ; la ventilation animée est figée.
-- Chargement d'une dizaine de secondes : images chargées une par une (ADR-012).
+- [ ] Ajuster ennemis et robots : dégâts, points de vie, vitesse de déplacement (`src/sim/config.ts`).
+- [ ] TvTv² se termine en solo avec chacun des quatre robots.
+- [ ] À plusieurs, le niveau reste un défi (effectifs selon le nombre de joueurs : GD-090).
+- [ ] Le combat de la fin : face-à-face du parking, repli, dernier combat devant le portail nord, extraction.
+- [ ] Le robot bouclier en solo : vulnérable seulement de dos, il se tourne vite ; s'il reste trop dur seul, ralentir sa rotation.
+- [ ] Les ultis, après essais à plusieurs.
 
-## Étape 2 — Les 3 autres héros
+**Terminée quand** l'utilisateur a fini le niveau seul avec chaque robot, puis à deux, et juge la difficulté juste dans les deux cas.
 
-Livrée le 2026-11-16, en attente des essais de l'utilisateur.
+### Étape 7 — Lire le niveau : consignes, points de sauvegarde, lumières
 
-- [x] Retours de l'étape 1 traités : projectiles visibles, bornes utilisables de plus loin avec un arc électrique (GD-022).
-- [x] Écran de choix du héros.
-- [x] Tirs secondaires et leurs 4 stades : drones de PetBot, tourelle d'EngiBot, battes de BatBot, bouclier de BadaBot (GD-023).
-- [x] BadaBot, BatBot, EngiBot complets (tirs principaux compris : plasma chargé, coups de batte, balles rebondissantes).
-- [x] Sons des héros (chargés avec le héros choisi).
-- [x] Carte verte et portes à carte, avancées de l'étape 3 (GD-024).
+- [ ] Consignes plus visibles, et plus fréquentes : une petite étape à la fois, mise à jour au fil de la progression, pour qu'on sache toujours où aller et quoi faire ensuite. Les textes sont montrés au joueur : relire l'arc narratif avant de les écrire.
+- [ ] Appliquer la décision sur les points de sauvegarde.
+- [ ] Des lumières partout où il en manque : à l'étage et dans plusieurs pièces. L'éditeur de niveaux sait déjà poser des lumières.
+- [ ] Parcourir l'étage à pied en jouant (19 ennemis, 43 civils) : jamais fait à la main.
 
-### Ce qui a été vérifié, et comment
+**Terminée quand** un joueur sait toujours où aller sans aide, et aucune pièce n'est plongée dans le noir sans raison.
 
-- Par tests automatiques (`npm test`, 17 tests) : salve de drones (coût, dégâts, soin), tourelle (pose, niveau, tir, repli), rebond des balles d'EngiBot, coups de batte, lancer, explosion et rappel des battes, tir chargé et bouclier de BadaBot, robot bouclier vulnérable seulement de dos aux explosions.
-- À l'écran : écran de choix, EngiBot avec sa tourelle, BadaBot avec sa boule de plasma et son bouclier, BatBot et sa batte lancée, traînées des balles, arc électrique des bornes.
+### Étape 8 — Les sons
 
-### À vérifier par l'utilisateur
+- [ ] Repasser sur tous les sons et vérifier que chacun va avec ce qu'il accompagne. Les sons synthétisés par le jeu (`src/client/sfx.ts` : link, éclair des bornes, véhicule, rechargements, ultis) sont souvent mauvais : les refaire ou les remplacer, en premier le link, l'éclair et l'hélicoptère.
+- [ ] Ajouter les sons qui manquent, par exemple la batte de BatBot qui frappe un mur : un son mat.
+- [ ] Chaque joueur entend tous les sons qui se produisent près de lui, quel que soit le robot qui les provoque. Aujourd'hui, seuls certains passent. Point de départ : les sons partent de la simulation sous forme d'événements, que le serveur relaie à tous les joueurs ; trouver ceux qui n'en sont pas, ou que l'affichage ne joue que pour son propre robot.
+- [ ] Écouter ce qui ne l'a jamais été : sons des quatre robots, musique, tirs, mort des personnages.
 
-- Sensations de chaque héros, et équilibre entre eux.
-- Drones de PetBot : logique testée, pas observés à l'écran.
-- Sons des quatre héros : chargés, pas écoutés.
-- Carte verte et porte verte : codées, pas parcourues à l'écran.
-- Robot bouclier en solo : il n'est vulnérable que de dos et se tourne vite vers le héros. Les tirs secondaires permettent de le battre (drone ou batte explosive qui éclate derrière lui, balle d'EngiBot qui rebondit, tourelle posée dans son dos). À juger en jouant : s'il reste trop dur seul, ralentir sa rotation.
+**Terminée quand** l'utilisateur a joué une partie à deux sans relever de son faux, absent ou entendu d'un seul côté.
 
-### Limites connues
+### Étape 9 — Accueillir le joueur et mettre en ligne
 
-- Chargement plus long dans un panneau de navigateur masqué ; le dépôt contient maintenant 51 Mo d'assets, dont 16 Mo de sons au format WAV.
+- [ ] Menu épuré pour un joueur : retirer ou cacher les outils de développement (« Explore the level », caméra libre, choix du point de départ).
+- [ ] Apprendre les commandes en jouant, ou sur un écran clair : déplacement, tirs, dash, borne (E maintenu), rechargement, link, ulti.
+- [ ] Réglages minimaux : volume, plein écran. Prévenir que le jeu se joue au clavier et à la souris, sur ordinateur.
+- [ ] Écran de crédits, avec les auteurs du jeu d'origine.
+- [ ] Alléger les assets (90 Mo aujourd'hui : sons en WAV, une image par fichier, sprites du boss en 840 × 840, ADR-012) et afficher la progression du chargement.
+- [ ] Héberger le solo, et le serveur pour jouer à plusieurs.
+- [ ] À plusieurs : plusieurs parties en même temps, rejoindre par un code, reconnexion après une coupure.
 
-## Étape 3 — Étage, cartes, objectifs
+**Terminée quand** un ami à distance lance le jeu depuis un simple lien, seul puis avec l'utilisateur.
 
-Livrée le 2026-11-16, en attente des essais de l'utilisateur.
+### Étape 10 — La partie d'essai
 
-- [x] Conversion de `rm_world2_1` ; passage entre salles par l'escalier, avec fondu, dans les deux sens (GD-026).
-- [x] Cartes verte et violette, portes à carte, messages associés (GD-024).
-- [x] Enchaînement des consignes 1 à 4 ; les deux dernières (foreuses, boss) arrivent avec l'étape 4.
-- [x] Sortie du niveau : compte à rebours « Leaving area », puis panneau de fin provisoire avec les statistiques.
-- [x] Bonus : les boîtes bonus à ramasser sont retirées du jeu, sur décision de l'utilisateur (GD-027). Rien à développer.
+- [ ] Préparer les questions à poser aux joueurs (compréhension, difficulté, robot préféré, link, ce qui a manqué).
+- [ ] Envoyer le lien aux amis choisis.
+- [ ] Rassembler les retours dans la documentation et en tirer la suite.
 
-### Ce qui a été vérifié, et comment
+## Finitions, si le temps le permet
 
-- Par tests automatiques (`npm test`, 22 tests) : le parcours complet escalier → étage → carte violette → retour → porte violette → zone de sortie → fin ; la zone de sortie inactive avant la consigne ; l'état d'une salle conservé au retour.
-- À l'écran : montée à l'étage avec fondu, affichage de l'étage, ramassage de la carte violette, retour au rez-de-chaussée, compte à rebours de sortie, panneau de fin.
-
-### À vérifier par l'utilisateur
-
-- Le trajet à pied dans l'étage (19 ennemis, 43 civils) : je m'y suis déplacé par commandes de test, pas en jouant.
-- La difficulté de l'ensemble du niveau avec un seul héros.
-- La lisibilité de la zone de sortie : c'est toute la bande nord de la carte, sans marquage au sol.
-
-## Étape 4 — Boss, ambiance, score
-
-Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-028.
-
-- [x] Conversion de `rm_world2_2` et liaison avec le rez-de-chaussée (la sortie y mène).
-- [x] Foreuses destructibles (20 PV, inventé).
-- [x] Boss SallyBot, 2 phases, mort, fin de niveau.
-- [x] Brouillard de guerre ; lumières simples.
-- [x] Écran de score.
-- [x] Musique du niveau (une seule piste dans l'original, jouée dans les trois salles).
-
-### Ce qui a été vérifié, et comment
-
-- Par tests automatiques (`npm test`, 26 tests) : consigne des foreuses, dégâts par balle et par explosion, consigne du boss, fin du niveau après sa mort, poursuite et frappe du boss, transformation à mi-vie, invulnérabilité de la phase 2 et fenêtre de respiration, levée du brouillard par une porte.
-- À l'écran : arrivée dans la zone de forage, boss qui attaque, barre de vie du boss, foreuse, brouillard sur les pièces fermées, halo des lampes et lueur du héros, 60 images par seconde avec l'éclairage.
-
-### À vérifier par l'utilisateur
-
-- **L'équilibre du combat de boss** : c'est le point le moins sûr. À 10 de vitesse, le boss tuait le héros immobile en une dizaine de secondes ; il est passé à 7 et à 60 PV sans nouvel essai complet.
-- L'aspect des lumières (assombrissement, taille de la lueur du héros) et du brouillard.
-- La mort du boss et la destruction d'une foreuse : effets pas observés à l'écran.
-- L'écran de score au bout du parcours complet joué à la main.
-
-### Limites connues
-
-- Le dépôt contient 82 Mo d'assets (sprites du boss en 840 × 840, sons en WAV) : à alléger avant une mise en ligne (ADR-012).
-- Pas d'ombres portées, pas d'effet « glitch » fidèle, pas d'animation de déploiement des héros.
-
-## Après le MVP
-
-- [x] Lumières avec ombres portées et couleurs (GD-038).
-- [x] Multijoueur en ligne, première version : salon, 4 joueurs au plus, résurrection (GD-039, GD-040, ADR-014).
-- [x] Link entre héros, surcharge sans paliers, attaque ultime de BatBot (GD-043).
-- [x] Ultis de PetBot (nanomachines), BadaBot (mur) et EngiBot (grenade électromagnétique), avec leurs sprites (GD-044).
-- [x] Éditeur de niveaux, étape 1 : mobilier, lumières, décalques, ordre devant/derrière, sauvegarde du fichier (ADR-018, ADR-019, GD-095).
-- [x] Éditeur de niveaux, étape 2 : murs, sols, portes, boutons et fenêtres.
+- [ ] Effet « glitch » fidèle quand un robot est touché (aujourd'hui un clignotement) ; ventilation animée.
+- [ ] Mort de SallyBot et destruction d'une foreuse : effets jamais observés à l'écran (salle hors de TvTv², pour l'acte I).
 - [ ] Éditeur de niveaux, étape 3 : personnages et patrouilles, brouillard, points d'apparition, repères du scénario.
-- [ ] Équilibrage des ultis et du boss après essais à plusieurs.
-- [ ] Multijoueur public : plusieurs parties à la fois, reconnexion, hébergement, assets allégés.
-- Non planifié : manette, autres mondes, autres héros.
+
+## Après la démo
+
+- Les missions suivantes de l'arc narratif : l'acte I (la zone de forage et SallyBot existent déjà), le premier niveau SFHB.
+- Une plateforme de diffusion (itch.io ou autre).
+- Non planifié : manette, autres héros.
+
+## Ce qui est livré
+
+Le détail est dans git et dans les journaux de décisions.
+
+- **Étape 1** (2026-11-16) : rez-de-chaussée jouable avec PetBot, ennemis et civils avec l'IA du code, portes, bornes de recharge, mort et Retry, menus.
+- **Étape 2** (2026-11-16) : les quatre robots avec leurs tirs principaux et secondaires, écran de choix, cartes et portes à carte (GD-022 à GD-024).
+- **Étape 3** (2026-11-16) : étage, cartes verte et violette, consignes enchaînées, sortie du niveau (GD-024 à GD-027).
+- **Étape 4** (2026-11-16) : zone de forage, foreuses, boss SallyBot, brouillard, lumières, écran de score, musique (GD-028).
+- **Après le MVP** : lumières avec ombres portées et couleurs (GD-038) ; jeu à plusieurs jusqu'à 4 avec résurrection (GD-039, GD-040, ADR-014) ; link et surcharge (GD-043) ; les quatre ultis (GD-044).
+- **TvTv², acte II** (2026-11-17 et 18) : introduction et largage, régie, plateau, ultimatum, riposte de la police, face-à-face, repli par le nord, extraction (GD-076 à GD-094).
+- **Éditeur de niveaux, étapes 1 et 2** (2026-11-18) : mobilier, lumières, décalques, ordre de dessin, murs, sols, portes, boutons et fenêtres (ADR-018, ADR-019, GD-095).

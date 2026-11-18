@@ -13,8 +13,8 @@ Remake web (TypeScript, Phaser 3, serveur Node) du jeu GameMaker « Stand For Pl
 
 ## En début de session
 
-1. [docs/02-feuille-de-route.md](docs/02-feuille-de-route.md) : où en est le projet, prochaine action.
-2. [docs/01-cadre-mvp.md](docs/01-cadre-mvp.md) : périmètre, écarts voulus avec l'original, points ouverts.
+1. [docs/02-feuille-de-route.md](docs/02-feuille-de-route.md) : **le guide pour livrer la première version (la démo TvTv²)**. Objectif, décisions à trancher, étapes à cocher, prochaine action.
+2. [docs/01-cadre-mvp.md](docs/01-cadre-mvp.md) : périmètre de départ, écarts voulus avec l'original.
 3. Les index des journaux de décisions ([game design](docs/decisions/game-design.md), [architecture](docs/decisions/architecture.md)), puis en entier les entrées liées au travail.
 4. `node --version` (22.18 au moins) et le système : particularités de la machine dans [docs/developpement.md § Selon la machine](docs/developpement.md#selon-la-machine).
 

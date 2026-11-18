@@ -101,6 +101,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-093 | Tir principal de PetBot : des mini-drones à tête chercheuse | 2026-11-18 | Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas ; modifiée par GD-094 (plus de ciblage au clic ni de contour rouge : points 1, 2 et 6 abandonnés ; rayons de recherche à 500 px) |
 | GD-094 | Drone de PetBot : plus de ciblage au clic ni de contour rouge, recherche à 500 px | 2026-11-18 | Acceptée — réglages à ajuster après essai ; modifie GD-093 |
 | GD-095 | L'ordre de la salle est l'ordre de dessin, chaises à roulettes comprises ; l'éditeur le règle (devant, derrière) | 2026-11-18 | Acceptée ; précise GD-031 (chaises à roulettes) |
+| GD-096 | La première version à montrer est une démo : TvTv² seul, en entier, jouable seul et à plusieurs, par un lien | 2026-11-18 | Acceptée ; prend la suite du MVP de GD-015, livré |
 
 ---
 
@@ -2170,3 +2171,28 @@ Le reste de GD-093 ne change pas : une fois sa cible prise, le drone la poursuit
 **Conséquence à connaître.** Sans retouche de la carte, l'aspect du niveau change : les chaises à roulettes qui précèdent dans la salle d'origine le meuble qu'elles chevauchent passent dessous. D'après les boîtes englobantes, c'est le cas de 36 chaises au plus (25 au rez-de-chaussée, 11 à l'étage) ; les autres restent dessus. Chacune se corrige dans l'éditeur. Une chaise poussée en cours de partie garde son rang : elle peut passer sous le bord d'un meuble dessiné après elle. Les flaques et les débris, dessinés au-dessus du mobilier, le sont maintenant aussi au-dessus des chaises.
 
 **Conséquences.** `order` dans `DecorItem` et `Chair`, `depth` dans `Chair` (`src/sim/types.ts`, `world.ts`) ; `DRAW_ORDER_STEP` dans `WorldView.ts` ; `EditorModel.reorder` et son annulation ; le résumé d'une sauvegarde dit « ordre d'affichage modifié ». Tests : `world.test.ts`, `model.test.ts`, `levels.test.ts`.
+
+---
+
+## GD-096 — La première version à montrer est une démo : TvTv² seul, en entier, jouable seul et à plusieurs, par un lien
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; prend la suite du MVP de GD-015, livré
+- **Décidée par** : l'utilisateur ; Claude pour le découpage en étapes, qui reprend ses demandes
+
+**Contexte.** Les quatre étapes du MVP (GD-015) sont livrées, et le jeu les a largement dépassées : jeu à plusieurs, link, ultis, TvTv² réécrit pour l'acte II avec ses cinématiques. La feuille de route ne disait plus ce qui restait à faire avant de montrer le jeu à de vrais joueurs.
+
+**Décision.**
+
+1. **Pour qui** : des amis joueurs, qui la partageront à leur petite communauté de joueurs et de rétro-joueurs. Une plateforme de diffusion viendra peut-être ensuite.
+2. **Quoi** : le niveau TvTv² seul, en entier, du largage à l'extraction. Pas de prologue (acte I) pour cette version.
+3. **Comment on joue** : seul, obligatoirement, avec chacun des quatre robots ; et à plusieurs, avec du défi.
+4. **Comment on y accède** : par un lien, dans le navigateur, sans installation.
+5. **Retours** : demandés directement aux joueurs ; pas de mesure automatique dans le jeu.
+6. **Droits** : d'après l'utilisateur, sprites, sons et musiques sont libres de diffusion et d'utilisation.
+
+Ce qui reste à faire avant la démo, d'après l'utilisateur, et les décisions encore ouvertes (link, surcharge, identité des robots, BatBot, points de sauvegarde, hébergement) sont dans `docs/02-feuille-de-route.md`, en étapes 5 à 10.
+
+**Pourquoi.** Un seul niveau terminé et soigné apprend plus aux premiers joueurs qu'un contenu plus large et inégal. Le jeu doit tenir seul, parce qu'un joueur qui reçoit un lien n'a pas toujours d'équipe sous la main.
+
+**Conséquences.** `docs/02-feuille-de-route.md` devient le guide pour livrer cette version. `docs/01-cadre-mvp.md` garde la description du MVP d'origine, à lire comme un état des lieux de départ.

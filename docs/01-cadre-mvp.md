@@ -2,6 +2,8 @@
 
 Dernière mise à jour : 2026-11-17.
 
+> **Ce MVP est livré.** La version visée maintenant est la démo TvTv² (GD-096) : son objectif et ce qui reste à faire sont dans la [feuille de route](02-feuille-de-route.md). Ce document reste l'état des lieux de départ : périmètre initial, écarts voulus avec le jeu d'origine, sources de vérité. Certains points en sont dépassés (multijoueur, link, cinématiques, Node portable).
+
 Ce document décrit **ce que l'on construit** pour la première version jouable. Le **pourquoi** de chaque choix est dans les journaux de décisions ([game design](decisions/game-design.md), [architecture](decisions/architecture.md)) ; les identifiants entre crochets (`GD-005`, `ADR-002`) y renvoient.
 
 ## 1. Le projet en une phrase
