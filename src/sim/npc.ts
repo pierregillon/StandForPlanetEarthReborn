@@ -60,6 +60,10 @@ export function blankNpc(): Npc {
   };
 }
 
+/** `hunt` d'un soldat de la riposte (GD-086) : au barrage, sans réagir à rien ; puis à la poursuite des robots. */
+export const HOLDING = 1;
+export const HUNTING = 2;
+
 export function stepNpcs(world: World): void {
   const team = world.present();
   // parcours d'une copie : un PNJ peut mourir pendant la boucle
@@ -74,6 +78,8 @@ export function stepNpcs(world: World): void {
       world.killNpc(npc);
       continue;
     }
+    // au barrage, la ligne de police attend le face-à-face : elle ne voit ni n'entend rien d'ici là (GD-092)
+    if (npc.hunt === HOLDING && npc.thrown <= 0) continue;
     if (npc.thrown > 0) {
       // projeté par la vague de BadaBot : il ne fait rien d'autre que voler
       stepThrown(world, npc);

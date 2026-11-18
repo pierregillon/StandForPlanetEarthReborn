@@ -158,8 +158,12 @@ test('l\'aile est : salons, maquillage, toilettes, local technique et parkings (
   assert.ok(has('obj_canape', north) >= 2, 'des canapés dans le salon d\'attente');
   assert.equal(has('obj_canape', south), 0, 'aucun au sud');
   assert.equal(has('obj_siege_accueil', north), 3, 'un siège par coiffeuse');
-  assert.ok(has('obj_serveur', tech) >= 2 && has('obj_tv_camera', tech) >= 3 && [1, 2, 3, 4].reduce((n, k) => n + has(`obj_etager${k}`, tech), 0) >= 4,
-    'baies, caméras de réserve et étagères du local technique');
+  assert.ok(has('obj_serveur', tech) >= 2 && [1, 2, 3, 4].reduce((n, k) => n + has(`obj_etager${k}`, tech), 0) >= 4, 'baies et étagères du local technique');
+  // ni caméras de réserve ni câbles au sol : ils gênaient le passage de l'équipe (GD-092)
+  assert.equal(has('obj_tv_camera', tech), 0);
+  assert.equal(w.level.decals.filter((d) => d.sprite === 'spr_tv_cables' && d.x >= tech.x0 && d.x < tech.x1 && d.y >= tech.y0 && d.y < tech.y1).length, 0);
+  // là où elles étaient, le milieu du local est libre d'un mur à l'autre
+  assert.ok(open(9040, 5470, 9380, 5470), 'on traverse le milieu du local technique en ligne droite');
   // devant les deux portes du local technique, le passage est libre pour une troupe
   for (const y of [5088, 6016]) assert.ok(open(9300, y, 9540, y), `rien devant la porte en y = ${y}`);
   // aucun garde dans les salons au départ, sauf un policier devant chaque porte du plateau

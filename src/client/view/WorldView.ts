@@ -308,7 +308,30 @@ interface Smoke {
   /** Opacité au plus fort, et vitesse à laquelle elle tourne sur elle-même. */
   peak: number;
   spin: number;
+  /** Couleur fixe (la poussière du véhicule) ; sans elle, la fumée d'un tir refroidit du clair au gris. */
+  tint?: number;
 }
+
+/**
+ * Poussière soulevée par le véhicule de largage près du sol (GD-092) : plus il est bas, plus il en soulève.
+ * Les bouffées naissent en couronne sous ses rotors et sont chassées vers l'extérieur. Elles réutilisent la
+ * fumée des tirs (mêmes nappes, même vie).
+ */
+const DUST = {
+  /** Hauteur (1 = en vol, 0 = posé) au-dessous de laquelle le souffle touche le sol. */
+  from: 0.9,
+  /** Bouffées par seconde au plus fort, et part qui reste quand il est posé depuis un moment. */
+  rate: 150,
+  settled: 0.3,
+  settleSeconds: 1.4,
+  /** Couronne de naissance (px, à l'échelle du véhicule posé), vitesse vers l'extérieur, taille, durée de vie. */
+  ring: [60, 215],
+  speed: [260, 640],
+  radius: [64, 140],
+  life: [0.8, 1.5],
+  alpha: [0.3, 0.66],
+  tints: [0xe6dcc0, 0xd2c8aa, 0xbdb5a0],
+};
 
 interface PlayingAnim {
   img: Img;
@@ -805,7 +828,11 @@ export class WorldView {
   }
 
   /** Met l'affichage à jour d'après l'état du monde. `dt` en secondes. */
+  /** Durée de l'image en cours, en secondes. */
+  private frameDt = 0;
+
   sync(dt: number): void {
+    this.frameDt = dt;
     this.syncHeroes(dt);
     this.syncNpcs();
     this.syncBullets();
@@ -1598,6 +1625,44 @@ export class WorldView {
     }
   }
 
+  /** Poussière en attente d'être soulevée, et secondes depuis lesquelles le véhicule est posé. */
+  private dustDebt = 0;
+  private dustGrounded = 0;
+
+  /**
+   * Souffle du véhicule de largage sur le sol. `height` : 1 en vol, 0 posé. Rien tant qu'il est haut ; de plus
+   * en plus de poussière à mesure qu'il descend ; posé, elle retombe peu à peu sans disparaître.
+   */
+  private raiseDust(x: number, y: number, height: number, dt: number): void {
+    const d = DUST;
+    const strength = Phaser.Math.Clamp((d.from - height) / d.from, 0, 1);
+    this.dustGrounded = height <= 0 ? this.dustGrounded + dt : 0;
+    if (strength <= 0) {
+      this.dustDebt = 0;
+      return;
+    }
+    const settle = Math.max(d.settled, 1 - this.dustGrounded / d.settleSeconds);
+    this.dustDebt += d.rate * strength * strength * settle * dt;
+    const { keys } = this.smokeTextures();
+    const pick = (range: number[]): number => range[0] + Math.random() * (range[1] - range[0]);
+    while (this.dustDebt >= 1) {
+      this.dustDebt -= 1;
+      const angle = Math.random() * Math.PI * 2;
+      const from = pick(d.ring);
+      const px = x + Math.cos(angle) * from;
+      const py = y + Math.sin(angle) * from * 0.85;
+      const speed = pick(d.speed) * (0.45 + 0.55 * strength);
+      const img = this.scene.add.image(px, py, keys[Math.floor(Math.random() * keys.length)])
+        .setDepth(DEPTH.fx + 39).setAlpha(0).setRotation(angle + (Math.random() - 0.5) * 1.2);
+      this.smokes.push({
+        img, x: px, y: py, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed * 0.85, age: 0,
+        life: pick(d.life), radius: pick(d.radius) * (0.7 + 0.5 * strength),
+        peak: pick(d.alpha) * (0.5 + 0.5 * strength), spin: (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.9),
+        tint: d.tints[Math.floor(Math.random() * d.tints.length)],
+      });
+    }
+  }
+
   /** Fait vivre la fumée des tirs : elle avance en ralentissant, gonfle, tourne, refroidit et s'efface. */
   private syncSmoke(dt: number): void {
     const smoke = TRACER_STYLE.smoke;
@@ -1621,7 +1686,7 @@ export class WorldView {
       const fade = t < smoke.hold ? 1 : Math.pow(1 - (t - smoke.hold) / (1 - smoke.hold), 1.3);
       p.img.setPosition(p.x, p.y).setScale((p.radius * swell) / reach).setRotation(p.img.rotation + p.spin * dt)
         .setAlpha(p.peak * Math.min(1, p.age / 0.03) * fade)
-        .setTint(mixColor(smoke.cold, smoke.hot, Math.max(0, 1 - t * 3)));
+        .setTint(p.tint ?? mixColor(smoke.cold, smoke.hot, Math.max(0, 1 - t * 3)));
     }
   }
 
@@ -2340,6 +2405,7 @@ export class WorldView {
     const snow = !live && ground && world.session.objective >= OBJ.studio;
     const on = live || snow;
     this.syncStudio(ground, live);
+    this.syncExitZone(ground);
     if (!on && this.screenGlows.length === 0) return;
     if (on && this.screenGlows.length === 0) {
       this.ensureHalo();
@@ -2366,6 +2432,44 @@ export class WorldView {
    * jusqu'à la prise de la régie, puis les robots pendant l'ultimatum. La marque derrière le pupitre s'allume
    * quand il faut venir y lire le message.
    */
+  private exitGfx: Phaser.GameObjects.Graphics | null = null;
+  private exitText: Phaser.GameObjects.Text | null = null;
+
+  /**
+   * La zone d'extraction (GD-092) : un grand cercle au sol, dehors, au nord du bâtiment, visible dès le plan B.
+   * Elle dit combien de robots s'y tiennent : le véhicule ne vient que lorsque toute l'équipe y est.
+   */
+  private syncExitZone(ground: boolean): void {
+    const world = this.world;
+    const show = ground && world.session.objective >= OBJ.northGate && !world.levelEnded;
+    if (!show && !this.exitGfx) return;
+    const z = TV_STUDIO.exit.zone;
+    if (!this.exitGfx) {
+      // au-dessus de la penombre : dehors il fait noir, et la zone doit se voir depuis le portail
+      this.exitGfx = this.scene.add.graphics().setDepth(DEPTH.darkness + 1);
+      this.exitText = this.scene.add.text(z.x, z.y, '', { fontFamily: 'Aldo', fontSize: '44px', color: '#8dffb0', stroke: '#000000', strokeThickness: 6, align: 'center' })
+        .setOrigin(0.5).setDepth(DEPTH.darkness + 2);
+    }
+    const g = this.exitGfx;
+    g.clear();
+    const landing = world.cast >= 0 && world.castScene === SCENE.pickup;
+    this.exitText?.setVisible(show && !landing);
+    if (!show) return;
+    const team = world.heroes.filter((h) => !h.gone);
+    const inside = team.filter((h) => world.inExitZone(h)).length;
+    const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 260);
+    const color = inside === team.length ? 0xffffff : 0x58f08c;
+    g.fillStyle(0x58f08c, 0.05 + 0.05 * pulse).fillCircle(z.x, z.y, z.radius);
+    g.lineStyle(6, color, 0.5 + 0.4 * pulse).strokeCircle(z.x, z.y, z.radius - 8 * pulse);
+    g.lineStyle(3, 0x58f08c, 0.35).strokeCircle(z.x, z.y, z.radius * 0.62);
+    // quatre repères, comme sur une aire de pose
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2 + Math.PI / 4;
+      g.lineStyle(8, 0x58f08c, 0.55).lineBetween(z.x + Math.cos(a) * z.radius * 0.72, z.y + Math.sin(a) * z.radius * 0.72, z.x + Math.cos(a) * z.radius * 0.92, z.y + Math.sin(a) * z.radius * 0.92);
+    }
+    this.exitText?.setText(`EXTRACTION\n${inside} / ${team.length}`).setAlpha(0.65 + 0.35 * pulse);
+  }
+
   private syncStudio(ground: boolean, live: boolean): void {
     if (!ground) return;
     const world = this.world;
@@ -2736,6 +2840,7 @@ export class WorldView {
     for (const img of crew.values()) img.setVisible(present);
     this.setFrame(body, 'spr_spawnVehicle', (this.scene.time.now / 60) % this.info('spr_spawnVehicle').frames);
     body.setPosition(x, y).setScale(scale);
+    if (present) this.raiseDust(x, y, height, this.frameDt);
     // l'ombre s'écarte et s'agrandit avec l'altitude, comme dans l'original
     shadow?.setPosition(x + (70 * height + 10) * 0.94, y + (70 * height + 10) * 0.34).setScale(scale * (1 + height / 6));
     const inClaw = (name: string): { x: number; y: number } => ({ x: x + clawOf(name).x * scale, y: y + clawOf(name).y * scale });
@@ -2777,9 +2882,9 @@ export class WorldView {
   }
 
   /**
-   * L'extraction (GD-089) : le véhicule revient par le nord avec les robots restés à bord, se pose devant le
-   * portail, ses pinces saisissent l'équipe, robots à terre compris, et il repart. C'est le largage à l'envers :
-   * chaque robot se replie en rejoignant sa pince.
+   * L'extraction (GD-089, GD-092) : le véhicule revient par la gauche, comme à l'aller, avec les robots restés à
+   * bord ; il se pose au centre de la zone d'extraction, ses pinces saisissent l'équipe, et il repart par la
+   * droite. C'est le largage à l'envers : chaque robot se replie en rejoignant sa pince.
    */
   private pickup: { body: Img; shadow: Img | null; crew: Map<string, Img> } | null = null;
 
@@ -2810,8 +2915,9 @@ export class WorldView {
       this.pickup = { body: this.image('spr_spawnVehicle', 0, land.x, land.y, DEPTH.fx + 42), shadow, crew };
     }
     const pose = pickupPose(world.cast);
-    const x = land.x;
-    const y = land.y - pose.north;
+    const x = land.x + pose.shift;
+    const y = land.y;
+    if (pose.present) this.raiseDust(x, y, pose.height, this.frameDt);
     const scale = 1 + (a.flightScale - 1) * pose.height;
     const { body, shadow, crew } = this.pickup;
     body.setVisible(pose.present).setPosition(x, y).setScale(scale);

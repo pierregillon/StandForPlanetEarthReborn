@@ -203,9 +203,9 @@ Ce que la fin doit faire comprendre, d'après l'arc narratif (acte II) : les rob
 | D | Leave by the south parking lot | Il part vers le sud, jusqu'au parking | Fin de l'ultimatum | Jeu |
 | D bis | — | Il tombe sur le barrage de police | Son arrivée sur le parking sud | **Cinématique** (GD-088) |
 | E | Plan B: leave by the north garage | Il fait demi-tour et se replie vers le nord en combattant | Fin du face-à-face | Jeu |
-| F | Hold on. The gate is opening | Il tient devant le portail 3 | Le bouton du portail 3 | Jeu, une réplique radio |
-| F bis | Get out! The pick-up is outside | Il sort par le portail | Les battants ouverts à fond | Jeu |
-| G | — | Le véhicule le récupère | La moitié de l'équipe dehors | **Cinématique**, puis l'écran de fin |
+| F | Get the whole team to the extraction zone | Il sort par le portail 3 et marche vers le nord | Le portail 3 ouvert | Jeu, une réplique radio |
+| F bis | (la même) | Toute l'équipe se regroupe dans la zone d'extraction | — | Jeu |
+| G | — | Le véhicule vient chercher le groupe | Toute l'équipe debout dans la zone | **Cinématique**, puis l'écran de fin |
 
 Deux formes de texte :
 
@@ -252,6 +252,8 @@ Notes sur le texte :
 
 **La riposte attend l'équipe** (GD-087, demande de l'utilisateur après essai : « je sors à peine du studio, j'ai directement énormément de soldats »). Tant que personne n'est arrivé sur le parking sud, rien ne bouge : les dix policiers restent devant leurs fourgons, les portails 4 sont fermés. La riposte commence quand un robot met le pied sur le parking, ou qu'un de ces policiers le voit ou l'entend par une porte. Alors :
 
+**Le déclencheur, précisé (GD-092)** : la riposte et son face-à-face ne commencent que lorsqu'un robot arrive à 230 px d'une des deux portes du parking (ou se trouve sur le parking). Tirer dans le local technique ou sur le plateau ne déclenche plus rien : la ligne de police ne voit ni n'entend rien tant que la scène n'a pas eu lieu. Les portes du parking s'ouvrent en grand au début de la scène.
+
 | Moment | Qui | D'où |
 |---|---|---|
 | À l'arrivée de l'équipe | Un groupe : 8 policiers, 1 robot léger, 1 robot fusil à pompe, 1 robot bouclier (11) | Au barrage : dix en ligne devant les fourgons, le reste juste derrière, à plus de 400 px des portes du local technique. Le face-à-face se joue (ci-dessous) ; à sa fin ils tirent sans attendre |
@@ -291,15 +293,15 @@ Consigne 8 : « Plan B: leave by the north garage ». Le trajet : retour par le 
 
 ### 10.5 F — tenir devant le portail
 
-- **Au bouton du portail 3** : les deux battants s'ouvrent lentement, en 10 secondes au lieu d'une. Radio en jeu, la voix du véhicule : « Gate is opening. We are coming for you. Hold on. »
-- **Consigne** : « Hold on. The gate is opening ».
+- **Le portail 3** s'ouvre comme une porte ordinaire, en une seconde (GD-092 : l'ouverture en dix secondes et la consigne « Hold on » de GD-089 sont abandonnées, à la demande de l'utilisateur). Ouvert pendant le repli, la voix du véhicule dit en radio : « Gate is open. The extraction zone is north of the building. Everyone on it: we leave no one behind. »
+- **Consigne** : « Get the whole team to the extraction zone ».
 - C'est le dernier combat du niveau : l'équipe est dos au portail, la vague arrive par le salon d'attente et par la porte du parking. Il remplace le duel contre SallyBot.
 - Le nord reste libre : aucun ennemi n'arrive par les portails 3.
-- **Réalisé (GD-089)** : les battants ouverts à fond, la consigne devient « Get out! The pick-up is outside ». À la fin de l'ultimatum le bâtiment est bouclé : si l'équipe avait ouvert les portails 3 en explorant, ils se referment, pour que ce dernier combat ait toujours lieu. Si l'équipe vient au nord sans être passée par le sud, appuyer sur le bouton lance aussi la police.
+- **La zone d'extraction** (GD-092) est dehors, au nord du bâtiment : un cercle de 300 px de rayon centré en (10304, 470), à plus de 600 px du portail. On s'éloigne du bâtiment pour y arriver. Elle est marquée au sol et affiche combien de robots s'y tiennent. Si l'équipe sort par le nord sans être passée par le sud, la police se lance quand même.
 
 ### 10.6 G — la récupération (cinématique)
 
-**Le déclencheur** : la moitié de l'équipe, vivante, dans la zone de sortie, juste derrière les portails 3. Pas de compte à rebours cette fois : on ne fait pas attendre sous le feu. (Dans le niveau d'origine, la zone de sortie est déjà au nord, dehors, mais 2000 px plus à l'ouest le long de la façade, avec 10 secondes d'attente : elle est rapprochée du portail.)
+**Le déclencheur** (GD-092) : **toute l'équipe**, debout, dans la zone d'extraction. On ne part pas sans tous les robots : un robot à terre doit d'abord être relevé. Un joueur qui a quitté la partie ne retient personne. Pas de compte à rebours.
 
 | Temps | Image | Son | Texte |
 |---|---|---|---|
@@ -310,7 +312,7 @@ Consigne 8 : « Plan B: leave by the north garage ». Le trajet : retour par le 
 | Répliques 3 à 5 | Noir. La boîte de dialogue seule, voix radio, comme dans l'introduction. | Rotors lointains | BATBOT : « Did they listen? » — ENGIBOT : « They heard. » — BADABOT : « Now we wait and see what they do with it. » |
 | Fin | L'écran de fin de niveau (statistiques), déjà en place. | — | — |
 
-**Réalisé (GD-089), avec deux écarts.** Les poursuivants ne débouchent pas sur le dépose-minute pendant le départ du véhicule : le monde est figé pendant la séquence, l'image reste simplement sur le portail vide. Le véhicule garde son orientation d'origine (il ne pivote pas vers le nord). La zone de sortie va de x = 9940 à 10670, juste derrière les battants ; l'écran de fin titre « Message delivered. The whole world heard it. ».
+**Réalisé (GD-089, revu par GD-092).** Le véhicule arrive par la gauche et repart par la droite, dans son sens de vol, comme au largage ; il se pose au centre de la zone et soulève de la poussière en approchant du sol (au largage du début aussi). Écart restant : les poursuivants ne débouchent pas pendant le départ, le monde étant figé pendant la séquence. L'écran de fin titre « Message delivered. The whole world heard it. ».
 
 Notes :
 

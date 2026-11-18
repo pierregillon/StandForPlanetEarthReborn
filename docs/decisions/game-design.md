@@ -93,10 +93,11 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-085 | Fin de TvTv², première partie : la régie, le plateau, l'ultimatum | 2026-11-17 | Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) ; modifiée par GD-087 (texte de la consigne 7, état de la salle retrouvé après un Retry) |
 | GD-086 | Fin de TvTv², deuxième partie : la riposte de la police | 2026-11-17 | Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord) ; modifiée par GD-087 (déclenchement, tailles des groupes, trajet, consigne, Retry) |
 | GD-087 | La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde | 2026-11-17 | Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) ; modifiée par GD-088 (le changement de plan passe par une cinématique, consigne 8) et par GD-090 (effectifs) |
-| GD-088 | Le face-à-face avec le barrage de police | 2026-11-18 | Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 ; complétée par GD-089 (la sortie) |
-| GD-089 | Fin de TvTv², troisième partie : le portail nord, l'extraction, la fin du niveau | 2026-11-18 | Acceptée ; applique GD-083 (exfiltration par le nord) et le script de la fin (section 10.5 à 10.7 de la fiche du niveau) ; remplace la fin d'origine (zone de sortie vers la zone de forage, GD-077) |
+| GD-088 | Le face-à-face avec le barrage de police | 2026-11-18 | Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 ; complétée par GD-089 (la sortie) ; modifiée par GD-092 (déclencheur) |
+| GD-089 | Fin de TvTv², troisième partie : le portail nord, l'extraction, la fin du niveau | 2026-11-18 | Acceptée ; applique GD-083 (exfiltration par le nord) et le script de la fin (section 10.5 à 10.7 de la fiche du niveau) ; remplace la fin d'origine (zone de sortie vers la zone de forage, GD-077) ; modifiée par GD-092 (portail, zone d'extraction, sens du véhicule) |
 | GD-090 | Effectifs de la riposte : un groupe de onze, et plus à plusieurs | 2026-11-18 | Acceptée ; modifie GD-087 (tailles des groupes, renforts) |
 | GD-091 | Choix de la carte et du point de départ, aussi à plusieurs ; départ « après l'ultimatum » | 2026-11-18 | Acceptée ; étend GD-032 (choix du départ en solo) et GD-040 (salon multijoueur) |
+| GD-092 | Retours d'essai sur la fin de TvTv² : déclencheur du face-à-face, zone d'extraction, véhicule, passages dégagés | 2026-11-18 | Acceptée ; modifie GD-088 (déclencheur du face-à-face), GD-089 (portail nord, zone de sortie, sens du véhicule), GD-084 (mobilier de l'aile est) |
 
 ---
 
@@ -1970,7 +1971,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 ## GD-088 — Le face-à-face avec le barrage de police
 
 - **Date** : 2026-11-18
-- **Statut** : Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 ; complétée par GD-089 (la sortie)
+- **Statut** : Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 ; complétée par GD-089 (la sortie) ; modifiée par GD-092 (déclencheur)
 - **Décidée par** : l'utilisateur pour la scène et ses répliques, données en français : une cinématique à l'arrivée sur le parking, bandes noires comprises, qui montre le barrage face aux robots ; un policier qui dit « rendez-vous, vous êtes cernés, lâchez vos armes » ; un robot qui répond par une blague à l'équipe, « je crois qu'on sera en retard pour le dîner », puis « impossible de sortir ici, il faut passer par le garage nord, le plan B » ; à la fin les ennemis tirent et forcent le demi-tour. Choix par défaut, à confirmer : la mise en anglais, le robot qui répond, la disposition du barrage, l'éclairage de la scène, le portrait du policier, le texte de la consigne 8
 
 **Contexte.** Avec GD-087, l'équipe découvrait la police en arrivant sur le parking, et trois secondes plus tard deux répliques radio annonçaient le changement de plan pendant le combat. L'utilisateur veut que ce moment soit une scène : on tombe nez à nez avec les voitures de police et la première vague, et cela se dit.
@@ -1998,7 +1999,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 ## GD-089 — Fin de TvTv², troisième partie : le portail nord, l'extraction, la fin du niveau
 
 - **Date** : 2026-11-18
-- **Statut** : Acceptée ; applique GD-083 (exfiltration par le nord) et le script de la fin (section 10.5 à 10.7 de la fiche du niveau) ; remplace la fin d'origine (zone de sortie vers la zone de forage, GD-077)
+- **Statut** : Acceptée ; applique GD-083 (exfiltration par le nord) et le script de la fin (section 10.5 à 10.7 de la fiche du niveau) ; remplace la fin d'origine (zone de sortie vers la zone de forage, GD-077) ; modifiée par GD-092 (portail, zone d'extraction, sens du véhicule)
 - **Décidée par** : l'utilisateur pour le déroulé (« repasser dans le studio, se diriger vers le garage nord, sortir de la base pour extraction », puis « on peut enchaîner avec l'extraction C3 et fin du niveau »). Le détail vient du script proposé plus tôt et jamais contredit : les dix secondes d'ouverture, les textes, la séquence d'extraction. Sont des choix par défaut pris à la réalisation : le bouclage des portails à la fin de l'ultimatum, la consigne « Get out! », le bouton qui lance la police, le titre de l'écran de fin
 
 **Contexte.** Depuis GD-085 le niveau n'avait plus de fin : le portail nord s'ouvrait comme une porte ordinaire et rien ne se passait dehors.
@@ -2067,3 +2068,28 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** Les joueurs qui ne sont pas l'hôte ne voient pas l'écran de choix : leur salon dit seulement que l'hôte choisit. Ce choix reste un outil d'essai : il permet de sauter le début du niveau, et serait à réserver ou à retirer si le jeu était ouvert au public.
 
 **Conséquences.** `MAPS`, `STARTS`, `createSessionAt` (par identifiant ou par salle), `studioCheckpoint`, `studioDoors` dans `src/sim/session.ts` ; message `start` avec `at` (`src/net/messages.ts`), validé par `server/game.ts` ; `LevelSelectScene.ts` réécrit (solo et hôte), `LobbyScene.ts` (`chooseStart`), `MenuScene.ts` (`?start=`). Tests : deux dans `src/sim/session.test.ts`, un dans `src/net/net.test.ts`.
+
+---
+
+## GD-092 — Retours d'essai sur la fin de TvTv² : déclencheur du face-à-face, zone d'extraction, véhicule, passages dégagés
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; modifie GD-088 (déclencheur du face-à-face), GD-089 (portail nord, zone de sortie, sens du véhicule), GD-084 (mobilier de l'aile est)
+- **Décidée par** : l'utilisateur, après essai, pour chacun des huit points. Sont des choix par défaut : la distance de 230 px, l'emplacement et la taille de la zone, la règle pour un robot à terre, les nouveaux textes, l'aspect de la poussière, le fait de garder les potelets comme plots peints
+
+**Décision.**
+
+1. **Le face-à-face ne se déclenche qu'à la porte.** Il commence quand un robot arrive à 230 px d'une des deux portes du parking sud (ou se trouve sur le parking). Avant, un policier de la ligne qui entendait un tir suffisait : tirer dans le local technique, voire sur le plateau, lançait la scène. La ligne de police ne voit ni n'entend plus rien tant que la scène n'a pas eu lieu. Au début de la scène, les deux portes du parking s'ouvrent en grand. Reste un cas : si un policier de la ligne tombe quand même, la scène se joue.
+2. **La zone d'extraction est au nord du bâtiment**, à quelques secondes de marche : un cercle de 300 px de rayon centré en (10304, 470), dont le bord est à plus de 600 px du portail. Elle est marquée au sol, visible dans la pénombre, et affiche le nombre de robots présents. La carte n'a pas eu besoin d'être agrandie.
+3. **Toute l'équipe doit y être**, debout : on ne part pas sans tous les robots. Un robot à terre retient l'équipe tant qu'il n'est pas relevé ; un joueur qui a quitté la partie ne retient personne. La règle de GD-089 (la moitié de l'équipe) disparaît.
+4. **Le véhicule vole dans son sens** : il arrive par la gauche, se pose au centre de la zone, et repart par la droite, comme au largage. Il n'arrive plus de côté par le nord.
+5. **Le portail nord s'ouvre comme une porte ordinaire.** L'ouverture en dix secondes, la consigne « Hold on. The gate is opening » et le bouclage des portails à la fin de l'ultimatum (GD-089) sont abandonnés. Ouvert pendant le repli, la consigne devient « Get the whole team to the extraction zone » et la voix du véhicule dit : « Gate is open. The extraction zone is north of the building. Everyone on it: we leave no one behind. » Une équipe sortie par le nord sans être passée par le sud déclenche quand même la police.
+6. **De la poussière sous le véhicule**, au largage du début comme à l'extraction : rien tant qu'il est haut, de plus en plus à mesure qu'il descend, puis elle retombe en partie une fois posé. Elle réutilise la fumée des tirs, teintée en beige.
+7. **Le local technique est dégagé** : les trois caméras de réserve et les câbles au sol sont retirés.
+8. **Autres passages** : les potelets jaunes des deux parkings deviennent des plots peints au sol, sans collision ; les deux chaises à droite du premier coin canapé du salon d'attente sont retirées.
+
+**Pourquoi.** Ce sont des retours de jeu : la scène du barrage doit arriver quand on la voit, pas quand on tire à côté ; marcher vers la zone donne un dernier moment de jeu à la place des dix secondes d'attente devant un portail ; exiger toute l'équipe évite qu'un joueur déclenche la fin pendant que les autres se battent encore ; le véhicule de côté ne se lisait pas ; les obstacles au milieu des passages accrochaient les robots sous le feu.
+
+**Limites connues.** La règle « toute l'équipe » n'a pas été essayée à plusieurs à l'écran. Si un robot à terre ne peut pas être relevé, l'équipe ne peut pas partir : à surveiller en jouant. La poussière est réglée à l'œil sur deux captures ; elle se règle dans `DUST` (`WorldView.ts`).
+
+**Conséquences.** `found` (`src/sim/wave.ts`), `HOLDING` ignoré par `stepNpcs` (`src/sim/npc.ts`), `CONFIG.standoff.doorRange`, `TV_STUDIO.wave.doors` ; `World.stepExit`, `World.inExitZone`, `TV_STUDIO.exit` (cercle), `pickupPose` (`shift`), `EXTRACTION_CALL`, `OBJECTIVES` (neuf consignes) ; `WorldView.ts` : `raiseDust`, `syncExitZone` ; `src/sim/additions.ts` pour le mobilier. Tests : `src/sim/exit.test.ts` réécrit, un test du déclencheur dans `src/sim/wave.test.ts`, `src/sim/intro.test.ts`.

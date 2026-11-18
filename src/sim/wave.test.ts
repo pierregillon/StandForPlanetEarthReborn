@@ -224,17 +224,47 @@ test('le face-à-face : sans personne aux commandes il défile seul ; l\'hôte p
   assert.equal(run(b.w, 30).filter((e) => e.type === 'standoff').length, 0);
 });
 
-test('le face-à-face se déclenche aussi quand un policier de la ligne repère un robot, ou tombe', () => {
+test('le face-à-face ne se déclenche qu\'à la porte du parking : tirer à côté ne suffit pas (GD-092)', () => {
+  const { w } = after(['PetBot']);
+  untouchable(w);
+  run(w, 2);
+  const places = waveAlive(w).map((n) => [n.x, n.y, n.angle]);
+  const doors = TV_STUDIO.wave.doors;
+  assert.equal(doors.length, 2);
+  // le robot tire sur le plateau, puis en plein local technique, à côté du parking mais loin de ses portes
+  const fire: Input = { ...NO_INPUT, fire1: true, aimX: 10100, aimY: 5500 };
+  let events = run(w, 120, fire);
+  const middle = { x: 9300, y: 5550 };
+  assert.ok(doors.every((d) => Math.hypot(middle.x - d.x, middle.y - d.y) > CONFIG.standoff.doorRange + 200));
+  put(w.hero, middle.x, middle.y);
+  events = events.concat(run(w, 240, fire));
+  assert.ok(w.stats.ammoUsed > 0, 'il a bien tiré');
+  assert.deepEqual([w.waveSteps, w.cast], [0, -1]);
+  assert.equal(events.filter((e) => e.type === 'standoff' || e.type === 'radio').length, 0);
+  // la ligne de police n'a rien vu, rien entendu, et n'a pas bougé
+  for (const npc of waveAlive(w)) assert.deepEqual([npc.hunt, npc.alerted, npc.spotted, npc.surpriseTimer], [HOLDING, false, false, 0]);
+  assert.deepEqual(waveAlive(w).map((n) => [n.x, n.y, n.angle]), places);
+  // il s'approche d'une porte : encore trop loin, puis à portée
+  const door = doors[0];
+  put(w.hero, door.x - CONFIG.standoff.doorRange - 30, door.y);
+  run(w, 30);
+  assert.equal(w.cast, -1);
+  put(w.hero, door.x - CONFIG.standoff.doorRange + 20, door.y);
+  events = run(w, 1);
+  assert.ok(w.cast >= 0 && w.castScene === SCENE.standoff, 'le face-à-face commence');
+  assert.equal(events.filter((e) => e.type === 'standoff').length, 1);
+  // les deux portes du parking sont ouvertes en grand : on voit le barrage
+  const open = w.doors.filter((d) => d.kind === 'auto' && doors.some((p) => Math.hypot(d.x - p.x, d.y - p.y) < 40));
+  assert.equal(open.length, 2);
+  assert.ok(open.every((d) => d.phase === 'open' && d.progress === 1));
+  // l'autre porte le déclenche aussi
   const b = after(['PetBot']);
   untouchable(b.w);
   run(b.w, 2);
-  const sentry = waveAlive(b.w)[0];
-  sentry.alerted = true;
-  sentry.alertX = 9600;
-  sentry.alertY = 5088;
-  sentry.alertTimer = 600;
+  put(b.w.hero, doors[1].x - 150, doors[1].y + 60);
   run(b.w, 1);
   assert.ok(b.w.cast >= 0 && b.w.castScene === SCENE.standoff);
+  // et si un policier de la ligne tombe quand même, touché de loin, la scène se joue
   const c = after(['PetBot']);
   run(c.w, 2);
   c.w.killNpc(waveAlive(c.w)[0]);

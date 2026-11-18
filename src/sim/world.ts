@@ -18,7 +18,7 @@ import type { BossState } from './boss.ts';
 import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession, studioCheckpoint, studioDoors } from './session.ts';
 import { CONTROL_ROOM_TAKEN, castReader, vehicleVoice } from './broadcast.ts';
-import { HOLD_ON, SCENE, pickupPhases, sceneLines, sceneTotal, standoffSpeaker } from './scenes.ts';
+import { EXTRACTION_CALL, SCENE, pickupPhases, sceneLines, sceneTotal, standoffSpeaker } from './scenes.ts';
 import { TV_STUDIO } from './additions.ts';
 import { HOLDING, engage, stageWave, stepWave } from './wave.ts';
 import type { RoomSave, Session } from './session.ts';
@@ -486,6 +486,14 @@ export class World {
     // le brouillard du parking finit de se lever d'un coup : figé à mi-course, il voilerait toute la scène
     const p = TV_STUDIO.parkings.south;
     this.fogs = this.fogs.filter((f) => f.x + f.w <= p.x0 || f.x >= p.x1 || f.y + f.h <= p.y0 || f.y >= p.y1);
+    // les portes du parking s'ouvrent en grand : la scène commence à la porte, il faut voir le barrage (GD-092)
+    for (const door of this.doors) {
+      if (door.kind !== 'auto' || !TV_STUDIO.wave.doors.some((d) => Math.hypot(door.x - d.x, door.y - d.y) < 40)) continue;
+      door.phase = 'open';
+      door.progress = 1;
+      door.stayTimer = door.stayOpenSteps;
+      this.updateDoorObstacle(door);
+    }
     const team = this.living();
     for (const h of team) h.moving = false;
     // la ligne de police tient les robots en joue
@@ -562,7 +570,6 @@ export class World {
       return;
     }
     s.objective = OBJ.dropPoint;
-    this.lockNorthGates();
     s.checkpoint = { ...studioCheckpoint(), save: this.saveRoom() };
     s.preOpened[this.level.name] = studioDoors();
     if (!this.castSirens) this.emit({ type: 'sirens' });
@@ -577,49 +584,22 @@ export class World {
   }
 
   /**
-   * L'ultimatum diffusé, le bâtiment est bouclé : les portails nord, si l'équipe les avait ouverts en
-   * explorant, sont refermés. Ils se rouvriront lentement, pendant le repli.
-   */
-  private lockNorthGates(): void {
-    for (const door of this.northGates()) {
-      door.phase = 'closed';
-      door.progress = 0;
-      this.updateDoorObstacle(door);
-    }
-    for (const button of this.buttons) if (button.doorId === CONFIG.exit.gates) button.pressedSteps = -1;
-  }
-
-  /** Avant que le bouton du portail nord n'agisse : après l'ultimatum, ses battants mettent longtemps à s'ouvrir. */
-  private slowNorthGates(): void {
-    if (this.level.name !== GROUND_FLOOR || this.session.objective < OBJ.dropPoint) return;
-    for (const door of this.northGates()) if (door.phase === 'closed') door.openSteps = CONFIG.exit.gateOpenSteps;
-  }
-
-  /**
-   * Un robot a appuyé sur le bouton du portail nord pendant le repli : la consigne est de tenir, la voix du
-   * véhicule annonce son retour. Si l'équipe est venue ici sans passer par le sud, la police se lance aussi.
-   */
-  private northGatePressed(): void {
-    const s = this.session;
-    if (this.level.name !== GROUND_FLOOR || s.objective < OBJ.dropPoint || s.objective >= OBJ.holdOn) return;
-    if (!this.northGates().some((d) => d.phase === 'opening')) return;
-    engage(this);
-    s.objective = OBJ.holdOn;
-    this.emit({ type: 'radio', speaker: vehicleVoice(s.heroNames), text: HOLD_ON });
-  }
-
-  /**
-   * Le portail ouvert, il faut sortir. L'extraction commence quand la moitié de l'équipe, vivante, est dehors
-   * dans la zone de sortie : pas de compte à rebours, on ne fait pas attendre sous le feu.
+   * Le repli par le nord (GD-089, GD-092). Les portails s'ouvrent comme une porte ordinaire ; ouverts, la voix
+   * du véhicule donne la zone d'extraction, dehors, au nord du bâtiment. L'extraction commence quand toute
+   * l'équipe y est, vivante : on ne part pas sans tous les robots. Un robot à terre doit d'abord être relevé.
    */
   private stepExit(): void {
     const s = this.session;
-    if (s.objective === OBJ.holdOn && this.northGates().every((d) => d.phase === 'open')) s.objective = OBJ.getOut;
-    if (s.objective < OBJ.northGate || this.cast >= 0) return;
-    const z = TV_STUDIO.exit.zone;
+    const open = this.northGates().every((d) => d.phase === 'open');
+    // une équipe sortie par le nord sans être passée par le sud : la police se lance quand même
+    if (s.objective === OBJ.dropPoint && open && this.living().some((h) => h.y < this.northGates()[0].y - 60 && h.x > TV_STUDIO.room.x0)) engage(this);
+    if (s.objective === OBJ.northGate && open) {
+      s.objective = OBJ.getOut;
+      this.emit({ type: 'radio', speaker: vehicleVoice(s.heroNames), text: EXTRACTION_CALL });
+    }
+    if (s.objective < OBJ.getOut || this.cast >= 0) return;
     const team = this.present();
-    const out = team.filter((h) => h.state !== 'dead' && h.x > z.x0 && h.x < z.x1 && h.y > z.y0 && h.y < z.y1).length;
-    if (out === 0 || out * 2 < team.length) return;
+    if (team.length === 0 || !team.every((h) => this.inExitZone(h))) return;
     this.cast = 0;
     this.castScene = SCENE.pickup;
     this.introLine = 0;
@@ -628,6 +608,12 @@ export class World {
     this.bullets.length = 0;
     for (const h of team) h.moving = false;
     this.emit({ type: 'pickup' });
+  }
+
+  /** Ce robot est-il debout dans la zone d'extraction ? */
+  inExitZone(h: Hero): boolean {
+    const z = TV_STUDIO.exit.zone;
+    return !h.gone && h.state !== 'dead' && Math.hypot(h.x - z.x, h.y - z.y) <= z.radius;
   }
 
   /** Le niveau est fini (l'extraction a eu lieu, ou le boss de la zone de forage est tombé). */
@@ -1368,14 +1354,12 @@ export class World {
       // le héros doit être du côté avant du bouton
       const toHero = Math.atan2(h.y - button.y, h.x - button.x);
       if (Math.abs(angleDiff(button.angle, toHero)) > Math.PI / 2) continue;
-      if (button.doorId === CONFIG.exit.gates) this.slowNorthGates();
       for (const door of this.doors) {
         if (door.kind === 'button' && door.doorId === button.doorId && door.phase === 'closed') this.openDoor(door);
       }
       button.pressedSteps = 0;
       this.emit({ type: 'buttonPressed', x: button.x, y: button.y });
       if (button.doorId === CONFIG.broadcast.controlRoomButton) this.takeControlRoom(h);
-      if (button.doorId === CONFIG.exit.gates) this.northGatePressed();
     }
   }
 

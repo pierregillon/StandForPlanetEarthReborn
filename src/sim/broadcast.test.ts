@@ -61,7 +61,7 @@ test('les consignes de la fin, dans l\'ordre du script', () => {
   assert.deepEqual(OBJECTIVES, [
     'Go to the upper floor', 'Find the studio pass', 'Go back to ground floor', 'Take the control room',
     'Reach the studio', 'Broadcast the message', 'Leave by the south parking lot', 'Plan B: leave by the north garage',
-    'Hold on. The gate is opening', 'Get out! The pick-up is outside',
+    'Get the whole team to the extraction zone',
   ]);
   assert.equal(OBJECTIVES[OBJ.controlRoom], 'Take the control room');
   assert.equal(OBJECTIVES[OBJ.dropPoint], 'Leave by the south parking lot');

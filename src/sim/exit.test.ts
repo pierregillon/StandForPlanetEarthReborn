@@ -1,12 +1,12 @@
-// Tests de la sortie du niveau (GD-089) : le portail nord qui s'ouvre lentement pendant le repli, la zone de
-// sortie derrière lui, puis l'extraction, le communiqué d'urgence et la fin du niveau.
+// Tests de la sortie du niveau (GD-089, GD-092) : le portail nord, la zone d'extraction au nord du bâtiment où
+// toute l'équipe doit se retrouver, puis l'extraction, le communiqué d'urgence et la fin du niveau.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CONFIG } from './config.ts';
 import { TV_STUDIO } from './additions.ts';
 import { BLOCK_MOVE } from './geom.ts';
-import { AFTERMATH, ALERT, EMERGENCY, HOLD_ON, SCENE, pickupLines, pickupPhases, pickupPose, pickupShot, sceneLines } from './scenes.ts';
+import { AFTERMATH, ALERT, EMERGENCY, EXTRACTION_CALL, SCENE, pickupLines, pickupPhases, pickupPose, pickupShot, sceneLines } from './scenes.ts';
 import { GROUND_FLOOR, OBJ, OBJECTIVES, createSession } from './session.ts';
 import type { Session } from './session.ts';
 import { World } from './world.ts';
@@ -18,6 +18,7 @@ const sprites = JSON.parse(readFileSync(new URL('../../public/assets/sprites.jso
 
 const PRESS: Input = { ...NO_INPUT, dashPressed: true, dash: true };
 const USE: Input = { ...NO_INPUT, usePressed: true, use: true };
+const ZONE = TV_STUDIO.exit.zone;
 
 /** Partie à une consigne donnée, le bâtiment vidé de ses gardes, l'équipe sur le dépose-minute. */
 function at(names: string[], objective: number): { w: World; session: Session } {
@@ -56,152 +57,153 @@ function pressGate(w: World): SimEvent[] {
   return run(w, 1, USE);
 }
 
-/** Le portail est ouvert et la consigne est de sortir. */
+/** Le portail est ouvert et la consigne est de rejoindre la zone d'extraction. */
 function open(names: string[]): { w: World; session: Session } {
   const { w, session } = at(names, OBJ.northGate);
   w.waveSteps = 1;
   pressGate(w);
-  run(w, CONFIG.exit.gateOpenSteps + 5);
+  run(w, 70);
   assert.equal(session.objective, OBJ.getOut);
   return { w, session };
 }
 
-/** Un point de la zone de sortie. */
-const OUT = { x: (TV_STUDIO.exit.zone.x0 + TV_STUDIO.exit.zone.x1) / 2, y: (TV_STUDIO.exit.zone.y0 + TV_STUDIO.exit.zone.y1) / 2 };
+/** Place un robot dans la zone d'extraction, à un rang donné autour de son centre. */
+function intoZone(h: Hero, rank = 0): void {
+  put(h, ZONE.x - 120 + rank * 120, ZONE.y + 40);
+}
 
-test('les consignes de la sortie, et la zone de sortie juste derrière les portails nord', () => {
-  assert.deepEqual(OBJECTIVES.slice(OBJ.northGate), ['Plan B: leave by the north garage', 'Hold on. The gate is opening', 'Get out! The pick-up is outside']);
+test('la zone d\'extraction est dehors, au nord, à quelques secondes de marche du portail (GD-092)', () => {
+  assert.deepEqual(OBJECTIVES.slice(OBJ.northGate), ['Plan B: leave by the north garage', 'Get the whole team to the extraction zone']);
   const { w } = at(['PetBot'], OBJ.northGate);
   const doors = gates(w);
   assert.equal(doors.length, 2);
-  const z = TV_STUDIO.exit.zone;
-  for (const d of doors) {
-    assert.ok(d.x > z.x0 && d.x < z.x1, 'la zone est dans l\'axe du portail');
-    assert.ok(z.y1 < d.y && d.y - z.y1 < 120, 'dehors, à quelques pas des battants');
+  const gateY = doors[0].y;
+  // dans l'axe du portail, entièrement dehors, et loin de lui : on s'éloigne du bâtiment pour y arriver
+  assert.ok(ZONE.x > Math.min(...doors.map((d) => d.x)) && ZONE.x < Math.max(...doors.map((d) => d.x)));
+  assert.ok(ZONE.y + ZONE.radius < gateY - 500, `le bord de la zone est à ${Math.round(gateY - ZONE.y - ZONE.radius)} px du portail`);
+  assert.ok(ZONE.y - ZONE.radius > 100, 'elle tient dans le niveau');
+  const walk = (gateY - ZONE.y) / (w.hero.def.walkSpeed * 60);
+  assert.ok(walk > 1.2, `il faut marcher (${walk.toFixed(1)} s en ligne droite, sans s'arrêter)`);
+  // tout y est praticable, et le chemin depuis le portail est libre
+  for (let a = 0; a < 12; a++) for (const r of [0, 0.5, 0.9]) {
+    assert.ok(w.collision.circleFree(ZONE.x + Math.cos(a * Math.PI / 6) * ZONE.radius * r, ZONE.y + Math.sin(a * Math.PI / 6) * ZONE.radius * r, 50, BLOCK_MOVE));
   }
-  // tout y est praticable, comme le point où le véhicule se pose
-  for (let x = z.x0 + 60; x < z.x1; x += 90) for (let y = z.y0 + 60; y < z.y1 - 50; y += 90) assert.ok(w.collision.circleFree(x, y, 50, BLOCK_MOVE), `libre en ${x}, ${y}`);
-  const land = TV_STUDIO.exit.landing;
-  assert.ok(land.x > z.x0 && land.x < z.x1 && land.y > z.y0 && land.y < z.y1);
+  for (let y = ZONE.y; y < gateY - 80; y += 60) assert.ok(w.collision.circleFree(ZONE.x, y, 60, BLOCK_MOVE), `libre en y = ${y}`);
+  assert.deepEqual(TV_STUDIO.exit.landing, { x: ZONE.x, y: ZONE.y }, 'le véhicule se pose en son centre');
 });
 
-test('l\'ultimatum diffusé, le bâtiment est bouclé : des portails nord déjà ouverts se referment', () => {
-  const session = createSession(['PetBot']);
-  session.carried.add('green').add('purple');
-  session.objective = OBJ.broadcast;
-  const w = new World(ground, sprites, ['PetBot'], 3, session);
-  session.rooms.set(GROUND_FLOOR, w);
-  w.npcs = [];
-  // en explorant, le robot avait ouvert le portail nord : avant l'ultimatum il s'ouvre en une seconde, sans rien changer
-  const before = pressGate(w);
-  assert.equal(before.filter((e) => e.type === 'radio').length, 0);
-  run(w, 70);
-  assert.ok(gates(w).every((d) => d.phase === 'open'), 'ouvert en une seconde');
-  assert.equal(session.objective, OBJ.broadcast);
-  // l'ultimatum
-  put(w.hero, TV_STUDIO.mark.x + 20, TV_STUDIO.mark.y);
-  for (let i = 0; i <= CONFIG.broadcast.countdownSteps && w.cast < 0; i++) w.step(NO_INPUT);
-  assert.ok(w.cast >= 0);
-  w.skipCast();
-  assert.ok(gates(w).every((d) => d.phase === 'closed' && d.progress === 0), 'refermés');
-  assert.equal(w.buttons.find((b) => b.doorId === CONFIG.exit.gates)?.pressedSteps, -1, 'le bouton est de nouveau à presser');
-  assert.deepEqual(session.checkpoint?.save?.doors.filter((id) => gates(w).some((d) => d.id === id)), [], 'et la sauvegarde les retient fermés');
-  // on ne passe pas : le battant fermé est un obstacle
-  for (const d of gates(w)) assert.equal(w.collision.circleFree(d.x, d.y, 30, BLOCK_MOVE), false);
-});
-
-test('pendant le repli, le portail nord met dix secondes à s\'ouvrir : il faut tenir', () => {
+test('le portail nord s\'ouvre comme une porte ordinaire ; ouvert pendant le repli, la radio donne la zone d\'extraction', () => {
   const { w, session } = at(['BatBot', 'EngiBot'], OBJ.northGate);
   w.waveSteps = 1;
   assert.equal(w.objective, 'Plan B: leave by the north garage');
-  const events = pressGate(w);
-  assert.equal(w.objective, 'Hold on. The gate is opening');
-  assert.deepEqual(events.filter((e) => e.type === 'radio'), [{ type: 'radio', speaker: 'PetBot', text: HOLD_ON }], 'la voix du véhicule');
-  assert.ok(/hold on/i.test(HOLD_ON));
-  const open = CONFIG.exit.gateOpenSteps;
-  assert.equal(open, 600);
-  run(w, open / 2);
-  for (const d of gates(w)) {
-    assert.equal(d.phase, 'opening');
-    assert.ok(Math.abs(d.progress - 0.5) < 0.02, `à mi-course après cinq secondes (${d.progress.toFixed(2)})`);
-  }
-  // personne n'est encore sorti : le milieu de l'ouverture est toujours barré
-  assert.equal(session.objective, OBJ.holdOn);
-  run(w, open / 2 + 3);
+  let events = pressGate(w);
+  assert.ok(gates(w).every((d) => d.phase === 'opening' && d.openSteps === 60), 'une seconde, comme les autres portes');
+  events = events.concat(run(w, 62));
   assert.ok(gates(w).every((d) => d.phase === 'open'));
-  assert.equal(w.objective, 'Get out! The pick-up is outside');
-  // les battants restent ouverts, et un second appui ne redit rien
-  run(w, 600);
+  assert.equal(w.objective, 'Get the whole team to the extraction zone');
+  assert.deepEqual(events.filter((e) => e.type === 'radio'), [{ type: 'radio', speaker: 'PetBot', text: EXTRACTION_CALL }], 'la voix du véhicule');
+  assert.ok(/extraction zone/i.test(EXTRACTION_CALL) && /north/i.test(EXTRACTION_CALL));
+  // les battants restent ouverts, et rien n'est redit
+  assert.equal(run(w, 600).filter((e) => e.type === 'radio').length, 0);
   assert.ok(gates(w).every((d) => d.phase === 'open'));
-  assert.equal(pressGate(w).filter((e) => e.type === 'radio').length, 0);
+  assert.equal(session.objective, OBJ.getOut);
+
+  // avant l'ultimatum, l'ouvrir ne change rien à la consigne, et il reste ouvert ensuite
+  const early = at(['PetBot'], OBJ.broadcast);
+  const quiet = pressGate(early.w).concat(run(early.w, 70));
+  assert.ok(gates(early.w).every((d) => d.phase === 'open'));
+  assert.equal(early.session.objective, OBJ.broadcast);
+  assert.equal(quiet.filter((e) => e.type === 'radio').length, 0);
+  // déjà ouvert quand vient le plan B : la consigne passe aussitôt à la zone d'extraction
+  early.session.objective = OBJ.northGate;
+  early.w.waveSteps = 1;
+  const late = run(early.w, 2);
+  assert.equal(early.session.objective, OBJ.getOut);
+  assert.equal(late.filter((e) => e.type === 'radio').length, 1);
 });
 
-test('une équipe venue au nord sans passer par le sud : le bouton lance aussi la police', () => {
+test('une équipe sortie par le nord sans être passée par le sud : la police se lance quand même', () => {
   const { w, session } = at(['PetBot'], OBJ.dropPoint);
   run(w, 2);
   assert.equal(w.waveSteps, 0, 'le barrage est en place');
-  const events = pressGate(w);
-  assert.equal(session.objective, OBJ.holdOn);
+  pressGate(w);
+  run(w, 70);
+  assert.equal(session.objective, OBJ.dropPoint, 'ouvrir le portail ne suffit pas');
+  assert.equal(w.waveSteps, 0);
+  // elle passe le portail
+  put(w.hero, 10304, gates(w)[0].y - 200);
+  const events = run(w, 3);
   assert.ok(w.waveSteps >= 1, 'la riposte est lancée');
   assert.ok(w.npcs.filter((n) => n.hunt > 0).every((n) => n.hunt === 2), 'la ligne de police se met en chasse');
-  assert.deepEqual(events.filter((e) => e.type === 'radio').map((e) => e.type === 'radio' && e.text), [HOLD_ON]);
   assert.equal(w.cast, -1, 'sans face-à-face');
+  assert.equal(session.objective, OBJ.getOut);
+  assert.deepEqual(events.filter((e) => e.type === 'radio').map((e) => e.type === 'radio' && e.text), [EXTRACTION_CALL]);
 });
 
-test('l\'extraction commence quand la moitié de l\'équipe, vivante, est dans la zone de sortie', () => {
+test('l\'extraction ne commence que lorsque toute l\'équipe est debout dans la zone', () => {
   // seul
   const a = open(['PetBot']);
+  put(a.w.hero, ZONE.x, ZONE.y + ZONE.radius + 60);
   run(a.w, 30);
-  assert.equal(a.w.cast, -1);
-  put(a.w.hero, OUT.x, OUT.y);
+  assert.equal(a.w.cast, -1, 'au bord, mais dehors');
+  assert.equal(a.w.inExitZone(a.w.hero), false);
+  intoZone(a.w.hero);
   const events = run(a.w, 1);
   assert.ok(a.w.cast >= 0 && a.w.castScene === SCENE.pickup);
   assert.equal(events.filter((e) => e.type === 'pickup').length, 1);
-  // à trois : un seul dehors ne suffit pas, deux oui
+  // à trois : deux dans la zone ne suffisent pas, il faut le troisième
   const b = open(['PetBot', 'BatBot', 'EngiBot']);
-  put(b.w.heroes[0], OUT.x, OUT.y);
-  run(b.w, 30);
-  assert.equal(b.w.cast, -1);
-  put(b.w.heroes[1], OUT.x + 100, OUT.y);
+  intoZone(b.w.heroes[0], 0);
+  intoZone(b.w.heroes[1], 1);
+  run(b.w, 120);
+  assert.equal(b.w.cast, -1, 'on ne part pas sans tous les robots');
+  intoZone(b.w.heroes[2], 2);
   run(b.w, 1);
   assert.ok(b.w.cast >= 0);
-  // un robot à terre dehors ne compte pas ; resté dedans, il n'empêche pas les deux autres de partir
+  // un robot à terre, même dans la zone, retient tout le monde : il faut d'abord le relever
   const c = open(['PetBot', 'BatBot']);
-  put(c.w.heroes[0], OUT.x, OUT.y);
+  intoZone(c.w.heroes[0], 0);
+  intoZone(c.w.heroes[1], 1);
   c.w.heroes[0].invuln = 0;
   c.w.damageHero(c.w.heroes[0], 9999, true);
-  run(c.w, 30);
-  assert.equal(c.w.cast, -1, 'un robot à terre ne déclenche rien');
-  put(c.w.heroes[1], OUT.x + 100, OUT.y);
-  run(c.w, 1);
-  assert.ok(c.w.cast >= 0, 'son coéquipier vivant, oui : il est la moitié de l\'équipe');
-  // pas avant le plan B : dehors par un autre chemin, rien ne se passe
-  const d = at(['PetBot'], OBJ.broadcast);
-  put(d.w.hero, OUT.x, OUT.y);
+  run(c.w, 60);
+  assert.equal(c.w.cast, -1);
+  assert.equal(c.w.inExitZone(c.w.heroes[0]), false);
+  // un joueur parti de la partie ne retient personne
+  const d = open(['PetBot', 'BatBot']);
+  intoZone(d.w.heroes[0], 0);
   run(d.w, 30);
   assert.equal(d.w.cast, -1);
+  d.w.removeHero(1);
+  run(d.w, 1);
+  assert.ok(d.w.cast >= 0);
+  // pas avant le plan B : dehors par un autre chemin, rien ne se passe
+  const e = at(['PetBot'], OBJ.broadcast);
+  intoZone(e.w.hero);
+  run(e.w, 30);
+  assert.equal(e.w.cast, -1);
 });
 
-test('le véhicule de l\'extraction : il arrive du nord, se pose, saisit les robots, repart', () => {
+test('le véhicule de l\'extraction : il arrive par la gauche comme à l\'aller, se pose, saisit les robots, repart à droite', () => {
   const p = pickupPhases();
   assert.ok(p.open < p.flyIn && p.flyIn < p.descend && p.descend < p.grab && p.grab < p.ascend && p.ascend < p.flyOut && p.flyOut < p.watch && p.watch < p.hall && p.hall < p.black && p.black < p.total);
   assert.equal(pickupPose(0).present, false);
   const arriving = pickupPose(p.open + 5);
-  assert.ok(arriving.present && arriving.north > 1000 && arriving.height === 1 && arriving.grab === 0, 'il entre de loin, par le nord, en vol');
-  assert.ok(pickupPose(p.flyIn - 1).north < 5, 'et ralentit jusqu\'au point de pose');
+  assert.ok(arriving.present && arriving.shift < -1000 && arriving.height === 1 && arriving.grab === 0, 'il entre de loin, par la gauche, en vol');
+  assert.ok(Math.abs(pickupPose(p.flyIn - 1).shift) < 5, 'et ralentit jusqu\'au centre de la zone');
   assert.ok(pickupPose(p.descend - 1).height < 0.05);
-  assert.deepEqual([pickupPose(p.descend).grab, pickupPose(p.descend).height], [0, 0]);
+  assert.deepEqual([pickupPose(p.descend).grab, pickupPose(p.descend).height, pickupPose(p.descend).shift], [0, 0, 0]);
   assert.ok(pickupPose(p.grab - 1).grab > 0.95, 'les pinces ont ramené les robots');
-  assert.deepEqual([pickupPose(p.ascend - 1).grab, pickupPose(p.ascend - 1).north], [1, 0], 'il remonte avec eux');
-  assert.ok(pickupPose(p.flyOut - 1).north > 1500 && pickupPose(p.flyOut - 1).grab === 1, 'et repart vers le nord');
+  assert.deepEqual([pickupPose(p.ascend - 1).grab, pickupPose(p.ascend - 1).shift], [1, 0], 'il remonte avec eux');
+  assert.ok(pickupPose(p.flyOut - 1).shift > 1500 && pickupPose(p.flyOut - 1).grab === 1, 'et repart vers la droite');
   assert.equal(pickupPose(p.flyOut).present, false);
   assert.deepEqual([0, p.flyOut, p.watch, p.hall, p.black, p.total].map(pickupShot), ['landing', 'landing', 'hall', 'hall', 'black', 'black']);
 });
 
 test('l\'extraction : communiqué d\'urgence, radio des robots, puis la fin du niveau', () => {
   const { w } = open(['PetBot', 'BatBot']);
-  put(w.heroes[0], OUT.x, OUT.y);
-  put(w.heroes[1], OUT.x + 100, OUT.y + 60);
+  intoZone(w.heroes[0], 0);
+  intoZone(w.heroes[1], 1);
   let events = run(w, 1);
   assert.equal(w.castScene, SCENE.pickup);
   const p = pickupPhases();
@@ -237,7 +239,8 @@ test('l\'extraction : communiqué d\'urgence, radio des robots, puis la fin du n
 
 test('l\'extraction : l\'hôte peut la passer, le niveau se termine aussitôt', () => {
   const { w } = open(['PetBot', 'BatBot']);
-  put(w.heroes[0], OUT.x, OUT.y);
+  intoZone(w.heroes[0], 0);
+  intoZone(w.heroes[1], 1);
   run(w, 1);
   assert.ok(w.cast >= 0);
   for (let i = 0; i < CONFIG.arrival.skipHoldSteps + 5; i++) w.step([NO_INPUT, { ...NO_INPUT, dash: true }]);

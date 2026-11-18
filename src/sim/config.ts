@@ -564,17 +564,21 @@ export const CONFIG = {
     /** Décalage du cadre vers le barrage, et part de l'image cachée par les bandes en haut et en bas. */
     shotShift: 110,
     shotMargin: 130,
+    /**
+     * Le face-à-face ne commence que lorsqu'un robot arrive à cette distance d'une des portes du parking (GD-092) :
+     * un peu plus que la distance à laquelle la porte s'ouvre devant lui.
+     */
+    doorRange: 230,
   },
 
   /** La sortie par le portail nord et l'extraction (GD-089). Les répliques suivent les règles de `arrival`. */
   exit: {
-    /** Numéro des portails du dépose-minute, au nord, et temps qu'ils mettent à s'ouvrir pendant le repli. */
+    /** Numéro des portails du dépose-minute, au nord. Ils s'ouvrent comme une porte ordinaire (GD-092). */
     gates: 3,
-    gateOpenSteps: s(10),
     /**
-     * L'extraction : les bandes se ferment et la caméra rejoint le point de pose ; le véhicule arrive du nord,
-     * descend, ses pinces saisissent les robots, il remonte et repart ; l'image reste un instant sur le portail
-     * vide ; coupe vers le hall (le communiqué), puis vers le noir (la radio des robots).
+     * L'extraction : les bandes se ferment et la caméra rejoint la zone ; le véhicule arrive par la gauche, comme
+     * à l'aller, descend, ses pinces saisissent les robots, il remonte et repart par la droite ; l'image reste
+     * un instant sur la zone vide ; coupe vers le hall (le communiqué), puis vers le noir (la radio des robots).
      */
     inSteps: s(1),
     flyInSteps: s(1.4),

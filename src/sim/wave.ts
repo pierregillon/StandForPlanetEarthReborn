@@ -7,6 +7,7 @@ import { CONFIG } from './config.ts';
 import { TV_STUDIO } from './additions.ts';
 import { vehicleVoice } from './broadcast.ts';
 import { BLOCK_MOVE } from './geom.ts';
+import { HOLDING, HUNTING } from './npc.ts';
 import { groundVoice } from './scenes.ts';
 import { OBJ } from './session.ts';
 import type { Hero, Npc } from './types.ts';
@@ -19,9 +20,7 @@ import type { World } from './world.ts';
 export const TOO_MANY = 'The south side is crawling with them. Forty, maybe fifty. Forget the drop point.';
 export const NORTH_GARAGE = 'Then it is plan B. We leave by the north garage.';
 
-/** `hunt` d'un PNJ de la vague : en ligne devant les fourgons, puis à la poursuite des robots. */
-export const HOLDING = 1;
-export const HUNTING = 2;
+export { HOLDING, HUNTING };
 
 type Units = Record<string, number>;
 type Area = { x0: number; x1: number; y0: number; y1: number };
@@ -173,16 +172,19 @@ export function stageWave(world: World): void {
 }
 
 /**
- * L'équipe a-t-elle trouvé le barrage ? `face` : un robot est sur le parking sud, un policier de la ligne l'a
- * vu ou entendu, ou l'un d'eux a été abattu de loin. `west` : filet de sécurité, l'équipe a quitté l'aile est
- * par où elle est venue ; la police se lance quand même à sa poursuite, sans face-à-face.
+ * L'équipe a-t-elle trouvé le barrage ? `face` : un robot arrive à une porte du parking sud, ou s'y trouve
+ * déjà. Rien d'autre ne déclenche le face-à-face (GD-092) : tirer dans le local technique ou sur le plateau
+ * ne suffit pas, la ligne de police ne réagit à rien tant qu'il n'a pas eu lieu. Si l'un de ses hommes tombe
+ * quand même (un tir de loin, une explosion), la scène se joue aussi. `west` : filet de sécurité, l'équipe a
+ * quitté l'aile est par où elle est venue ; la police se lance à sa poursuite, sans face-à-face.
  */
 function found(world: World): 'face' | 'west' | null {
   const p = TV_STUDIO.parkings.south;
   const team = world.living();
-  if (team.some((h) => h.x > p.x0 && h.x < p.x1 && h.y > p.y0 && h.y < p.y1)) return 'face';
-  const holding = world.npcs.filter((n) => n.hunt === HOLDING);
-  if (holding.length < world.waveHeld || holding.some((n) => n.alerted || n.spotted)) return 'face';
+  const range = CONFIG.standoff.doorRange;
+  const atDoor = (h: Hero): boolean => TV_STUDIO.wave.doors.some((d) => Math.hypot(h.x - d.x, h.y - d.y) <= range);
+  if (team.some((h) => atDoor(h) || (h.x > p.x0 && h.x < p.x1 && h.y > p.y0 && h.y < p.y1))) return 'face';
+  if (world.npcs.filter((n) => n.hunt === HOLDING).length < world.waveHeld) return 'face';
   return team.some((h) => h.x < TV_STUDIO.room.x0 - CONFIG.wave.leftWingMargin) ? 'west' : null;
 }
 

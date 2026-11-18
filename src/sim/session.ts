@@ -19,12 +19,11 @@ export const OBJECTIVES = [
   'Broadcast the message',
   'Leave by the south parking lot',
   'Plan B: leave by the north garage',
-  'Hold on. The gate is opening',
-  'Get out! The pick-up is outside',
+  'Get the whole team to the extraction zone',
 ];
 
 /** Rang de chaque consigne dans OBJECTIVES. */
-export const OBJ = { upstairs: 0, pass: 1, downstairs: 2, controlRoom: 3, studio: 4, broadcast: 5, dropPoint: 6, northGate: 7, holdOn: 8, getOut: 9 };
+export const OBJ = { upstairs: 0, pass: 1, downstairs: 2, controlRoom: 3, studio: 4, broadcast: 5, dropPoint: 6, northGate: 7, getOut: 8 };
 
 /** Consignes de la zone de forage : elle ne fait plus partie de ce niveau, mais reste jouable depuis le menu. */
 export const DRILL_OBJECTIVES = ['Destroy the drills', 'Kill SallyBot'];

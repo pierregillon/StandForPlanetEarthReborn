@@ -66,8 +66,8 @@ export function standoffShot(world: World): { x: number; y: number } {
 
 // ---------- L'extraction (GD-089) ----------
 
-/** Ce que dit la voix du véhicule quand un robot ouvre le portail nord (radio en jeu). */
-export const HOLD_ON = 'Gate is opening. We are coming for you. Hold on.';
+/** Ce que dit la voix du véhicule quand le portail nord est ouvert (radio en jeu). */
+export const EXTRACTION_CALL = 'Gate is open. The extraction zone is north of the building. Everyone on it: we leave no one behind.';
 
 /** Nom de celui qui lit le communiqué d'urgence : la chaîne elle-même, sans visage. */
 export const EMERGENCY = 'Emergency';
@@ -121,33 +121,34 @@ export function pickupPhases(): PickupPhases {
   return { open, flyIn, descend, grab, ascend, flyOut, watch, hall, black, total: black + c.outSteps };
 }
 
-/** Ce que la caméra montre : le point de pose, le hall et ses écrans, puis le noir. */
+/** Ce que la caméra montre : la zone d'extraction, le hall et ses écrans, puis le noir. */
 export function pickupShot(t: number): 'landing' | 'hall' | 'black' {
   const p = pickupPhases();
   return t < p.watch ? 'landing' : t < p.hall + 1 ? 'hall' : 'black';
 }
 
 /**
- * Où en est le véhicule à l'instant `t` : présent ou non, décalage vers le nord par rapport au point de pose,
- * hauteur (1 = en vol, 0 = posé), et `grab`, de 0 (les robots sont où ils étaient) à 1 (repliés dans leur pince).
+ * Où en est le véhicule à l'instant `t` : présent ou non, décalage en x par rapport au centre de la zone (il
+ * arrive par la gauche et repart par la droite, comme à l'aller), hauteur (1 = en vol, 0 = posé), et `grab`,
+ * de 0 (les robots sont où ils étaient) à 1 (repliés dans leur pince).
  */
-export function pickupPose(t: number): { present: boolean; north: number; height: number; grab: number } {
+export function pickupPose(t: number): { present: boolean; shift: number; height: number; grab: number } {
   const p = pickupPhases();
   const c = CONFIG.exit;
   const travel = CONFIG.arrival.travel;
-  if (t < p.open) return { present: false, north: travel, height: 1, grab: 0 };
+  if (t < p.open) return { present: false, shift: -travel, height: 1, grab: 0 };
   if (t < p.flyIn) {
     const k = 1 - (t - p.open) / c.flyInSteps;
-    return { present: true, north: travel * k * k, height: 1, grab: 0 }; // il ralentit en arrivant
+    return { present: true, shift: -travel * k * k, height: 1, grab: 0 }; // il ralentit en arrivant
   }
-  if (t < p.descend) return { present: true, north: 0, height: 1 - (t - p.flyIn) / c.descendSteps, grab: 0 };
-  if (t < p.grab) return { present: true, north: 0, height: 0, grab: (t - p.descend) / c.grabSteps };
-  if (t < p.ascend) return { present: true, north: 0, height: (t - p.grab) / c.ascendSteps, grab: 1 };
+  if (t < p.descend) return { present: true, shift: 0, height: 1 - (t - p.flyIn) / c.descendSteps, grab: 0 };
+  if (t < p.grab) return { present: true, shift: 0, height: 0, grab: (t - p.descend) / c.grabSteps };
+  if (t < p.ascend) return { present: true, shift: 0, height: (t - p.grab) / c.ascendSteps, grab: 1 };
   if (t < p.flyOut) {
     const k = (t - p.ascend) / c.flyOutSteps;
-    return { present: true, north: travel * k * k, height: 1, grab: 1 }; // il accélère en repartant
+    return { present: true, shift: travel * k * k, height: 1, grab: 1 }; // il accélère en repartant
   }
-  return { present: false, north: travel, height: 1, grab: 1 };
+  return { present: false, shift: travel, height: 1, grab: 1 };
 }
 
 export function pickupLines(): IntroLine[] {

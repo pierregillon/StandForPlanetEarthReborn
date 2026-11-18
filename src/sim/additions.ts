@@ -141,15 +141,17 @@ export const TV_STUDIO = {
       { x: 10030, y: 5612 }, { x: 10052, y: 5736 }, { x: 10080, y: 5860 }, { x: 10058, y: 5980 }, { x: 10040, y: 6104 },
     ],
     outside: { x0: 9960, x1: 10650, y0: 6460, y1: 7120 },
+    /** Les deux portes du local technique qui donnent sur le parking : c'est en s'en approchant qu'on déclenche le face-à-face. */
+    doors: [{ x: 9584, y: 5088 }, { x: 9584, y: 6016 }],
     /** Au-delà de dix, les suivants se rangent derrière la ligne et les fourgons, au plus près d'abord. */
     rear: { x0: 10000, x1: 10900, y0: 4990, y1: 6060 },
     vans: [{ x: 10226, y: 5150, angle: 10 }, { x: 10256, y: 5650, angle: -12 }, { x: 10560, y: 5400, angle: 4 }],
   },
   /**
-   * La sortie (GD-089) : la zone à atteindre, dehors, juste derrière les portails 3 (leur ouverture va de
-   * x = 9920 à 10688), et le point où le véhicule se pose pour reprendre l'équipe.
+   * La sortie (GD-089, GD-092) : la zone d'extraction, dehors, au nord du bâtiment, à quelques secondes de
+   * marche des portails 3 (qui sont en y = 1376, de x = 9920 à 10688). Le véhicule s'y pose, en son centre.
    */
-  exit: { zone: { x0: 9940, x1: 10670, y0: 980, y1: 1330 }, landing: { x: 10304, y: 1100 } },
+  exit: { zone: { x: 10304, y: 470, radius: 300 }, landing: { x: 10304, y: 470 } },
   /** Salon d'attente et maquillage au nord, salon de sortie et vestiaire au sud. */
   lounges: { north: { x0: 8256, x1: 9568, y0: 1408, y1: 3040 }, south: { x0: 8256, x1: 9568, y0: 4896, y1: 6272 } },
   /** Toilettes au nord, au-dessus du maquillage ; local technique au sud, du plateau au mur extérieur. */
@@ -202,7 +204,6 @@ const CHANGES: Record<string, Change> = {
       obj_tv_crate: decor('spr_crate'),
       obj_tv_makeup: decor('spr_tv_makeup'),
       obj_tv_rack: decor('spr_tv_rack'),
-      obj_pk_bollard: decor('spr_pk_bollard'),
       obj_serveur: decor('spr_serveur'),
     },
 
@@ -271,7 +272,9 @@ const CHANGES: Record<string, Change> = {
       ...loungeNorth.flatMap((s) => s.decals),
       ...parkingMarks(1408, 1, (SIDE.north.y0 + SIDE.north.y1) / 2, [2000, 2190, 2380, 2570, 2760, 2950]),
       ...parkingMarks(6272, -1, (SIDE.south.y0 + SIDE.south.y1) / 2, [4950, 5140, 5330, 5520]),
-      decal('spr_tv_cables', 9250, 5720, 200),
+      // les potelets jaunes du bord du trottoir ne sont plus que des plots peints au sol : en obstacles, ils
+      // accrochaient les robots en plein combat (GD-092)
+      ...[2000, 2170, 2340, 2510, 2680, 3010, 4940, 5290, 5450, 5610, 5770, 6200].map((y) => decal('spr_pk_bollard', KERB + 16, y)),
     ],
 
     instance: (inst) => {
@@ -357,8 +360,8 @@ const CHANGES: Record<string, Change> = {
 
       // ======== AU NORD : SALON D'ATTENTE, MAQUILLAGE, DÉPOSE-MINUTE ========
       ...loungeNorth.flatMap((s) => s.instances),
+      // (les deux chaises à droite du premier coin canapé barraient le passage vers le plateau : retirées, GD-092)
       furniture('obj_chaise_marron', 8425, 1466), furniture('obj_chaise_marron', 8520, 1466),
-      furniture('obj_chaise_marron', 8905, 2020, 270), furniture('obj_chaise_marron', 8905, 2125, 270),
       furniture('obj_distributeur', 8700, 1492),
       // les toilettes : trois cabines contre le mur extérieur, les lavabos en face
       furniture('obj_wc', 9090, 1474), furniture('obj_wc', 9296, 1474), furniture('obj_wc', 9478, 1474),
@@ -374,8 +377,7 @@ const CHANGES: Record<string, Change> = {
       furniture('obj_plante', 9040, 2640),
       civil('obj_npc_civil_femme', 9285, 2240, 135, true), civil('obj_npc_civil_malette', 9060, 2300, 20, true),
       lamp(9280, 2450, 580, 0.5),
-      // le dépose-minute : trottoir et potelets devant la porte, la chaussée, les places
-      ...[2000, 2170, 2340, 2510, 2680, 3010].map((y) => furniture('obj_pk_bollard', KERB + 16, y)),
+      // le dépose-minute : trottoir devant la porte, la chaussée, les places
       furniture('obj_plante', 9690, 2020), furniture('obj_poubelle', 9690, 2600),
       lamp(10250, 2450, 780, 0.45), lamp(9900, 1660, 660, 0.4), lamp(10700, 1660, 520, 0.35),
 
@@ -388,19 +390,16 @@ const CHANGES: Record<string, Change> = {
       ...[0, 1, 2, 3].map((i) => furniture('obj_chaise_marron', 8905, 5760 + i * 105, 270)),
       furniture('obj_distributeur', 8700, 6188, 180), furniture('obj_plante', 8300, 4960), furniture('obj_plante', 8300, 5800),
       lamp(8600, 5300, 700, 0.45), lamp(8600, 5900, 620, 0.4),
-      // le local technique, du plateau jusqu'au mur extérieur : étagères de matériel, baies, caméras de réserve,
-      // établi. Rien devant ses deux portes.
+      // le local technique, du plateau jusqu'au mur extérieur : étagères de matériel, baies, établi, le long des
+      // murs. Rien devant ses deux portes, et rien au milieu : c'est le passage de l'équipe, à l'aller comme au
+      // repli sous le feu (les caméras de réserve et les câbles au sol gênaient, GD-092).
       furniture('obj_etager1', 9130, 4946), furniture('obj_etager2', 9400, 4946),
       furniture('obj_table1', 9200, 5240), furniture('obj_lampeBureau', 9090, 5240), furniture('obj_ecran', 9300, 5230, 90),
-      instance('obj_tv_camera', 'layer_deco', 200, 9150, 5470, -30, { bulletCrossed: true }, 1.5),
-      instance('obj_tv_camera', 'layer_deco', 200, 9250, 5510, 25, { bulletCrossed: true }, 1.5),
-      instance('obj_tv_camera', 'layer_deco', 200, 9170, 5570, -80, { bulletCrossed: true }, 1.5),
       furniture('obj_tv_crate', 9460, 5360), furniture('obj_tv_crate', 9470, 5450, 9), furniture('obj_tv_spot', 9380, 5600, 200),
       furniture('obj_serveur', 9076, 5790), furniture('obj_serveur', 9076, 6020),
       furniture('obj_etager3', 9210, 6222), furniture('obj_etager4', 9470, 6222),
       lamp(9280, 5260, 540, 0.45), lamp(9280, 5950, 520, 0.45),
       // le parking de départ
-      ...[4940, 5290, 5450, 5610, 5770, 6200].map((y) => furniture('obj_pk_bollard', KERB + 16, y)),
       furniture('obj_plante', 9690, 5580), furniture('obj_poubelle', 9690, 5320),
       lamp(10250, 5300, 780, 0.45), lamp(9900, 5990, 660, 0.4), lamp(10700, 5990, 520, 0.35),
     ],
