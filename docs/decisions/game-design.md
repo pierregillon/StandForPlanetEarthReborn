@@ -100,7 +100,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-092 | Retours d'essai sur la fin de TvTv² : déclencheur du face-à-face, zone d'extraction, véhicule, passages dégagés | 2026-11-18 | Acceptée ; modifie GD-088 (déclencheur du face-à-face), GD-089 (portail nord, zone de sortie, sens du véhicule), GD-084 (mobilier de l'aile est) |
 | GD-093 | Tir principal de PetBot : des mini-drones à tête chercheuse | 2026-11-18 | Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas ; modifiée par GD-094 (plus de ciblage au clic ni de contour rouge : points 1, 2 et 6 abandonnés ; rayons de recherche à 500 px) |
 | GD-094 | Drone de PetBot : plus de ciblage au clic ni de contour rouge, recherche à 500 px | 2026-11-18 | Acceptée — réglages à ajuster après essai ; modifie GD-093 |
-| GD-095 | L'ordre de la salle est l'ordre de dessin, chaises à roulettes comprises ; l'éditeur le règle (devant, derrière) | 2026-11-18 | Acceptée — effet sur les chaises existantes à confirmer par l'utilisateur ; précise GD-031 (chaises à roulettes) |
+| GD-095 | L'ordre de la salle est l'ordre de dessin, chaises à roulettes comprises ; l'éditeur le règle (devant, derrière) | 2026-11-18 | Acceptée ; précise GD-031 (chaises à roulettes) |
 
 ---
 
@@ -2154,8 +2154,8 @@ Le reste de GD-093 ne change pas : une fois sa cible prise, le drone la poursuit
 ## GD-095 — L'ordre de la salle est l'ordre de dessin, chaises à roulettes comprises ; l'éditeur le règle
 
 - **Date** : 2026-11-18
-- **Statut** : Acceptée — effet sur les chaises existantes à confirmer par l'utilisateur ; précise GD-031 (chaises à roulettes)
-- **Décidée par** : l'utilisateur pour la commande (« je veux une chaise partiellement sous une table et pas "sur" la table », en réponse à la proposition d'ajouter « Bring to front » et « Send to back ») ; Claude pour la règle de dessin qui la rend possible, à signaler à l'utilisateur
+- **Statut** : Acceptée ; précise GD-031 (chaises à roulettes)
+- **Décidée par** : l'utilisateur pour la commande (« je veux une chaise partiellement sous une table et pas "sur" la table », en réponse à la proposition d'ajouter « Bring to front » et « Send to back ») ; Claude pour la règle de dessin qui la rend possible, confirmée par l'utilisateur le même jour avec son effet sur les chaises existantes (« Oui, on garde »)
 
 **Contexte.** Deux meubles qui se chevauchent étaient dessinés dans l'ordre de la salle (le dernier par-dessus), sans qu'on puisse le changer. Les chaises à roulettes (`obj_siege_accueil`) faisaient exception : comme elles bougent, le jeu les dessinait à part, au-dessus de tout le mobilier. Or presque toutes sont rangées contre un bureau : sur 58 chaises à roulettes, 56 ont leur boîte englobante qui recoupe celle d'un meuble (table, écran, plante), et toutes paraissaient posées dessus.
 
