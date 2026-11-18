@@ -180,7 +180,7 @@ export class EditorUi {
     this.snapSelect = snap;
     this.lightsBtn = el('button', { textContent: 'Lighting preview', title: 'L — the room as lit in the game, without the robots\' own glow', onclick: () => this.setLights(!this.lightsOn, true) });
     this.zoomOut = el('span', { textContent: '100%' });
-    this.saveBtn = el('button', { class: 'primary', textContent: 'Save', title: 'Ctrl+S — writes the level file and commits it', onclick: () => handlers.save(false) });
+    this.saveBtn = el('button', { class: 'primary', textContent: 'Save', title: 'Ctrl+S — writes the level file (no git commit)', onclick: () => handlers.save(false) });
     this.saveExitBtn = el('button', { class: 'primary', textContent: 'Save & exit', onclick: () => handlers.save(true) });
     const bar = el('div', { class: 'bar' }, [
       el('button', { textContent: '← Menu', onclick: () => handlers.exit() }),

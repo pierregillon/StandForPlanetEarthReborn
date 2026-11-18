@@ -21,7 +21,8 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | ADR-015 | Sprites manquants fabriqués par un outil, à partir des sprites d'origine | 2026-11-16 | Acceptée |
 | ADR-016 | Les ajouts aux salles d'origine sont décrits à part et greffés au chargement | 2026-11-17 | Remplacée par ADR-018 |
 | ADR-017 | Une caméra libre pour parcourir le niveau sans jouer | 2026-11-17 | Acceptée |
-| ADR-018 | Les fichiers de niveaux sont la source des cartes ; un éditeur intégré les retouche et commite | 2026-11-18 | Acceptée |
+| ADR-018 | Les fichiers de niveaux sont la source des cartes ; un éditeur intégré les retouche et commite | 2026-11-18 | Acceptée ; modifiée par ADR-019 (plus de commit automatique) |
+| ADR-019 | La sauvegarde de l'éditeur n'écrit que le fichier ; le commit se décide avec l'agent | 2026-11-18 | Acceptée |
 
 ---
 
@@ -326,7 +327,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 ## ADR-018 — Les fichiers de niveaux sont la source des cartes ; un éditeur intégré les retouche et commite
 
 - **Date** : 2026-11-18
-- **Statut** : Acceptée
+- **Statut** : Acceptée ; modifiée par ADR-019 : la sauvegarde ne fait plus de commit (le quatrième point de la décision, et ce qui en découle plus bas, ne valent plus pour le commit)
 - **Décidée par** : l'utilisateur (« un outil qui permet d'éditer directement les maps […] quand je sauvegarde, ça modifie le fichier originel de la map […] dans Git, on peut avoir l'historique »), qui a validé les six choix par défaut proposés par Claude : fusion d'`additions.ts`, livraison en trois étapes, personnages d'abord seulement visibles, repères du scénario plus tard, un commit par sauvegarde, menu par carte puis salle
 
 **Contexte.** Les salles étaient produites par `npm run convert-rooms` (ADR-006) et jamais retouchées ; tout ce que le remake y changeait était écrit en TypeScript dans `src/sim/additions.ts` et greffé au chargement (ADR-016). Chaque retouche de décor passait donc par une session de développement. L'utilisateur veut déplacer un meuble, régler une lampe ou poser un décalque lui-même, puis jouer la salle modifiée.
@@ -354,3 +355,22 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 - `keys.ts` ignore les touches frappées dans un champ de saisie.
 - Le bouton « Explore the level » du menu est remplacé ; la caméra libre reste en jeu (ADR-017).
 - Reste à faire : étape 2 (murs, sols, portes, fenêtres), étape 3 (personnages, brouillard, points d'apparition, repères), puis création d'une salle et essai depuis l'éditeur. L'éditeur est dans le jeu livré : à retirer du build avant une mise en ligne publique, comme la caméra libre.
+
+## ADR-019 — La sauvegarde de l'éditeur n'écrit que le fichier ; le commit se décide avec l'agent
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; modifie ADR-018
+- **Décidée par** : l'utilisateur, après sa première sauvegarde (« je préfère que le fichier se modifie juste, et que ensuite l'utilisateur décide avec l'agent IA quand faire le commit »)
+
+**Contexte.** ADR-018 faisait un commit à chaque sauvegarde de l'éditeur, choix par défaut de Claude que l'utilisateur avait accepté sur le papier. À l'usage, chaque essai de retouche devenait un commit sur `main`.
+
+**Décision.** `PUT /api/levels/<salle>` réécrit `public/levels/<salle>.json` et ne touche pas à Git. Le serveur renvoie toujours le résumé des changements, que l'éditeur n'affiche pas mais qui reste disponible. Une carte retouchée est donc un fichier modifié non commité, comme n'importe quel travail en cours ; l'utilisateur décide avec l'agent du moment et du contenu du commit.
+
+**Pourquoi.** L'utilisateur veut garder la main sur l'historique : regrouper plusieurs retouches dans un commit qui a du sens, ou les jeter. L'historique des cartes reste dans Git, ce qui était le but ; seul le moment du commit change.
+
+**Conséquences.**
+
+- Un agent qui trouve `public/levels/*.json` modifié en début de session a devant lui le travail de l'utilisateur dans l'éditeur : ne pas l'annuler ni l'écraser, et proposer de le commiter.
+- `git checkout -- public/levels/<salle>.json` annule les retouches non commitées d'une salle.
+- `server/levels.ts` n'appelle plus `git` ; `server/levels.test.ts` n'a plus besoin d'un dépôt jetable.
+

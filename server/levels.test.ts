@@ -1,8 +1,7 @@
-// Sauvegarde de l'éditeur de niveaux (ADR-018), dans un dépôt Git jetable : le fichier est réécrit et commité
-// seul, avec un message qui dit ce qui a changé.
+// Sauvegarde de l'éditeur de niveaux (ADR-018, ADR-019), dans un dossier jetable : le fichier est réécrit,
+// rien n'est commité, et le résumé dit ce qui a changé.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -27,40 +26,26 @@ test('describeChanges compte ce qui est ajouté, modifié et retiré', () => {
   assert.equal(describeChanges(before, swapped), 'ordre d\'affichage modifié');
 });
 
-test('saveLevel écrit le fichier et fait un commit limité à ce fichier', async () => {
+test('saveLevel écrit le fichier, sans toucher à Git, et dit ce qui a changé', () => {
   const root = mkdtempSync(join(tmpdir(), 'sfpe-levels-'));
-  const git = (...args: string[]): string => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
   try {
     mkdirSync(join(root, 'public', 'levels'), { recursive: true });
     const level = original();
     const file = join(root, 'public', 'levels', `${level.name}.json`);
     writeFileSync(file, serializeLevel(level));
-    writeFileSync(join(root, 'other.txt'), 'un');
-    git('init', '-q');
-    git('config', 'user.email', 'test@example.invalid');
-    git('config', 'user.name', 'Test');
-    git('config', 'commit.gpgsign', 'false');
-    git('add', '.');
-    git('commit', '-q', '-m', 'départ');
 
-    const same = await saveLevel(root, level);
-    assert.deepEqual([same.ok, same.commit, same.summary], [true, null, '']);
+    assert.deepEqual(saveLevel(root, level), { ok: true, summary: '', note: 'Nothing to save: the level is unchanged.' });
 
-    // un autre fichier est modifié et indexé : il ne doit pas partir dans le commit de la carte
-    writeFileSync(join(root, 'other.txt'), 'deux');
-    git('add', 'other.txt');
     const edited: LevelData = { ...level, instances: [...level.instances, { ...level.instances[0], id: 'ed_test', x: 123 }] };
-    const saved = await saveLevel(root, edited);
-    assert.equal(saved.ok, true);
-    assert.equal(saved.note, '');
-    assert.equal(saved.summary, '1 objet ajouté');
-    assert.equal(saved.commit, git('rev-parse', '--short', 'HEAD'));
+    assert.deepEqual(saveLevel(root, edited), { ok: true, summary: '1 objet ajouté', note: '' });
     assert.equal(readFileSync(file, 'utf8'), serializeLevel(edited));
-    assert.equal(git('log', '-1', '--format=%s'), `Carte ${level.name} (éditeur) : 1 objet ajouté`);
-    assert.equal(git('show', '--name-only', '--format=', 'HEAD'), `public/levels/${level.name}.json`);
-    assert.equal(git('status', '--porcelain'), 'M  other.txt', 'le reste de l\'index est intact');
-    // une ligne par élément : le diff de la carte ne montre que l'objet ajouté
-    assert.match(git('show', '--stat', '--format=', 'HEAD'), /1 insertion\(\+\), 1 deletion\(-\)|2 insertions\(\+\), 1 deletion\(-\)/);
+    // une ligne par élément : la retouche n'ajoute qu'une ligne (et la virgule de la précédente)
+    const lines = (text: string): Set<string> => new Set(text.split('\n'));
+    const was = lines(serializeLevel(level));
+    assert.equal([...lines(serializeLevel(edited))].filter((l) => !was.has(l)).length, 2);
+    // rien d'autre n'est créé : pas de dépôt, pas de fichier à côté (ADR-019)
+    assert.deepEqual(readdirSync(root), ['public']);
+    assert.deepEqual(readdirSync(join(root, 'public', 'levels')), [`${level.name}.json`]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

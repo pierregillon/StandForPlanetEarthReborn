@@ -39,7 +39,7 @@ npm run make-studio  ─▶ sprites et sols de l'aile est de TvTv², dessinés a
 npm run level-map    ─▶ plans annotés en SVG dans docs/narration/plans/
 ```
 
-- `public/levels/<salle>.json` est la source d'une salle (ADR-018) : converti une fois depuis le jeu d'origine, puis retouché avec l'[éditeur de niveaux](editeur-niveaux.md), qui le réécrit et le commite. L'aile est de TvTv², d'abord décrite en code (ADR-016), y a été fondue. `convert-rooms` ne réécrit une salle retouchée qu'avec `--force`.
+- `public/levels/<salle>.json` est la source d'une salle (ADR-018) : converti une fois depuis le jeu d'origine, puis retouché avec l'[éditeur de niveaux](editeur-niveaux.md), qui le réécrit sans le commiter (ADR-019). L'aile est de TvTv², d'abord décrite en code (ADR-016), y a été fondue. `convert-rooms` ne réécrit une salle retouchée qu'avec `--force`.
 - Les repères que le scénario vise par leurs coordonnées (marque de l'ultimatum, barrage, extraction, plans de caméra) sont dans `src/sim/landmarks.ts`.
 - Le navigateur charge une image par fichier, seulement pour la salle en cours (ADR-012).
 

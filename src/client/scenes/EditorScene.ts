@@ -1,6 +1,6 @@
 // Éditeur de niveaux (ADR-018) : la salle entière en caméra libre, tous ses éléments visibles, et de quoi
 // poser, déplacer, tourner, régler et retirer le décor, les lumières et les décalques. La sauvegarde réécrit
-// public/levels/<salle>.json par le serveur, qui en fait un commit.
+// public/levels/<salle>.json par le serveur, sans commit (ADR-019).
 // Le modèle (éléments, historique) est dans editor/model.ts, les panneaux HTML dans editor/EditorUi.ts.
 import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
@@ -981,14 +981,12 @@ export class EditorScene extends Phaser.Scene {
     this.ui?.setBusy(true);
     let note = '';
     let ok = false;
-    /** Fichier écrit mais commit refusé par Git : à signaler, la carte est tout de même sauvegardée. */
-    let warn = false;
     try {
       const res = await fetch(`/api/levels/${level.name}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(level) });
-      const result = (await res.json()) as { ok: boolean; summary?: string; commit?: string | null; note?: string };
+      const result = (await res.json()) as { ok: boolean; summary?: string; note?: string };
       ok = result.ok;
-      warn = result.ok && !result.commit && !!result.summary;
-      note = result.ok ? (result.commit ? `Saved · commit ${result.commit}` : result.note || 'Saved') : result.note || 'The server refused the level.';
+      // le fichier est écrit, pas commité : c'est à l'utilisateur de décider quand (ADR-019)
+      note = result.ok ? (result.summary ? `Saved to public/levels/${level.name}.json (not committed)` : result.note || 'Saved') : result.note || 'The server refused the level.';
     } catch (error) {
       note = `Could not reach the game server: ${error instanceof Error ? error.message : String(error)}`;
     }
@@ -1005,7 +1003,7 @@ export class EditorScene extends Phaser.Scene {
       this.registry.set('editorNote', note);
       this.scene.start('Menu');
     } else {
-      this.ui?.toast(note, warn);
+      this.ui?.toast(note);
     }
     return true;
   }

@@ -10,7 +10,7 @@ Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque éta
 
 **Les 4 étapes du MVP sont livrées (2026-11-16) — l'étape 4 attend les essais de l'utilisateur.**
 **Depuis, TvTv² a été réécrit pour l'acte II de l'arc narratif (GD-076 à GD-089) et se joue du largage à l'écran de fin (2026-11-18)** : introduction, régie, ultimatum, barrage de police au sud, repli par le garage nord, extraction. La zone de forage et SallyBot ne font plus partie de ce niveau (jouables depuis le menu).
-**Éditeur de niveaux, étape 1 livrée (2026-11-18, ADR-018)** : mobilier, lumières et décalques se retouchent dans le jeu, la sauvegarde réécrit le fichier de la salle et le commite. À essayer par l'utilisateur ; suite et limites dans [editeur-niveaux.md](editeur-niveaux.md).
+**Éditeur de niveaux, étape 1 livrée (2026-11-18, ADR-018)** : mobilier, lumières et décalques se retouchent dans le jeu, la sauvegarde réécrit le fichier de la salle, sans commit (ADR-019). À essayer par l'utilisateur ; suite et limites dans [editeur-niveaux.md](editeur-niveaux.md).
 Prochaine action : recueillir les retours de l'utilisateur sur l'éditeur (étape 1) avant d'attaquer l'étape 2 (murs, sols, portes) ; et toujours sur le nouveau tir de PetBot (GD-093, GD-094 : vitesse du drone, rayon de recherche, puissance) et sur la fin du niveau (face-à-face du parking, dernier combat devant le portail nord, extraction), en premier lieu la difficulté ; puis décider de la suite (voir « Après le MVP »).
 
 ## Prérequis (début de l'étape 1)
@@ -138,7 +138,7 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 - [x] Multijoueur en ligne, première version : salon, 4 joueurs au plus, résurrection (GD-039, GD-040, ADR-014).
 - [x] Link entre héros, surcharge sans paliers, attaque ultime de BatBot (GD-043).
 - [x] Ultis de PetBot (nanomachines), BadaBot (mur) et EngiBot (grenade électromagnétique), avec leurs sprites (GD-044).
-- [x] Éditeur de niveaux, étape 1 : mobilier, lumières, décalques, sauvegarde avec commit (ADR-018).
+- [x] Éditeur de niveaux, étape 1 : mobilier, lumières, décalques, ordre devant/derrière, sauvegarde du fichier (ADR-018, ADR-019, GD-095).
 - [ ] Éditeur de niveaux, étape 2 : murs, sols, portes et fenêtres.
 - [ ] Éditeur de niveaux, étape 3 : personnages et patrouilles, brouillard, points d'apparition, repères du scénario.
 - [ ] Équilibrage des ultis et du boss après essais à plusieurs.

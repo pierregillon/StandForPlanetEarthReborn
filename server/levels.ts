@@ -1,7 +1,7 @@
-// Sauvegarde de l'éditeur de niveaux (ADR-018) : PUT /api/levels/<salle> réécrit public/levels/<salle>.json
-// et en fait un commit, pour que l'historique des cartes soit dans Git sans y penser.
+// Sauvegarde de l'éditeur de niveaux (ADR-018, ADR-019) : PUT /api/levels/<salle> réécrit
+// public/levels/<salle>.json, et rien d'autre. Pas de commit : l'utilisateur décide avec l'agent du moment où
+// les cartes retouchées entrent dans Git.
 // Réservé à la machine qui fait tourner le serveur : l'éditeur écrit sur le disque.
-import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
@@ -13,20 +13,9 @@ const LOCAL = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
 export interface SaveResult {
   ok: boolean;
-  /** Ce qui a changé depuis la version précédente, en une phrase ; vide si rien n'a changé. */
+  /** Ce qui a changé depuis la version du disque, en une phrase ; vide si rien n'a changé. */
   summary: string;
-  /** Empreinte courte du commit créé ; null s'il n'y en a pas eu (rien de changé, ou Git a refusé : voir `note`). */
-  commit: string | null;
   note: string;
-}
-
-function git(root: string, args: string[]): Promise<{ code: number; out: string }> {
-  return new Promise((done) => {
-    execFile('git', args, { cwd: root }, (error, stdout, stderr) => {
-      const code = error ? (typeof error.code === 'number' ? error.code : 1) : 0;
-      done({ code, out: `${stdout}${stderr}`.trim() });
-    });
-  });
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -79,23 +68,15 @@ export function describeChanges(before: LevelData, after: LevelData): string {
   return parts.join(', ');
 }
 
-/** Écrit la salle et en fait un commit, limité à son fichier. */
-export async function saveLevel(root: string, level: LevelData): Promise<SaveResult> {
-  const relative = `public/levels/${level.name}.json`;
-  const file = join(root, relative);
+/** Écrit la salle sur le disque. Le résumé dit ce qui change par rapport au fichier remplacé. */
+export function saveLevel(root: string, level: LevelData): SaveResult {
+  const file = join(root, 'public', 'levels', `${level.name}.json`);
   const before = readFileSync(file, 'utf8');
   const content = serializeLevel(level);
-  if (content === before) return { ok: true, summary: '', commit: null, note: 'Nothing to save: the level is unchanged.' };
+  if (content === before) return { ok: true, summary: '', note: 'Nothing to save: the level is unchanged.' };
   const summary = describeChanges(JSON.parse(before) as LevelData, level) || 'mise en forme';
   writeFileSync(file, content);
-  const message = `Carte ${level.name} (éditeur) : ${summary}`;
-  const add = await git(root, ['add', '--', relative]);
-  if (add.code !== 0) return { ok: true, summary, commit: null, note: `Saved, but not committed: ${add.out || 'git add failed'}` };
-  // `--only` : seul ce fichier part dans le commit, même si d'autres changements sont déjà indexés
-  const commit = await git(root, ['commit', '--only', '-m', message, '--', relative]);
-  if (commit.code !== 0) return { ok: true, summary, commit: null, note: `Saved, but not committed: ${commit.out || 'git commit failed'}` };
-  const hash = await git(root, ['rev-parse', '--short', 'HEAD']);
-  return { ok: true, summary, commit: hash.code === 0 ? hash.out : null, note: '' };
+  return { ok: true, summary, note: '' };
 }
 
 function readBody(req: IncomingMessage): Promise<string | null> {
@@ -143,7 +124,7 @@ export function handleEditorRequest(root: string, req: IncomingMessage, res: Ser
     reply(404, { ok: false, note: `Unknown level: ${name}` });
     return true;
   }
-  void readBody(req).then(async (text) => {
+  void readBody(req).then((text) => {
     let level: unknown;
     try {
       level = text === null ? null : JSON.parse(text);
@@ -156,7 +137,7 @@ export function handleEditorRequest(root: string, req: IncomingMessage, res: Ser
       return;
     }
     try {
-      const result = await saveLevel(root, level as LevelData);
+      const result = saveLevel(root, level as LevelData);
       onSaved(level as LevelData);
       reply(200, result);
     } catch (error) {

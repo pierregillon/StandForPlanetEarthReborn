@@ -18,7 +18,7 @@ export class EditorSelectScene extends Phaser.Scene {
       this.add.image(width / 2, height / 2, frameKey('spr_fondMenu_1', 0)).setDisplaySize(width, height).setTint(0x8088a0);
     }
     this.add.text(width / 2, 130, 'LEVEL EDITOR', { fontFamily: 'Aldo', fontSize: '80px', color: '#ffffff', stroke: '#000000', strokeThickness: 8 }).setOrigin(0.5);
-    this.add.text(width / 2, 215, 'Pick the room to edit. Saving rewrites its file in public/levels and commits it.', {
+    this.add.text(width / 2, 215, 'Pick the room to edit. Saving rewrites its file in public/levels; committing it stays your call.', {
       fontFamily: 'Aldo', fontSize: '28px', color: '#cfd8ff', stroke: '#000000', strokeThickness: 5,
     }).setOrigin(0.5);
     const rooms = MAPS.flatMap((map) => map.rooms.map((r) => ({ label: `${map.title}  ·  ${r.title}`, room: r.room })));

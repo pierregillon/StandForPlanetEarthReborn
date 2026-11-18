@@ -47,19 +47,22 @@ La palette propose tous les types d'objets et de décalques déjà présents dan
 ## Sauvegarder
 
 - **Save** réécrit `public/levels/<salle>.json` et reste dans l'éditeur. **Save & exit** revient au menu : la partie suivante charge la nouvelle version, sans recharger la page.
-- Chaque sauvegarde fait **un commit Git**, limité au fichier de la salle, sans `git push`. Son message dit ce qui a changé, par exemple : `Carte rm_world2 (éditeur) : 2 objets ajoutés, 1 objet modifié`.
-- Si Git refuse le commit, le fichier est tout de même écrit et l'éditeur le signale.
+- **La sauvegarde ne fait pas de commit** (ADR-019) : la carte retouchée est un fichier modifié, comme n'importe quel travail en cours. Tu décides avec l'agent du moment où elle entre dans Git.
 - Le fichier garde une ligne par élément : un `git diff` ne montre que les éléments touchés.
 
-### Revenir à une ancienne version
+### Commiter, annuler, revenir en arrière
+
+Le plus simple est de le demander à l'agent (« commite la carte », « annule mes retouches de l'étage »). À la main :
 
 ```
-git log --oneline -- public/levels/rm_world2.json          # les versions de la carte
-git checkout <commit> -- public/levels/rm_world2.json      # reprendre celle-là
-git commit -m "Carte rm_world2 : retour à la version <commit>"
+git status --short public/levels                            # les cartes retouchées, pas encore commitées
+git commit -m "Carte rm_world2 : ..." -- public/levels/rm_world2.json
+git checkout -- public/levels/rm_world2.json                # jeter les retouches non commitées de cette carte
+git log --oneline -- public/levels/rm_world2.json           # les versions commitées de la carte
+git checkout <commit> -- public/levels/rm_world2.json       # reprendre l'une d'elles (puis la commiter)
 ```
 
-Puis rouvrir l'éditeur ou relancer une partie : la salle est relue sur le disque.
+Après un retour en arrière, rouvrir l'éditeur ou relancer une partie : la salle est relue sur le disque.
 
 ## Limites à connaître
 
@@ -82,7 +85,7 @@ Puis rouvrir l'éditeur ou relancer une partie : la salle est relue sur le disqu
 | `src/client/editor/model.ts` | Éléments de la salle, familles, historique (annuler, rétablir), palette ; sans Phaser, testé par `model.test.ts` |
 | `src/client/editor/EditorUi.ts` | Panneaux HTML : barre d'outils, palette, couches, réglages |
 | `src/client/scenes/EditorSelectScene.ts` | Choix de la salle (`MAPS` de `src/sim/session.ts`) |
-| `server/levels.ts` | `PUT /api/levels/<salle>` : contrôle, écriture, commit ; testé par `levels.test.ts` |
+| `server/levels.ts` | `PUT /api/levels/<salle>` : contrôle et écriture du fichier, sans commit ; testé par `levels.test.ts` |
 | `src/sim/levelFile.ts` | Mise en forme et contrôle d'un fichier de niveau, partagés avec `convert-rooms` |
 
 Depuis la console du navigateur, `sfpeEditor` donne la scène de l'éditeur (`sfpeEditor.model.ents`, `sfpeEditor.model.toLevel()`).
