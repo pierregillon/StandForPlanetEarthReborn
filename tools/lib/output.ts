@@ -2,29 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** JSON sur une seule ligne, avec des espaces après `:` et `,`. */
-export function inlineJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(inlineJson).join(', ')}]`;
-  if (value !== null && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined);
-    if (entries.length === 0) return '{}';
-    return `{ ${entries.map(([k, v]) => `${JSON.stringify(k)}: ${inlineJson(v)}`).join(', ')} }`;
-  }
-  return JSON.stringify(value);
-}
-
-/** Tableau avec un élément par ligne. */
-export function linesArray(items: unknown[], indent: string): string {
-  if (items.length === 0) return '[]';
-  return `[\n${items.map((item) => `${indent}  ${inlineJson(item)}`).join(',\n')}\n${indent}]`;
-}
-
-/** Objet avec une entrée par ligne (clés dans l'ordre fourni). */
-export function linesObject(record: Record<string, unknown>, indent: string): string {
-  const entries = Object.entries(record);
-  if (entries.length === 0) return '{}';
-  return `{\n${entries.map(([k, v]) => `${indent}  ${JSON.stringify(k)}: ${inlineJson(v)}`).join(',\n')}\n${indent}}`;
-}
+// la mise en forme du JSON est partagée avec la sauvegarde de l'éditeur de niveaux
+export { inlineJson, linesArray, linesObject } from '../../src/sim/levelFile.ts';
 
 /** Écrit le fichier seulement si son contenu change. Renvoie vrai s'il a été écrit. */
 export function writeIfChanged(file: string, content: Buffer | string): boolean {

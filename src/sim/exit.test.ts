@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CONFIG } from './config.ts';
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { BLOCK_MOVE } from './geom.ts';
 import { AFTERMATH, ALERT, EMERGENCY, EXTRACTION_CALL, SCENE, pickupLines, pickupPhases, pickupPose, pickupShot, sceneLines } from './scenes.ts';
 import { GROUND_FLOOR, OBJ, OBJECTIVES, createSession } from './session.ts';

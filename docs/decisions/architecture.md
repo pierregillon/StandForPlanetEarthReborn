@@ -19,8 +19,9 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | ADR-013 | Lumières : zone éclairée pré-dessinée par lampe, recalculée quand une porte bouge | 2026-11-16 | Acceptée |
 | ADR-014 | Multijoueur : le serveur fait tourner le jeu, les navigateurs en tiennent un miroir | 2026-11-16 | Acceptée — première version |
 | ADR-015 | Sprites manquants fabriqués par un outil, à partir des sprites d'origine | 2026-11-16 | Acceptée |
-| ADR-016 | Les ajouts aux salles d'origine sont décrits à part et greffés au chargement | 2026-11-17 | Acceptée |
+| ADR-016 | Les ajouts aux salles d'origine sont décrits à part et greffés au chargement | 2026-11-17 | Remplacée par ADR-018 |
 | ADR-017 | Une caméra libre pour parcourir le niveau sans jouer | 2026-11-17 | Acceptée |
+| ADR-018 | Les fichiers de niveaux sont la source des cartes ; un éditeur intégré les retouche et commite | 2026-11-18 | Acceptée |
 
 ---
 
@@ -287,7 +288,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 ## ADR-016 — Les ajouts aux salles d'origine sont décrits à part et greffés au chargement
 
 - **Date** : 2026-11-17
-- **Statut** : Acceptée
+- **Statut** : Remplacée par ADR-018 (2026-11-18) : `additions.ts` et `withAdditions` n'existent plus, leur contenu est dans `public/levels/rm_world2.json`
 - **Décidée par** : Claude (choix par défaut, à signaler à l'utilisateur), à la suite de son accord pour redessiner les salles (GD-077)
 
 **Contexte.** Les fichiers de `public/levels` sont produits par `npm run convert-rooms` à partir des salles GameMaker (ADR-006) : toute retouche à la main y serait perdue à la conversion suivante. Le niveau TvTv² demande pourtant d'ajouter du décor et un personnage (GD-080).
@@ -312,7 +313,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 
 **Décision.** Le jeu a une caméra libre, qui quitte le robot pour parcourir la salle en cours.
 
-- **On y entre** par « Explore the level » au menu principal, par « Free camera » au menu de pause, par la touche V en jeu, ou en ouvrant `http://localhost:3000/?view`. On en sort par V ou Échap.
+- **On y entre** par « Explore the level » au menu principal (bouton remplacé le 2026-11-18 par « Level editor », ADR-018), par « Free camera » au menu de pause, par la touche V en jeu, ou en ouvrant `http://localhost:3000/?view`. On en sort par V ou Échap.
 - **On s'y déplace** avec les touches de mouvement (Maj pour aller vite) et on change d'échelle à la molette, de 14 % (la salle entière) à 150 % ; la touche 1 revient à l'échelle du jeu.
 - **Le brouillard de guerre n'est pas dessiné, et l'éclairage est coupé au départ** : tout est montré en pleine lumière. La touche L rallume l'éclairage du jeu, à l'échelle 1 seulement, parce que la pénombre est calculée pour la vue normale. Il était allumé par défaut dans la première version ; l'utilisateur l'a fait couper le 2026-11-17 (« ça fait lagger, l'idée est juste de voir les textures et les rooms »). Mesure sur sa machine, plateau de TvTv² à l'échelle 1 : 9,5 ms par image avec l'éclairage, 5,5 ms sans, à toutes les échelles.
 - **En solo le jeu s'arrête** : personne ne bouge, le robot ne risque rien, et l'introduction en cours est passée d'un coup. En réseau la partie continue et le robot reste immobile.
@@ -321,3 +322,35 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 **Pourquoi.** C'est un outil de travail sur les niveaux, pour l'utilisateur comme pour les sessions de développement. Tout se passe dans l'affichage : la simulation ne sait rien de la caméra libre, donc aucun risque pour les règles du jeu ni pour le réseau.
 
 **Conséquences.** `enterFreeCamera`, `updateFreeCamera` et `placeCamera` dans `GameScene.ts` ; `reveal` et `lightsOff` dans `WorldView.ts` ; `hidden` dans `Hud.ts`. Elle montre la salle en cours seulement : pour voir l'étage, commencer la partie à l'étage (choix du niveau) puis appuyer sur V. Le bouton reste dans le jeu livré : à retirer ou à cacher si le jeu est un jour ouvert au public, puisqu'il dévoile tout le niveau.
+
+## ADR-018 — Les fichiers de niveaux sont la source des cartes ; un éditeur intégré les retouche et commite
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée
+- **Décidée par** : l'utilisateur (« un outil qui permet d'éditer directement les maps […] quand je sauvegarde, ça modifie le fichier originel de la map […] dans Git, on peut avoir l'historique »), qui a validé les six choix par défaut proposés par Claude : fusion d'`additions.ts`, livraison en trois étapes, personnages d'abord seulement visibles, repères du scénario plus tard, un commit par sauvegarde, menu par carte puis salle
+
+**Contexte.** Les salles étaient produites par `npm run convert-rooms` (ADR-006) et jamais retouchées ; tout ce que le remake y changeait était écrit en TypeScript dans `src/sim/additions.ts` et greffé au chargement (ADR-016). Chaque retouche de décor passait donc par une session de développement. L'utilisateur veut déplacer un meuble, régler une lampe ou poser un décalque lui-même, puis jouer la salle modifiée.
+
+**Décision.**
+
+- **`public/levels/<salle>.json` est la seule source d'une salle.** Les retouches d'`additions.ts` ont été fondues une fois dans `rm_world2.json` (131 instances, 79 pièces de mur, 10 sols, 5 décalques de plus, et ce que le fichier retirait ou déplaçait). `additions.ts` et `withAdditions` sont supprimés ; il ne reste que les repères du scénario, dans `src/sim/landmarks.ts` (`TV_STUDIO`).
+- **`convert-rooms` ne réécrit plus une salle déjà convertie** dont le contenu a changé, sauf avec `--force`.
+- **Un éditeur dans le jeu** (« Level editor » au menu, ou `?edit=<salle>`) montre la salle entière et tous ses éléments, et permet de poser, déplacer, tourner, régler et retirer. Étape 1 : mobilier, lumières, décalques. Les autres familles sont affichées et verrouillées jusqu'à leur étape. Mode d'emploi : [editeur-niveaux.md](../editeur-niveaux.md).
+- **La sauvegarde passe par le serveur** : `PUT /api/levels/<salle>` contrôle la forme du niveau, réécrit le fichier (une ligne par élément, comme le convertisseur) et fait un commit limité à ce fichier, dont le message résume les changements. Pas de `git push`. Le serveur n'accepte que les requêtes de sa propre machine.
+- **L'éditeur a ses panneaux en HTML** par-dessus le canevas Phaser (palette, réglages, barre d'outils) ; la carte reste dessinée par Phaser.
+
+**Pourquoi.**
+
+- Un éditeur ne peut sauvegarder que des données : tant que les retouches étaient du code, ce que l'on voyait à l'écran n'était pas ce que contenait le fichier. Piste écartée : un second fichier de « différences » par salle, écrit par l'éditeur. Il aurait gardé la conversion rejouable, mais demandé de rapprocher à chaque chargement des éléments sans identifiant (murs, sols, décalques), pour un bénéfice nul puisque les salles d'origine ne changent plus.
+- Un commit par sauvegarde donne l'historique des cartes sans que l'utilisateur ait à y penser ; limité au fichier de la salle, il ne peut pas emporter un travail en cours sur le code.
+- Des champs de saisie, des curseurs et un sélecteur de couleur existent en HTML ; les refaire dans Phaser aurait coûté plus que tout le reste de l'éditeur.
+- L'aperçu de l'éclairage construit le même `World` que le jeu pour en reprendre les obstacles : les ombres montrées sont celles de la partie, sans second calcul à maintenir.
+
+**Conséquences.**
+
+- La fidélité de la conversion d'origine n'est plus vérifiable sur `rm_world2.json` : le contrôle de `convert-rooms` (tableau §1.3 de l'analyse) reste affiché, mais la salle ne correspond plus à ces comptes. Les deux autres salles sont encore identiques à leur conversion.
+- Les repères de `landmarks.ts`, et les tests qui s'appuient dessus, ne suivent pas une retouche de la carte : limite acceptée jusqu'à l'étape 3, décrite dans le mode d'emploi.
+- `npm test` couvre aussi `server/` (`server/levels.test.ts` commite dans un dépôt jetable).
+- `keys.ts` ignore les touches frappées dans un champ de saisie.
+- Le bouton « Explore the level » du menu est remplacé ; la caméra libre reste en jeu (ADR-017).
+- Reste à faire : étape 2 (murs, sols, portes, fenêtres), étape 3 (personnages, brouillard, points d'apparition, repères), puis création d'une salle et essai depuis l'éditeur. L'éditeur est dans le jeu livré : à retirer du build avant une mise en ligne publique, comme la caméra libre.

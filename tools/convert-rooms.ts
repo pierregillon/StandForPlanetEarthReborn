@@ -1,12 +1,18 @@
 // Convertit les salles GameMaker listées dans tools/assets.config.json (clé
 // `rooms`) en public/levels/<salle>.json. Format : docs/formats-donnees.md.
-// Usage : npm run convert-rooms
+// Usage : npm run convert-rooms            ne touche pas à une salle déjà convertie
+//         npm run convert-rooms -- --force  réécrit tout depuis le jeu d'origine
+//
+// Depuis ADR-018, les fichiers de public/levels sont la source des niveaux : ils portent les retouches du
+// remake, faites avec l'éditeur de niveaux. Les reconvertir les efface, d'où `--force`.
 import fs from 'node:fs';
 import path from 'node:path';
-import { inlineJson, linesArray, linesObject, writeIfChanged } from './lib/output.ts';
+import { writeIfChanged } from './lib/output.ts';
+import { serializeLevel } from '../src/sim/levelFile.ts';
+import type { LevelData } from '../src/sim/types.ts';
 import { PUBLIC_DIR, loadConfig, loadProject } from './lib/reference.ts';
 import { convertRoom } from './lib/rooms.ts';
-import type { Level, RoomConversion } from './lib/rooms.ts';
+import type { RoomConversion } from './lib/rooms.ts';
 
 const LEVELS_DIR = path.join(PUBLIC_DIR, 'levels');
 
@@ -22,24 +28,6 @@ const EXPECTED: Record<string, { instances: number; thick: number; thin: number;
   rm_world4: { instances: 260, thick: 723, thin: 243, floors: 22, decals: 0 },
   rm_world4_1: { instances: 535, thick: 716, thin: 2811, floors: 34, decals: 1162 },
 };
-
-function serializeLevel(level: Level): string {
-  const lines = [
-    '{',
-    `  "name": ${JSON.stringify(level.name)}, "width": ${level.width}, "height": ${level.height},`,
-    `  "background": ${inlineJson(level.background)},`,
-    `  "layers": ${linesArray(level.layers, '  ')},`,
-    `  "objects": ${linesObject(level.objects as Record<string, unknown>, '  ')},`,
-    `  "instances": ${linesArray(level.instances, '  ')},`,
-    `  "walls": ${linesArray(level.walls, '  ')},`,
-    `  "wallRects": ${linesArray(level.wallRects, '  ')},`,
-    `  "floors": ${linesArray(level.floors, '  ')},`,
-    `  "decals": ${linesArray(level.decals, '  ')}`,
-    '}',
-    '',
-  ];
-  return lines.join('\n');
-}
 
 function printSummary(conversion: RoomConversion): number {
   const { level, stats, warnings } = conversion;
@@ -94,15 +82,22 @@ function main(): void {
   const project = loadProject();
   if (config.rooms.length === 0) console.log('Aucune salle dans tools/assets.config.json (clé "rooms").');
 
+  const force = process.argv.includes('--force');
   let gaps = 0;
   const written: string[] = [];
+  /** Salles déjà converties et retouchées depuis : laissées telles quelles. */
+  const kept: string[] = [];
   for (const roomName of config.rooms) {
     const conversion = convertRoom(project, roomName);
     const file = path.join(LEVELS_DIR, `${roomName}.json`);
-    const content = serializeLevel(conversion.level);
+    const content = serializeLevel(conversion.level as unknown as LevelData);
     JSON.parse(content); // garde-fou : la sortie doit rester du JSON valide
-    const changed = writeIfChanged(file, content);
     gaps += printSummary(conversion);
+    if (!force && fs.existsSync(file) && fs.readFileSync(file, 'utf8') !== content) {
+      kept.push(path.relative(process.cwd(), file));
+      continue;
+    }
+    const changed = writeIfChanged(file, content);
     written.push(`${path.relative(process.cwd(), file)} (${(content.length / 1024).toFixed(0)} Ko${changed ? '' : ', inchangé'})`);
   }
 
@@ -120,6 +115,10 @@ function main(): void {
   }
 
   console.log(`\nFichiers : ${written.join(', ') || '(aucun)'}`);
+  if (kept.length > 0) {
+    console.log(`Conservés, car retouchés depuis leur conversion (éditeur de niveaux) : ${kept.join(', ')}.`);
+    console.log('Pour les réécrire depuis le jeu d\'origine et perdre ces retouches : npm run convert-rooms -- --force');
+  }
   console.log(gaps === 0 ? 'Aucun écart avec la spec.' : `${gaps} écart(s) avec la spec : voir ci-dessus.`);
 }
 

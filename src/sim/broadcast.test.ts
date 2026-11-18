@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { CONFIG } from './config.ts';
 import { CONTROL_ROOM_TAKEN, PICK_UP, ULTIMATUM, castLines, castLive, castPhases, castReader, castShot, vehicleVoice } from './broadcast.ts';
 import { typingSteps } from './intro.ts';
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { BLOCK_MOVE } from './geom.ts';
 import { retrySession } from './match.ts';
 import { GROUND_FLOOR, OBJ, OBJECTIVES, createSession } from './session.ts';

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CONFIG } from './config.ts';
 import { ANCHOR, arrivalPhases, arrivalTotal, crewReleased, dropExchange, introLines, introShot, typingSteps } from './intro.ts';
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { retrySession, startTeam } from './match.ts';
 import { GROUND_FLOOR, UPPER_FLOOR, createSession } from './session.ts';
 import { World } from './world.ts';

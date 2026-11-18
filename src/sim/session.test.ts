@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { World } from './world.ts';
 import { DRILL_AREA, GROUND_FLOOR, MAPS, OBJ, STARTS, UPPER_FLOOR, createSession, createSessionAt } from './session.ts';
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { BLOCK_MOVE } from './geom.ts';
 import { isFreshStart } from './match.ts';
 import { NO_INPUT } from './types.ts';

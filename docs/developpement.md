@@ -6,7 +6,7 @@ Mode d'emploi technique du dépôt, pour un agent comme pour un humain. Les comm
 
 - Node 22.18 ou plus récent : `node` exécute directement le TypeScript du projet (ADR-010). Si le Node du PATH est plus ancien, voir [Selon la machine](#selon-la-machine).
 - `npm install` une fois (environ 25 Mo à télécharger).
-- `npm test` : tests de la simulation sur le vrai niveau, sans navigateur. `npm run typecheck` : vérification des types.
+- `npm test` : tests de la simulation sur le vrai niveau, du modèle de l'éditeur et de sa sauvegarde, sans navigateur. `npm run typecheck` : vérification des types.
 - `npm run dev` : serveur sur le port 3000, avec reconstruction du code à chaque modification. Après une modification de `server/` ou de `src/net`, relancer le serveur.
 - `npm start` : construction unique, puis serveur.
 - Les fichiers de `src/sim`, `src/net` et `server` sont exécutés par Node sans compilation : pas de Phaser ni d'API du navigateur, et pas de syntaxe TypeScript non effaçable (`enum`, `namespace`, propriétés déclarées dans les paramètres d'un constructeur). Voir ADR-010 et ADR-011.
@@ -18,6 +18,7 @@ Mode d'emploi technique du dépôt, pour un agent comme pour un humain. Les comm
 | `http://localhost:3000/?play` | Saute le menu |
 | `?play=PetBot` | Choisit le héros |
 | `?play=PetBot&start=studio` | Point de départ : `drop`, `upstairs`, `studio` (juste après l'ultimatum), `boss` (GD-091). À plusieurs, l'hôte choisit le point de départ après le choix des robots |
+| `?edit=rm_world2` | Ouvre l'[éditeur de niveaux](editeur-niveaux.md) sur une salle (ADR-018) ; `sfpeEditor` dans la console |
 | `?view`, ou la touche V en jeu | Caméra libre (ADR-017) : jeu arrêté, sans brouillard ni éclairage (L le rallume), déplacement au clavier, zoom à la molette |
 | `sfpeWorld` (console) | L'état du jeu |
 | `sfpeDebug.teleport(x, y)` | Déplace le héros |

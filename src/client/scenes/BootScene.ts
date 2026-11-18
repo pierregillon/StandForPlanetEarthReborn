@@ -1,7 +1,6 @@
 // Chargement : manifestes et niveau d'abord, puis seulement les images et sons utiles.
 import Phaser from 'phaser';
 import { commonSounds, frameKey, spritesNeeded } from '../assets.ts';
-import { withAdditions } from '../../sim/additions.ts';
 import type { FloorManifest, SoundManifest } from '../assets.ts';
 import type { LevelData, SpriteManifest } from '../../sim/types.ts';
 
@@ -44,7 +43,7 @@ export class BootScene extends Phaser.Scene {
     for (const name of names) {
       for (let i = 0; i < sprites[name].frames; i++) this.load.image(frameKey(name, i), `assets/sprites/${name}/${i}.png`);
     }
-    const tilesets = new Set(levels.flatMap((level) => withAdditions(level).floors.map((f) => f.tileset)));
+    const tilesets = new Set(levels.flatMap((level) => level.floors.map((f) => f.tileset)));
     for (const t of tilesets) if (floors[t]) this.load.image(`floorsrc:${t}`, `assets/${floors[t].image}`);
     for (const name of commonSounds(sounds)) this.load.audio(name, `assets/${sounds[name].file}`);
 

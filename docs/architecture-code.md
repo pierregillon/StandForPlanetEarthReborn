@@ -31,6 +31,7 @@ Multijoueur (ADR-014)
 dépôt d'origine (étiquette remake-reference-2019)
  └─ .cache/reference/ ── extrait au besoin par tools/lib/reference.ts
      ├─ npm run convert-rooms  ─▶ public/levels/*.json             (formats : formats-donnees.md)
+     │                              une fois converties, retouchées par l'éditeur de niveaux (ADR-018)
      └─ npm run extract-assets ─▶ public/assets/{sprites,floors,sounds}/ + manifestes *.json
                                   puis relance make-sprites
 npm run make-sprites ─▶ ultis et rechargements des robots, recomposés des sprites d'origine (ADR-015)
@@ -38,7 +39,8 @@ npm run make-studio  ─▶ sprites et sols de l'aile est de TvTv², dessinés a
 npm run level-map    ─▶ plans annotés en SVG dans docs/narration/plans/
 ```
 
-- Les salles d'origine converties ne sont jamais retouchées : ce que le remake ajoute, retire ou déplace est décrit dans `src/sim/additions.ts`, greffé au chargement par `withAdditions(level)` (ADR-016). Toute l'aile est de TvTv² y est décrite.
+- `public/levels/<salle>.json` est la source d'une salle (ADR-018) : converti une fois depuis le jeu d'origine, puis retouché avec l'[éditeur de niveaux](editeur-niveaux.md), qui le réécrit et le commite. L'aile est de TvTv², d'abord décrite en code (ADR-016), y a été fondue. `convert-rooms` ne réécrit une salle retouchée qu'avec `--force`.
+- Les repères que le scénario vise par leurs coordonnées (marque de l'ultimatum, barrage, extraction, plans de caméra) sont dans `src/sim/landmarks.ts`.
 - Le navigateur charge une image par fichier, seulement pour la salle en cours (ADR-012).
 
 ## Carte du code
@@ -50,10 +52,11 @@ npm run level-map    ─▶ plans annotés en SVG dans docs/narration/plans/
 | | Adversaires et personnages | `npc.ts` (soldats et civils), `boss.ts`, `wave.ts` (riposte de la police après l'ultimatum), `nav.ts` (grille et chemins A* des PNJ) |
 | | Monde et partie | `geom.ts` (géométrie, collisions), `visibility.ts` (zones éclairées, ombres), `match.ts` (enchaînement des salles, solo et serveur) |
 | | Séquences scénarisées | `intro.ts` (introduction du niveau), `broadcast.ts` (l'ultimatum), `scenes.ts` (face-à-face avec le barrage, extraction finale) |
-| | Contenu des salles | `additions.ts` (ajouts du remake aux salles d'origine) |
+| | Contenu des salles | `landmarks.ts` (repères du scénario de TvTv²), `levelFile.ts` (écriture et contrôle d'un fichier de niveau) |
 | `src/net/` | Multijoueur, partagé client et serveur | `snapshot.ts`, `mirror.ts`, `messages.ts`, `net.test.ts` |
-| `server/` | Serveur Node : fichiers statiques, WebSocket, salon | `main.ts`, `game.ts` |
+| `server/` | Serveur Node : fichiers statiques, WebSocket, salon, sauvegarde de l'éditeur | `main.ts`, `game.ts`, `levels.ts` |
 | `src/client/` | Affichage Phaser | `main.ts`, `scenes/` (menu, choix du niveau et du héros, salon, `GameScene.ts`), `view/WorldView.ts` (dessin du monde, effets), `view/Hud.ts`, `view/IntroOverlay.ts` (bandes de cinéma, dialogues), `assets.ts`, `sfx.ts`, `keys.ts` |
+| | Éditeur de niveaux | `scenes/EditorScene.ts`, `scenes/EditorSelectScene.ts`, `editor/model.ts` (éléments, historique), `editor/EditorUi.ts` (panneaux HTML) |
 | `tools/` | Fabrication | `build.ts` (esbuild vers `dist/game.js`), `convert-rooms.ts`, `extract-assets.ts` + `assets.config.json`, `make-sprites.ts`, `make-studio.ts`, `level-map.ts` ; `lib/` (lecture du projet GameMaker, PNG, dessin) |
 | `public/` | Ce que sert le serveur | `index.html`, `levels/*.json`, `assets/` (sprites, sols, sons et leurs manifestes), `fonts/` |
 

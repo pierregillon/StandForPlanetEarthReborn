@@ -19,7 +19,7 @@ import { isFreshStart, openRoom, retrySession, startTeam } from '../../sim/match
 import { arrivalPhases, clawOf, introShot } from '../../sim/intro.ts';
 import { castShot } from '../../sim/broadcast.ts';
 import { SCENE, pickupShot, standoffShot } from '../../sim/scenes.ts';
-import { TV_STUDIO } from '../../sim/additions.ts';
+import { TV_STUDIO } from '../../sim/landmarks.ts';
 import { IntroOverlay } from '../view/IntroOverlay.ts';
 import { DRILL_AREA, createSession } from '../../sim/session.ts';
 import type { Session } from '../../sim/session.ts';

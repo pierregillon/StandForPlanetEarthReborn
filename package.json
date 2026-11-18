@@ -12,7 +12,7 @@
     "build": "node tools/build.ts",
     "start": "node tools/build.ts && node server/main.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"src/**/*.test.ts\"",
+    "test": "node --test \"src/**/*.test.ts\" \"server/**/*.test.ts\"",
     "convert-rooms": "node tools/convert-rooms.ts",
     "extract-assets": "node tools/extract-assets.ts",
     "make-sprites": "node tools/make-sprites.ts",

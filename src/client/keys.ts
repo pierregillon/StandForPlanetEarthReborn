@@ -4,7 +4,14 @@
 const down = new Set<string>();
 const pressed = new Set<string>();
 
+/** Saisie dans un champ de l'éditeur de niveaux : la frappe est pour le champ, pas pour le jeu. */
+function typing(e: KeyboardEvent): boolean {
+  const el = e.target;
+  return el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+}
+
 window.addEventListener('keydown', (e) => {
+  if (typing(e)) return;
   if (!e.repeat) pressed.add(e.code);
   down.add(e.code);
   if (PREVENT_DEFAULT.has(e.code)) e.preventDefault();

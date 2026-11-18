@@ -12,13 +12,13 @@ import { ANCHOR, arrivalPhases, clawOf, crewReleased, introLines, introShot } fr
 import type { IntroLine } from '../../sim/intro.ts';
 import { castLive } from '../../sim/broadcast.ts';
 import { SCENE, pickupPose, pickupShot } from '../../sim/scenes.ts';
-import { TV_STUDIO } from '../../sim/additions.ts';
+import { TV_STUDIO } from '../../sim/landmarks.ts';
 import { GROUND_FLOOR, OBJ } from '../../sim/session.ts';
 import { ULTI_ACTION, ULTI_CAST, ULTI_RECOVER, petSwarm, waveStripOffset, waveStrips } from '../../sim/ulti.ts';
 import type { Bat, Bullet, Button, Chair, DecorItem, Door, Drill, Fog, Hero, Npc, SimEvent, SpriteInfo, Turret, UltiEffect, WindowPane } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
 
-const DEPTH = {
+export const DEPTH = {
   background: -800, floor: -700, decal: -600, zone: -400, window: -300, outlet: -150,
   remains: -50, chair: -20, legs: -1, character: 0, laser: 4, bullet: 5, fog: 100, wallThin: 200, wallThick: 300, door: 500, fx: 600, worldText: 700, darkness: 5000,
 };
@@ -26,7 +26,7 @@ const POLICE_VAN = 'spr_pk_police_van';
 /** Brouillard de guerre : gris foncé de l'original ($313131). */
 const FOG_COLOR = 0x313131;
 /** Éclairage simplifié. L'original assombrit à 60 % ; 50 % ici pour garder les combats lisibles (GD-028). */
-const LIGHTING = {
+export const LIGHTING = {
   /** Noir posé sur tout l'écran dans les salles éclairées (0.6 dans l'original). */
   ambient: 0.5,
   /** Part du noir retirée au centre d'une lampe : son intensité d'origine multipliée par cette valeur. */

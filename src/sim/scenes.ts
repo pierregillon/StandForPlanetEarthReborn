@@ -2,7 +2,7 @@
 // barrage de police sur le parking sud (GD-088) et l'extraction qui finit le niveau (GD-089). Elles partagent une horloge (`World.cast`) et les règles de
 // l'introduction (GD-079) : le monde est figé, l'hôte passe d'une réplique à l'autre ou passe tout.
 import { CONFIG } from './config.ts';
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { castLines, castPhases } from './broadcast.ts';
 import { GO_ORDER } from './intro.ts';
 import type { IntroLine } from './intro.ts';

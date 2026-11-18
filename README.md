@@ -53,7 +53,8 @@ En jeu à plusieurs : **A** (Q sur un clavier QWERTY) en visant un coéquipier p
 | Dash (en marchant) ; pendant l'introduction du niveau : réplique suivante, ou tenir pour passer la séquence (l'hôte seulement, à plusieurs) | Espace ou Maj |
 | Utiliser un bouton ; se recharger sur une borne (maintenir) | E |
 | Pause | Échap |
-| Caméra libre, pour parcourir la salle sans jouer (aussi au menu principal et au menu de pause) | V ; puis déplacement, Maj pour aller vite, molette pour le zoom, 1 pour l'échelle du jeu, L pour l'éclairage, V ou Échap pour revenir |
+| Caméra libre, pour parcourir la salle sans jouer (aussi au menu de pause) | V ; puis déplacement, Maj pour aller vite, molette pour le zoom, 1 pour l'échelle du jeu, L pour l'éclairage, V ou Échap pour revenir |
+| Éditeur de niveaux (menu principal, sur la machine du serveur) | « Level editor » ; mode d'emploi : [docs/editeur-niveaux.md](docs/editeur-niveaux.md) |
 
 ## Développer
 
@@ -64,7 +65,7 @@ Détails (paramètres d'URL, console de débogage, essais à plusieurs, particul
 | `npm run dev` (ou `dev.cmd` sous Windows) | Reconstruit le code à chaque modification et sert le jeu ; `http://localhost:3000/?play` saute le menu, `?play=EngiBot` choisit le héros, `?view` ouvre la partie en caméra libre |
 | `npm test` | Tests de la simulation, sans navigateur |
 | `npm run typecheck` | Vérification des types |
-| `npm run convert-rooms` | Reconvertit les salles GameMaker en `public/levels/*.json` |
+| `npm run convert-rooms` | Convertit les salles GameMaker en `public/levels/*.json` ; ne réécrit une salle retouchée qu'avec `-- --force` |
 | `npm run make-sprites`, `npm run make-studio` | Refabriquent les sprites que l'original n'avait pas (ultis et rechargements des robots ; plateau de TvTv²) |
 | `npm run level-map` | Redessine les plans annotés des salles dans `docs/narration/plans/` |
 | `npm run extract-assets` | Recopie sprites, sols et sons depuis le projet GameMaker (réglages : `tools/assets.config.json`) |

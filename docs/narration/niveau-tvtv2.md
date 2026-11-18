@@ -43,7 +43,7 @@ Le parcours existant mène au plateau en dernier (vérifié avec les collisions 
 5. Le bouton de la régie ouvre les deux portes du hall de béton.
 6. Dans les quais, deux boutons ouvrent les portails vers l'extérieur.
 
-**Aménagé** (GD-081, tout est dans `src/sim/additions.ts`) : le plateau est une pièce fermée, entre la vitre de la régie et le mur extérieur, avec une porte automatique au nord et une au sud. Le reste du hall de béton, de part et d'autre, reste une aire de livraison. Première idée, remplacée : le pupitre du présentateur devant l'alcôve, vers x 9450, face à la vitre ; trois caméras entre le pupitre et la vitre ; l'alcôve sert de fond de décor, ses caisses sont poussées sur les côtés. Ainsi un seul plan de 1920 px de large montre la rangée d'écrans de la régie, la vitre et le présentateur.
+**Aménagé** (GD-081 ; décrit d'abord dans `src/sim/additions.ts`, fondu depuis dans `public/levels/rm_world2.json`, ADR-018) : le plateau est une pièce fermée, entre la vitre de la régie et le mur extérieur, avec une porte automatique au nord et une au sud. Le reste du hall de béton, de part et d'autre, reste une aire de livraison. Première idée, remplacée : le pupitre du présentateur devant l'alcôve, vers x 9450, face à la vitre ; trois caméras entre le pupitre et la vitre ; l'alcôve sert de fond de décor, ses caisses sont poussées sur les côtés. Ainsi un seul plan de 1920 px de large montre la rangée d'écrans de la régie, la vitre et le présentateur.
 
 ## 2 bis. L'aile est réorganisée (GD-083)
 

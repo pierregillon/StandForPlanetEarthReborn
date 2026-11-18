@@ -1,11 +1,11 @@
 # Formats des données extraites du jeu d'origine
 
-Les niveaux et les assets du remake sont **générés** à partir du projet GameMaker de référence (étiquette `remake-reference-2019`) par deux outils. Ce document décrit leurs sorties. La description du format d'origine est dans `docs/reference/jeu-original/03-niveaux-et-interface.md` (§2 et §7).
+Les niveaux et les assets du remake viennent du projet GameMaker de référence (étiquette `remake-reference-2019`), par deux outils. Ce document décrit leurs sorties. **Les niveaux, une fois convertis, sont la source des cartes** : ils se retouchent avec l'[éditeur de niveaux](editeur-niveaux.md) (ADR-018), qui écrit le même format. La description du format d'origine est dans `docs/reference/jeu-original/03-niveaux-et-interface.md` (§2 et §7).
 
 ## Relancer les outils
 
 ```
-npm run convert-rooms     # public/levels/<salle>.json
+npm run convert-rooms     # public/levels/<salle>.json ; une salle retouchée n'est réécrite qu'avec -- --force
 npm run extract-assets    # public/assets/ (sprites, sols, sons, manifestes) ; -- --verbose pour le détail
 ```
 
@@ -14,7 +14,7 @@ npm run extract-assets    # public/assets/ (sprites, sols, sons, manifestes) ; -
   - `rooms` : salles à convertir (elles déterminent aussi les sprites et les sols extraits) ;
   - `excludeSprites`, `includeSprites`, `excludeSounds` : expressions régulières insensibles à la casse, testées sur le nom. `includeSprites` l'emporte sur `excludeSprites`.
 - La référence est lue dans `.cache/reference/` (ignoré par git). Si ce dossier manque, il est recréé par `git archive` depuis le dépôt d'origine (`../Stand-For-Planet-Earth`, ou le chemin donné par la variable `SFPE_REFERENCE_REPO`), qui n'est jamais modifié.
-- Les outils sont déterministes et relançables : ils ne réécrivent que les fichiers qui changent et suppriment leurs sorties devenues inutiles. **Relancer `convert-rooms` écrase les retouches faites à la main dans `public/levels/`** : une correction durable se fait dans l'outil, ou se note dans `docs/decisions/game-design.md`.
+- Les outils sont déterministes et relançables : ils ne réécrivent que les fichiers qui changent et suppriment leurs sorties devenues inutiles. `convert-rooms` laisse telle quelle une salle déjà convertie dont le contenu a changé (retouches de l'éditeur de niveaux, ADR-018) ; **`--force` la réécrit depuis le jeu d'origine et efface ces retouches.**
 - Chaque outil affiche un résumé ; `convert-rooms` compare ses comptes au tableau §1.3 de l'analyse et signale tout écart.
 
 ## Conventions communes
@@ -51,7 +51,7 @@ npm run extract-assets    # public/assets/ (sprites, sols, sons, manifestes) ; -
 | `background` | Fond de la salle. `sprite` = `null` pour une couleur unie (`color`). Avec un sprite, `color` est sa teinte et `tiled` indique qu'il est répété dans les deux sens depuis (0, 0). |
 | `layers` | Couches d'origine, de la plus proche à la plus lointaine : `type` = `instances`, `tiles`, `assets` ou `background`. `visible` est le réglage de l'éditeur ; le jeu peut le changer (`obj_warFog` rend sa couche visible à sa création). |
 | `objects` | Un par type d'objet présent dans `instances` ou `walls`, trié par nom. `sprite` et `mask` (masque de collision, `null` = celui du sprite) sont hérités du parent le plus proche si l'objet n'en a pas ; `parents` va du plus proche au plus lointain ; `visible` est le réglage de l'objet. |
-| `instances` | Toutes les instances non `ignore`, dans l'ordre de création d'origine, sauf les `obj_textureGenerator_*` (voir `floors`). `id` = nom de l'instance dans l'éditeur. |
+| `instances` | Toutes les instances non `ignore`, dans l'ordre de création d'origine, sauf les `obj_textureGenerator_*` (voir `floors`). `id` = nom de l'instance dans l'éditeur GameMaker ; `add_…` pour celles ajoutées par le remake avant l'éditeur de niveaux, `ed_…` pour celles posées avec lui. |
 | `walls` | Une pièce de mur par case de tuile non vide des couches `tiles_mur_epais` (cases de 64 px) et `tiles_mur_fin` (32 px) ; `x`, `y` = centre de la case. Sert au rendu. |
 | `wallRects` | Rectangles de collision des murs, fusionnés : `[x, y, largeur, hauteur, épais]`, `épais` = 1 pour un mur épais, 0 pour un mur fin. Un rectangle épais n'est jamais fusionné avec un rectangle fin. Les rectangles épais viennent d'abord. |
 | `floors` | Un sol par générateur, dans l'ordre de création (= ordre de dessin en cas de recouvrement). Voir « Sols ». |

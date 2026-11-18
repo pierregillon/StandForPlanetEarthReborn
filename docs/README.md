@@ -32,6 +32,7 @@ Les sessions de travail ne partagent pas de mémoire : ces documents sont la mé
 | [architecture-code.md](architecture-code.md) | Principe simulation / affichage, multijoueur, chaîne des niveaux et des assets, carte du code |
 | [developpement.md](developpement.md) | Lancer, tester, déboguer dans le navigateur, fabriquer les sprites, particularités de chaque machine |
 | [formats-donnees.md](formats-donnees.md) | Formats des niveaux et des manifestes d'assets |
+| [editeur-niveaux.md](editeur-niveaux.md) | Éditeur de niveaux : ce qui se retouche, commandes, sauvegarde et historique Git, limites, étapes à venir |
 
 ## Le jeu d'origine
 

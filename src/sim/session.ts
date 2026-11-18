@@ -1,6 +1,6 @@
 // État d'une partie qui dépasse une salle : cartes portées, consigne en cours, statistiques, salles visitées.
 // Les salles gardent leur état quand on y revient (obj_roomsMemory de l'original).
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { CONFIG } from './config.ts';
 import type { Stats } from './types.ts';
 import type { World } from './world.ts';
@@ -88,9 +88,10 @@ export interface StartPoint {
   text: string;
 }
 
+/** Les cartes et leurs salles ; l'éditeur de niveaux les propose dans cet ordre (ADR-018). */
 export const MAPS = [
-  { id: 'tvtv2', title: 'TvTv² STATION' },
-  { id: 'drill', title: 'DRILLING AREA' },
+  { id: 'tvtv2', title: 'TvTv² STATION', rooms: [{ room: GROUND_FLOOR, title: 'Ground floor' }, { room: UPPER_FLOOR, title: 'Upper floor' }] },
+  { id: 'drill', title: 'DRILLING AREA', rooms: [{ room: DRILL_AREA, title: 'Drilling area' }] },
 ];
 
 /** Points de départ proposés, en solo comme à l'hôte d'une partie à plusieurs. Le premier est le début du niveau. */

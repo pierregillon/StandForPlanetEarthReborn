@@ -5,6 +5,7 @@ import type { Server } from 'node:http';
 import { createReadStream, readFileSync, statSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
 import { Lobby } from './game.ts';
+import { handleEditorRequest } from './levels.ts';
 import type { Peer } from './game.ts';
 import type { ClientMessage } from '../src/net/messages.ts';
 import { STEPS_PER_SECOND } from '../src/sim/config.ts';
@@ -55,8 +56,16 @@ function findFile(urlPath: string): FoundFile | null {
   return null;
 }
 
+const loadPublic = <T>(path: string): T => JSON.parse(readFileSync(join(ROOT, 'public', path), 'utf8')) as T;
+
 export function startServer(port = Number(process.env.PORT ?? 3000)): Server {
+  // les salles, lues une fois ; l'éditeur de niveaux remplace ici celle qu'il vient de sauvegarder (ADR-018)
+  const levels: Record<string, LevelData> = {};
+  for (const room of [GROUND_FLOOR, UPPER_FLOOR, DRILL_AREA]) levels[room] = loadPublic<LevelData>(`levels/${room}.json`);
   const server = createServer((req, res) => {
+    if (handleEditorRequest(ROOT, req, res, (level) => {
+      levels[level.name] = level;
+    })) return;
     const urlPath = (req.url ?? '/').split('?')[0];
     const file = findFile(urlPath === '/' ? '/index.html' : urlPath);
     if (!file) {
@@ -79,7 +88,7 @@ export function startServer(port = Number(process.env.PORT ?? 3000)): Server {
     });
     createReadStream(file.path).pipe(res);
   });
-  attachGame(server);
+  attachGame(server, levels);
   server.listen(port, () => {
     console.log(`Stand For Planet Earth : http://localhost:${port}`);
   });
@@ -90,12 +99,9 @@ export function startServer(port = Number(process.env.PORT ?? 3000)): Server {
  * Partie multijoueur : une WebSocket par navigateur, un seul salon pour l'instant, et l'horloge qui fait
  * avancer la simulation à 60 steps par seconde.
  */
-function attachGame(server: Server): void {
-  const load = <T>(path: string): T => JSON.parse(readFileSync(join(ROOT, 'public', path), 'utf8')) as T;
-  const levels: Record<string, LevelData> = {};
-  for (const room of [GROUND_FLOOR, UPPER_FLOOR, DRILL_AREA]) levels[room] = load<LevelData>(`levels/${room}.json`);
+function attachGame(server: Server, levels: Record<string, LevelData>): void {
   const peers = new Map<Peer, { bytesWritten: number; bytesRead: number }>();
-  const lobby = new Lobby(levels, load<SpriteManifest>('assets/sprites.json'), () => [...peers.keys()], process.env.SFPE_DEBUG === '1' || process.argv.includes('--sfpe-debug'));
+  const lobby = new Lobby(levels, loadPublic<SpriteManifest>('assets/sprites.json'), () => [...peers.keys()], process.env.SFPE_DEBUG === '1' || process.argv.includes('--sfpe-debug'));
 
   // les instantanés sont du JSON répétitif : la compression le réduit beaucoup, pour un coût négligeable
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024, perMessageDeflate: { threshold: 200 } });

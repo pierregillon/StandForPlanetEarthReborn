@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CONFIG } from './config.ts';
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { BLOCK_MOVE } from './geom.ts';
 import { retrySession } from './match.ts';
 import { LATE_FOR_DINNER, PLAN_B, POLICE, SCENE, SURRENDER, sceneLines, standoffPhases, standoffShot } from './scenes.ts';

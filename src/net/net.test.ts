@@ -7,7 +7,7 @@ import { Lobby } from '../../server/game.ts';
 import type { Peer } from '../../server/game.ts';
 import { NO_INPUT } from '../sim/types.ts';
 import { CONFIG } from '../sim/config.ts';
-import { TV_STUDIO } from '../sim/additions.ts';
+import { TV_STUDIO } from '../sim/landmarks.ts';
 import { OBJ } from '../sim/session.ts';
 import { BLOCK_MOVE } from '../sim/geom.ts';
 import type { Input, LevelData, SpriteManifest } from '../sim/types.ts';

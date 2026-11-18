@@ -4,7 +4,7 @@
 // ouvre le feu, les portails 4 s'ouvrent, et un groupe de renfort entre toutes les dix secondes : le sud ne se
 // vide jamais. Chaque soldat va droit sur le robot le plus proche. L'effectif dépend du nombre de joueurs (GD-090).
 import { CONFIG } from './config.ts';
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { vehicleVoice } from './broadcast.ts';
 import { BLOCK_MOVE } from './geom.ts';
 import { HOLDING, HUNTING } from './npc.ts';

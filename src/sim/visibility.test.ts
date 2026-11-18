@@ -53,7 +53,8 @@ test('sur le vrai niveau, ouvrir une porte laisse passer la lumière', () => {
   const sprites = JSON.parse(readFileSync(new URL('../../public/assets/sprites.json', import.meta.url), 'utf8')) as SpriteManifest;
   const w = new World(ground, sprites, 'PetBot', 1);
   const lamps = ground.instances.filter((i) => i.object === 'obj_lumiere');
-  assert.equal(lamps.length, 11);
+  // 11 lampes d'origine et 26 ajoutées à l'aile est, toutes dans le fichier du niveau depuis ADR-018
+  assert.equal(lamps.length, 37);
   // cherche une lampe et une porte fermée qu'elle voit : un point juste derrière la porte est dans l'ombre
   let found = false;
   for (const lamp of lamps) {

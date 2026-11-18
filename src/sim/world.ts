@@ -8,7 +8,6 @@ import {
 } from './geom.ts';
 import type { Obstacle } from './geom.ts';
 import { NavGrid } from './nav.ts';
-import { withAdditions } from './additions.ts';
 import { arrivalPhases, arrivalTotal as arrivalDuration, clawOf, introLines, introShot, typingSteps } from './intro.ts';
 import { blockedByFrontShield, explosionSteps, shieldIntercept, shieldTank, stepAbilityObjects } from './abilities.ts';
 import type { NewExplosion } from './abilities.ts';
@@ -19,7 +18,7 @@ import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession, studioCheckpoint, studioDoors } from './session.ts';
 import { CONTROL_ROOM_TAKEN, castReader, vehicleVoice } from './broadcast.ts';
 import { EXTRACTION_CALL, SCENE, pickupPhases, sceneLines, sceneTotal, standoffSpeaker } from './scenes.ts';
-import { TV_STUDIO } from './additions.ts';
+import { TV_STUDIO } from './landmarks.ts';
 import { HOLDING, engage, stageWave, stepWave } from './wave.ts';
 import type { RoomSave, Session } from './session.ts';
 import { NO_INPUT } from './types.ts';
@@ -136,7 +135,6 @@ export class World {
   constructor(level: LevelData, sprites: SpriteManifest, heroNames: string | string[], seed = 1, session: Session = createSession(heroNames, level.name)) {
     this.session = session;
     this.stats = session.stats;
-    level = withAdditions(level);
     this.level = level;
     this.sprites = sprites;
     this.width = level.width;

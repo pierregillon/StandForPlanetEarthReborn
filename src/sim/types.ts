@@ -79,11 +79,20 @@ export interface LevelDecal {
   depth: number;
 }
 
+/** Couche de la salle d'origine ; le jeu ne s'en sert pas, le fichier la conserve. */
+export interface LevelLayer {
+  name: string;
+  type: string;
+  depth: number;
+  visible: boolean;
+}
+
 export interface LevelData {
   name: string;
   width: number;
   height: number;
   background: { sprite: string | null; color: string; tiled: boolean };
+  layers?: LevelLayer[];
   objects: Record<string, LevelObjectInfo>;
   instances: LevelInstance[];
   walls: LevelWall[];
