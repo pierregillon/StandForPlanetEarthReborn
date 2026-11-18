@@ -30,7 +30,8 @@ Remake web (TypeScript, Phaser 3, serveur Node) du jeu GameMaker « Stand For Pl
 - **Sprites manquants** : en fabriquer est autorisé, fidèlement au style d'origine ; le consigner en `GD`.
 - **Vérifier** : `npm test` et `npm run typecheck`. Dans le navigateur, garder le panneau affiché, sinon la page tourne au ralenti.
 - **Feuille de route** : cocher ce qui est fait et ajouter une ligne au journal à chaque session.
-- **Git** : commits intermédiaires sur `main` ; pas de `git push` sans demande.
+- **Git** : commits intermédiaires sur `main` ; pas de `git push` sans l'accord de l'utilisateur.
+- **Proposer de pousser** : à la fin d'une étape, ou dès que plusieurs commits attendent, demander à l'utilisateur s'il veut pousser sur GitHub, sans attendre qu'il y pense. Il n'est pas expert de git : expliquer en une phrase ce qui part et pourquoi (éviter d'accumuler des changements locaux et des conflits).
 - **Livraison** : par étapes jouables ; l'utilisateur teste avant la suite.
 
 ## Frictions : améliorer ce guide
