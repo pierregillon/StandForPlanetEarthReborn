@@ -1,16 +1,25 @@
 // Panneaux de l'éditeur de niveaux (ADR-018), en HTML par-dessus le jeu : barre d'outils, palette, couches,
 // réglages de la sélection. Des champs de saisie, des listes et un sélecteur de couleur se font mieux en HTML
 // que dans Phaser ; la carte, elle, reste dessinée par EditorScene.
-import { CATEGORIES, EDITABLE, LIGHT_OBJECT, isInstance, lightRadius } from './model.ts';
+import { CATEGORIES, EDITABLE, LIGHT_OBJECT, isFloor, isInstance, lightRadius } from './model.ts';
 import type { Catalog, Category, Ent } from './model.ts';
-import type { LevelDecal, LevelInstance } from '../../sim/types.ts';
+import type { LevelDecal, LevelFloor, LevelInstance } from '../../sim/types.ts';
 
-export type PaletteItem = { kind: 'object'; object: string } | { kind: 'decal'; sprite: string } | { kind: 'light'; spot: boolean };
-/** Couches que l'on peut masquer : les familles d'éléments, plus les murs et les sols (pas encore éditables). */
-export type LayerId = Category | 'walls' | 'floors';
+export type PaletteItem =
+  | { kind: 'object'; object: string } | { kind: 'decal'; sprite: string } | { kind: 'light'; spot: boolean }
+  | { kind: 'floor'; tileset: string } | { kind: 'wall'; tool: 'thick' | 'thin' | 'erase' };
+/**
+ * Ce sur quoi on travaille : les objets (mobilier, lumières, décalques, portes), les murs (des cases que l'on
+ * peint) ou les sols (des rectangles). Un sol couvre toute une pièce : sans cette séparation, chaque clic sur
+ * la carte l'attraperait.
+ */
+export type Mode = 'objects' | 'walls' | 'floors';
+/** Couches que l'on peut masquer : les familles d'éléments, plus les murs. */
+export type LayerId = Category | 'walls';
 export type Field =
   | 'x' | 'y' | 'angle' | 'scaleX' | 'scaleY' | 'tint' | 'alpha' | 'bulletCrossed' | 'shadow'
-  | 'radius' | 'intensity' | 'color' | 'spot' | 'coneHalf';
+  | 'radius' | 'intensity' | 'color' | 'spot' | 'coneHalf'
+  | 'w' | 'h' | 'tileset' | 'phaseX' | 'phaseY' | 'doorId' | 'blockedOpen';
 
 export interface UiHandlers {
   exit(): void;
@@ -20,6 +29,7 @@ export interface UiHandlers {
   snap(step: number): void;
   lights(on: boolean): void;
   tool(item: PaletteItem | null): void;
+  mode(mode: Mode): void;
   layer(id: LayerId, visible: boolean): void;
   edit(field: Field, value: number | string | boolean): void;
   action(name: 'delete' | 'duplicate' | 'flipX' | 'flipY' | 'fit' | 'front' | 'back'): void;
@@ -57,6 +67,11 @@ const CSS = `
 .ed .panel.right { right: 0; border-width: 0 0 0 1px; }
 .ed .panel h3 { margin: 0; padding: 8px 10px 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8d9abb; }
 .ed .tabs { display: flex; gap: 4px; padding: 0 10px 8px; }
+.ed .tabs.modes button { font-weight: 600; }
+.ed .tools { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 8px; }
+.ed .tools button { text-align: left; padding: 8px 10px; }
+.ed .note { color: #8d9abb; font-size: 11.5px; line-height: 1.5; padding: 2px 10px 10px; }
+.ed .item .tex { width: 100%; height: 52px; border-radius: 3px; background-size: 96px auto; }
 .ed .tabs button { flex: 1; padding: 5px 4px; }
 .ed .search { margin: 0 10px 8px; }
 .ed .search input { width: 100%; }
@@ -127,11 +142,11 @@ export function colorToLamp(hex: string): { hue: number; sat: number } {
   return { hue: Math.round((h / 6) * 255), sat: Math.round((d / max) * 255) };
 }
 
-const LOCKED_LAYERS: { id: LayerId; label: string }[] = [{ id: 'walls', label: 'Walls' }, { id: 'floors', label: 'Floors' }];
+const EXTRA_LAYERS: { id: LayerId; label: string }[] = [{ id: 'walls', label: 'Walls' }];
 /** Couches masquées à l'ouverture : les zones de brouillard recouvrent toute la carte. */
 export const HIDDEN_AT_START: ReadonlySet<LayerId> = new Set<LayerId>(['fog']);
 
-type Tab = 'decor' | 'light' | 'decal';
+type Tab = 'decor' | 'light' | 'decal' | 'door';
 
 export class EditorUi {
   private readonly root: HTMLDivElement;
@@ -140,6 +155,12 @@ export class EditorUi {
   private readonly catalog: Catalog;
   private readonly spriteOf: (object: string) => string | null;
   private tab: Tab = 'decor';
+  private mode: Mode = 'objects';
+  private readonly tilesets: string[];
+  private readonly modeButtons = new Map<Mode, HTMLButtonElement>();
+  private readonly tabRow: HTMLDivElement;
+  private readonly searchBox: HTMLDivElement;
+  private readonly note: HTMLDivElement;
   private tool: PaletteItem | null = null;
   private readonly items: HTMLDivElement;
   private readonly tabs = new Map<Tab, HTMLButtonElement>();
@@ -162,8 +183,9 @@ export class EditorUi {
   private readonly fields = new Map<Field, (ent: Ent) => void>();
   private lightsOn = false;
 
-  constructor(title: string, catalog: Catalog, spriteOf: (object: string) => string | null, handlers: UiHandlers) {
+  constructor(title: string, catalog: Catalog, tilesets: string[], spriteOf: (object: string) => string | null, handlers: UiHandlers) {
     this.handlers = handlers;
+    this.tilesets = tilesets;
     this.catalog = catalog;
     this.spriteOf = spriteOf;
     this.style = el('style', { textContent: CSS });
@@ -195,12 +217,20 @@ export class EditorUi {
     ]);
 
     // ---- palette et couches
+    const modes = el('div', { class: 'tabs modes' });
+    for (const [id, label] of [['objects', 'Objects'], ['walls', 'Walls'], ['floors', 'Floors']] as const) {
+      const button = el('button', { textContent: label, onclick: () => handlers.mode(id) });
+      this.modeButtons.set(id, button);
+      modes.append(button);
+    }
     const tabs = el('div', { class: 'tabs' });
-    for (const [id, label] of [['decor', 'Props'], ['light', 'Lights'], ['decal', 'Decals']] as const) {
+    for (const [id, label] of [['decor', 'Props'], ['light', 'Lights'], ['decal', 'Decals'], ['door', 'Doors']] as const) {
       const button = el('button', { textContent: label, onclick: () => this.showTab(id) });
       this.tabs.set(id, button);
       tabs.append(button);
     }
+    this.tabRow = tabs;
+    this.note = el('div', { class: 'note' });
     this.search = el('input', { type: 'search', placeholder: 'Filter…', oninput: () => this.fillItems() });
     this.items = el('div', { class: 'items' });
     const layers = el('div', { class: 'layers' }, [el('h3', { textContent: 'Show' })]);
@@ -209,8 +239,9 @@ export class EditorUi {
       layers.append(el('label', { class: editable ? '' : 'locked', title: editable ? '' : 'Shown, not editable yet' }, [box, editable ? label : `${label} 🔒`]));
     };
     for (const c of CATEGORIES) layerRow(c.id, c.label, EDITABLE.has(c.id));
-    for (const l of LOCKED_LAYERS) layerRow(l.id, l.label, false);
-    const left = el('div', { class: 'panel left' }, [el('h3', { textContent: 'Place' }), tabs, el('div', { class: 'search' }, [this.search]), this.items, layers]);
+    for (const l of EXTRA_LAYERS) layerRow(l.id, l.label, true);
+    this.searchBox = el('div', { class: 'search' }, [this.search]);
+    const left = el('div', { class: 'panel left' }, [el('h3', { textContent: 'Edit' }), modes, tabs, this.searchBox, this.note, this.items, layers]);
 
     // ---- réglages de la sélection
     this.props = el('div', { class: 'props' });
@@ -226,7 +257,7 @@ export class EditorUi {
       if (e.key === 'Escape' || e.key === 'Enter') (e.target as HTMLElement).blur?.();
     });
     document.body.append(this.root);
-    this.showTab('decor');
+    this.setMode('objects');
     this.setSelection([]);
   }
 
@@ -296,6 +327,21 @@ export class EditorUi {
 
   // ---------- Palette ----------
 
+  /** Change de mode : la palette montre les objets à poser, les outils de mur ou les textures de sol. */
+  setMode(mode: Mode): void {
+    this.mode = mode;
+    for (const [id, button] of this.modeButtons) button.classList.toggle('on', id === mode);
+    this.tabRow.style.display = mode === 'objects' ? '' : 'none';
+    this.searchBox.style.display = mode === 'walls' ? 'none' : '';
+    this.items.className = mode === 'walls' ? 'tools' : 'items';
+    this.note.textContent = mode === 'walls'
+      ? 'Drag to draw a straight wall; the pieces (corners, ends, T) and the collisions follow. Eraser: drag a box over the walls to remove.'
+      : mode === 'floors' ? 'Pick a texture, then drag a rectangle on the map. Without a texture picked: click a floor to move, resize or delete it.' : '';
+    this.note.style.display = mode === 'objects' ? 'none' : '';
+    this.search.value = '';
+    this.fillItems();
+  }
+
   private showTab(tab: Tab): void {
     this.tab = tab;
     for (const [id, button] of this.tabs) button.classList.toggle('on', id === tab);
@@ -309,10 +355,26 @@ export class EditorUi {
 
   private fillItems(): void {
     const filter = this.search.value.trim().toLowerCase();
-    const entries: { item: PaletteItem; label: string; sprite: string | null; swatch?: string }[] = [];
-    if (this.tab === 'decor') {
+    if (this.mode === 'walls') {
+      const tools: [PaletteItem, string][] = [
+        [{ kind: 'wall', tool: 'thick' }, 'Thick wall — 64 px, outer walls'],
+        [{ kind: 'wall', tool: 'thin' }, 'Thin wall — 32 px, partitions'],
+        [{ kind: 'wall', tool: 'erase' }, 'Eraser — removes both kinds'],
+      ];
+      this.items.replaceChildren(...tools.map(([item, label]) => {
+        const button = el('button', { class: this.sameItem(this.tool, item) ? 'on' : '', textContent: label });
+        button.onclick = () => this.handlers.tool(this.sameItem(this.tool, item) ? null : item);
+        return button;
+      }));
+      return;
+    }
+    const entries: { item: PaletteItem; label: string; sprite: string | null; swatch?: string; texture?: string }[] = [];
+    if (this.mode === 'floors') {
+      for (const tileset of this.tilesets) entries.push({ item: { kind: 'floor', tileset }, label: tileset.replace(/^til_sol_/, ''), sprite: null, texture: `assets/floors/${tileset}.png` });
+    } else if (this.tab === 'decor' || this.tab === 'door') {
+      const wanted = this.tab === 'decor' ? ['decor'] : ['door', 'window'];
       for (const t of this.catalog.objects.values()) {
-        if (t.category === 'decor') entries.push({ item: { kind: 'object', object: t.object }, label: t.object.replace(/^obj_/, ''), sprite: this.spriteOf(t.object) });
+        if (wanted.includes(t.category)) entries.push({ item: { kind: 'object', object: t.object }, label: t.object.replace(/^obj_/, ''), sprite: this.spriteOf(t.object) });
       }
     } else if (this.tab === 'decal') {
       for (const sprite of this.catalog.decals.keys()) entries.push({ item: { kind: 'decal', sprite }, label: sprite.replace(/^spr_/, ''), sprite });
@@ -324,7 +386,8 @@ export class EditorUi {
     this.items.replaceChildren(...entries.filter((e) => e.label.toLowerCase().includes(filter)).map((e) => {
       const picture = e.sprite
         ? el('img', { src: `assets/sprites/${e.sprite}/0.png`, loading: 'lazy', alt: '' })
-        : el('div', { class: 'swatch', css: `background: ${e.swatch ?? '#444'}` });
+        : e.texture ? el('div', { class: 'tex', css: `background-image: url(${e.texture})` })
+          : el('div', { class: 'swatch', css: `background: ${e.swatch ?? '#444'}` });
       const button = el('button', { class: this.sameItem(this.tool, e.item) ? 'item on' : 'item', title: e.label }, [picture, el('span', { textContent: e.label })]);
       button.onclick = () => this.handlers.tool(this.sameItem(this.tool, e.item) ? null : e.item);
       return button;
@@ -354,6 +417,7 @@ export class EditorUi {
       '<b>Click</b> select · <b>Shift+click</b> add · <b>drag</b> move or box-select',
       '<b>R</b> / <b>Shift+R</b> rotate 15° (<b>Alt</b>: 1°) · drag the round handle',
       '<b>F</b> to front · <b>B</b> to back (overlapping elements)',
+      '<b>Objects / Walls / Floors</b> (top left) choose what the mouse edits',
       '<b>Del</b> delete · <b>Ctrl+D</b> duplicate · <b>arrows</b> nudge',
       '<b>WASD / ZQSD</b> or <b>right-drag</b> pan · <b>wheel</b> zoom',
       '<b>Esc</b> drop the tool or the selection · <b>G</b> snap · <b>L</b> lighting',
@@ -383,6 +447,14 @@ export class EditorUi {
     const inst = isInstance(ent) ? ent.data : null;
     const light = inst?.object === LIGHT_OBJECT;
     const rows: HTMLElement[] = [];
+    const choice = (field: Field, label: string, options: string[], read: (e: Ent) => string): void => {
+      const input = el('select', { onchange: () => h.edit(field, input.value) });
+      for (const value of options) input.append(el('option', { value, textContent: value.replace(/^til_sol_/, '') }));
+      this.fields.set(field, (e) => {
+        if (document.activeElement !== input) input.value = read(e);
+      });
+      rows.push(el('div', { class: 'row' }, [el('span', { textContent: label }), input]));
+    };
 
     const number = (field: Field, label: string, read: (e: Ent) => number, step = 1, min?: number, max?: number): void => {
       const input = el('input', { type: 'number', step: String(step) });
@@ -427,10 +499,24 @@ export class EditorUi {
       rows.push(el('label', { class: 'inline', title, css: 'margin: 6px 0' }, [input, label]));
     };
 
-    const data = (e: Ent): LevelInstance | LevelDecal => e.data;
+    const data = (e: Ent): LevelInstance | LevelDecal => e.data as LevelInstance | LevelDecal;
     const props = (e: Ent): Record<string, unknown> => (e.data as LevelInstance).props ?? {};
-    number('x', 'X', (e) => data(e).x);
-    number('y', 'Y', (e) => data(e).y);
+    number('x', 'X', (e) => e.data.x);
+    number('y', 'Y', (e) => e.data.y);
+    if (isFloor(ent)) {
+      const floor = (e: Ent): LevelFloor => e.data as LevelFloor;
+      number('w', 'Width', (e) => floor(e).w, 16, 16);
+      number('h', 'Height', (e) => floor(e).h, 16, 16);
+      choice('tileset', 'Texture', this.tilesets, (e) => floor(e).tileset);
+      number('phaseX', 'Pattern X', (e) => floor(e).phaseX ?? 0, 16);
+      number('phaseY', 'Pattern Y', (e) => floor(e).phaseY ?? 0, 16);
+      this.props.replaceChildren(
+        el('div', { class: 'what', textContent: `Floor · ${ent.data.tileset.replace(/^til_sol_/, '')}` }),
+        el('div', { class: 'sub', textContent: 'Drag it to move, drag a square handle to resize. To front / To back decide which floor covers the other.' }),
+        ...rows, actions, this.help(),
+      );
+      return;
+    }
     if (light) {
       slider('radius', 'Radius', (e) => lightRadius(e.data as LevelInstance), 60, 1600, 10);
       slider('intensity', 'Intensity', (e) => Number(props(e).lightIntensity ?? 0.5), 0, 1, 0.01);
@@ -449,6 +535,11 @@ export class EditorUi {
       if (inst && ent.category === 'decor') {
         check('bulletCrossed', 'Bullets fly over it', 'Low furniture: it stops the robots, not the shots.', (e) => props(e).bulletCrossed === true);
         number('shadow', 'Shadow height', (e) => Number(props(e).shadow ?? 0), 5, 0, 300);
+      }
+      // une porte à bouton et son bouton portent le même numéro
+      if (inst && (inst.object === 'obj_door' || inst.object === 'obj_button')) number('doorId', inst.object === 'obj_button' ? 'Opens door n°' : 'Door n°', (e) => Number(props(e).doorId ?? -1), 1, 0);
+      if (inst && ent.category === 'door' && inst.object !== 'obj_button' && inst.props.automaticDoor !== true) {
+        check('blockedOpen', 'Stays open once opened', 'A button or card door that does not close again.', (e) => props(e).blockedOpen === true);
       }
       actions.append(
         el('button', { textContent: 'Flip ↔', onclick: () => h.action('flipX') }),

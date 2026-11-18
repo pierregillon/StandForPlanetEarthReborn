@@ -1,5 +1,6 @@
 // Éditeur de niveaux (ADR-018) : la salle entière en caméra libre, tous ses éléments visibles, et de quoi
-// poser, déplacer, tourner, régler et retirer le décor, les lumières et les décalques. La sauvegarde réécrit
+// poser, déplacer, tourner, régler et retirer le décor, les lumières, les décalques, les portes et les
+// fenêtres ; peindre et effacer les murs ; tracer et redimensionner les sols. La sauvegarde réécrit
 // public/levels/<salle>.json par le serveur, sans commit (ADR-019).
 // Le modèle (éléments, historique) est dans editor/model.ts, les panneaux HTML dans editor/EditorUi.ts.
 import Phaser from 'phaser';
@@ -7,24 +8,35 @@ import { frameKey } from '../assets.ts';
 import type { FloorManifest } from '../assets.ts';
 import { Keys } from '../keys.ts';
 import { DEPTH, DRAW_ORDER_STEP, LIGHTING } from '../view/WorldView.ts';
-import { EditorModel, EDITABLE, LIGHT_OBJECT, buildCatalog, isInstance, lightProps, lightRadius } from '../editor/model.ts';
-import type { Change, Ent, EntData } from '../editor/model.ts';
+import { EditorModel, EDITABLE, LIGHT_OBJECT, buildCatalog, isFloor, isInstance, lightProps, lightRadius } from '../editor/model.ts';
+import type { Category, Change, Ent, EntData, Placed } from '../editor/model.ts';
+import { cellSize, editWalls, lineCells, wallObjects } from '../editor/walls.ts';
 import { EditorUi, HIDDEN_AT_START, colorToLamp, lampColor } from '../editor/EditorUi.ts';
-import type { Field, LayerId, PaletteItem } from '../editor/EditorUi.ts';
+import type { Field, LayerId, Mode, PaletteItem } from '../editor/EditorUi.ts';
 import { BLOCK_SIGHT, gmAngleToRad, localToWorld } from '../../sim/geom.ts';
 import type { CollisionWorld } from '../../sim/geom.ts';
 import { MAPS } from '../../sim/session.ts';
 import { visibilityPolygon } from '../../sim/visibility.ts';
 import { World } from '../../sim/world.ts';
-import type { LevelData, LevelDecal, LevelInstance, SpriteInfo, SpriteManifest } from '../../sim/types.ts';
+import type { LevelData, LevelDecal, LevelFloor, LevelInstance, LevelWall, SpriteInfo, SpriteManifest } from '../../sim/types.ts';
 import { LEVELS } from './BootScene.ts';
 
 type Point = { x: number; y: number };
+type Rect = { x: number; y: number; w: number; h: number };
 type Img = Phaser.GameObjects.Image;
 
 const ZOOM = { min: 0.07, max: 3, step: 0.88 };
 const TOP = { marker: 5400, light: 5500, overlay: 6000 };
 const ANGLE_STEP = 15;
+/** Plus petit côté d'un sol ou d'une zone que l'on redimensionne. */
+const MIN_SIDE = 16;
+const WALL_OBJECTS = wallObjects();
+/** Familles que la souris attrape dans chaque mode (parmi celles que l'éditeur sait retoucher). */
+const MODE_PICKS: Record<Mode, Category[]> = {
+  objects: ['decor', 'light', 'decal', 'door', 'window'],
+  walls: [],
+  floors: ['floor'],
+};
 
 interface Visual {
   ent: Ent;
@@ -34,6 +46,8 @@ interface Visual {
   marks: (Phaser.GameObjects.Shape | Phaser.GameObjects.Text)[];
   /** Cadre d'une zone (brouillard), à l'échelle de la carte. */
   frame: Phaser.GameObjects.Rectangle | null;
+  /** Texture répétée d'un sol. */
+  tile: Phaser.GameObjects.TileSprite | null;
 }
 
 interface LampBake {
@@ -50,7 +64,11 @@ type Drag =
   | { kind: 'pan'; x: number; y: number; camX: number; camY: number; moved: boolean }
   | { kind: 'move'; from: Point; start: Map<Ent, EntData>; lead: Ent; moved: boolean; cycle: Ent[] | null }
   | { kind: 'box'; from: Point; to: Point; add: boolean }
-  | { kind: 'rotate'; ent: Ent; before: EntData };
+  | { kind: 'rotate'; ent: Ent; before: EntData }
+  | { kind: 'resize'; ent: Ent; before: EntData; hx: number; hy: number }
+  | { kind: 'wall'; thick: boolean; from: Point; to: Point }
+  | { kind: 'erase'; from: Point; to: Point }
+  | { kind: 'floor'; tileset: string; from: Point; to: Point };
 
 const tintOf = (hex: string): number => parseInt(hex.replace('#', ''), 16);
 const normAngle = (deg: number): number => {
@@ -76,7 +94,12 @@ export class EditorScene extends Phaser.Scene {
   /** Rang de chaque élément dans la salle : à profondeur égale, le plus grand est dessiné devant, comme en jeu (GD-095). */
   private readonly ranks = new Map<number, number>();
   private wallImgs: Img[] = [];
-  private floorImgs: Phaser.GameObjects.TileSprite[] = [];
+  /** Les murs tels qu'ils sont dessinés : s'ils ne sont plus ceux du modèle, il faut les redessiner. */
+  private wallsDrawn: LevelWall[] | null = null;
+  private floorInfo: FloorManifest = {};
+  private mode: Mode = 'objects';
+  /** Numéro de la dernière porte à bouton posée ou sélectionnée : le prochain bouton posé l'ouvrira. */
+  private lastDoorId: number | null = null;
   private readonly layers = new Map<LayerId, boolean>();
   private selection: Ent[] = [];
   private hover: Ent | null = null;
@@ -122,7 +145,9 @@ export class EditorScene extends Phaser.Scene {
     this.lamps.clear();
     this.visuals.clear();
     this.wallImgs = [];
-    this.floorImgs = [];
+    this.wallsDrawn = null;
+    this.mode = 'objects';
+    this.lastDoorId = null;
     this.layers.clear();
     this.cameras.main.setBackgroundColor('#10131c').setZoom(1).setScroll(0, 0);
     const loading = this.add.text(width / 2, height / 2, 'Loading the level…', { fontFamily: 'Aldo', fontSize: '44px', color: '#cfd8ff' }).setOrigin(0.5);
@@ -148,15 +173,17 @@ export class EditorScene extends Phaser.Scene {
     // la salle ouverte d'abord : ses propres objets servent de modèles avant ceux des autres salles
     this.model = new EditorModel(level, buildCatalog([level, ...all.filter((l) => l.name !== level.name)]));
     this.model.onChange = (changes) => this.changed(changes);
-    for (const id of ['walls', 'floors', 'decor', 'light', 'decal', 'door', 'window', 'npc', 'fog', 'wall', 'marker'] as LayerId[]) this.layers.set(id, !HIDDEN_AT_START.has(id));
+    this.floorInfo = (this.cache.json.get('floors') ?? {}) as FloorManifest;
+    for (const id of ['walls', 'floor', 'decor', 'light', 'decal', 'door', 'window', 'npc', 'fog', 'wall', 'marker'] as LayerId[]) this.layers.set(id, !HIDDEN_AT_START.has(id));
     this.buildStatic(level);
+    this.drawWalls();
     this.rank();
     for (const ent of this.model.ents) this.show(ent);
     this.overlay = this.add.graphics().setDepth(TOP.overlay);
 
     const map = MAPS.find((m) => m.rooms.some((r) => r.room === level.name));
     const title = map ? `${map.title} · ${map.rooms.find((r) => r.room === level.name)?.title ?? level.name}` : level.name;
-    this.ui = new EditorUi(title, this.model.catalog, (object) => this.objectSprite(object), {
+    this.ui = new EditorUi(title, this.model.catalog, Object.keys(this.floorInfo).sort(), (object) => this.objectSprite(object), {
       exit: () => void this.leave(),
       save: (thenExit) => void this.save(thenExit),
       undo: () => this.undo(),
@@ -166,6 +193,7 @@ export class EditorScene extends Phaser.Scene {
       },
       lights: (on) => this.setLit(on),
       tool: (item) => this.setTool(item),
+      mode: (mode) => this.setMode(mode),
       layer: (id, visible) => this.setLayer(id, visible),
       edit: (field, value) => this.edit(field, value),
       action: (name) => {
@@ -204,6 +232,7 @@ export class EditorScene extends Phaser.Scene {
       this.ready = false;
     });
     this.ready = true;
+    this.ensureAssets();
     // accès depuis la console, pour le débogage et les essais automatiques
     (window as unknown as { sfpeEditor: unknown }).sfpeEditor = this;
   }
@@ -227,33 +256,65 @@ export class EditorScene extends Phaser.Scene {
   }
 
   private buildStatic(level: LevelData): void {
-    const floors = (this.cache.json.get('floors') ?? {}) as FloorManifest;
     this.add.rectangle(0, 0, level.width, level.height, tintOf(level.background.color)).setOrigin(0, 0).setDepth(DEPTH.background - 1);
     const bg = level.background.sprite;
     if (bg && this.textures.exists(frameKey(bg, 0))) this.add.tileSprite(0, 0, level.width, level.height, frameKey(bg, 0)).setOrigin(0, 0).setDepth(DEPTH.background);
-    for (const floor of level.floors) {
-      const info = floors[floor.tileset];
-      const srcKey = `floorsrc:${floor.tileset}`;
-      if (!info || !this.textures.exists(srcKey)) continue;
-      const key = `floor:${floor.tileset}`;
-      if (!this.textures.exists(key)) {
-        const canvas = this.textures.createCanvas(key, info.periodW, info.periodH);
-        if (!canvas) continue;
-        canvas.context.drawImage(this.textures.get(srcKey).getSourceImage() as HTMLImageElement, info.srcX, info.srcY, info.periodW, info.periodH, 0, 0, info.periodW, info.periodH);
-        canvas.refresh();
-      }
-      const ts = this.add.tileSprite(floor.x, floor.y, floor.w, floor.h, key).setOrigin(0, 0).setDepth(DEPTH.floor);
-      ts.tilePositionX = floor.phaseX ?? 0;
-      ts.tilePositionY = floor.phaseY ?? 0;
-      this.floorImgs.push(ts);
-    }
-    for (const w of level.walls) {
-      const sprite = level.objects[w.object]?.sprite;
-      const sp = this.info(sprite ?? null);
+  }
+
+  /** Redessine toutes les pièces de mur : une image par case, comme le jeu. */
+  private drawWalls(): void {
+    for (const img of this.wallImgs) img.destroy();
+    this.wallImgs = [];
+    const visible = this.layers.get('walls') ?? true;
+    for (const w of this.model.walls.walls) {
+      const sprite = (this.model.base.objects[w.object] ?? WALL_OBJECTS[w.object])?.sprite ?? null;
+      const sp = this.info(sprite);
       if (!sprite || !sp || !this.textures.exists(frameKey(sprite, 0))) continue;
       this.wallImgs.push(this.add.image(w.x, w.y, frameKey(sprite, 0)).setOrigin(sp.ox / sp.w, sp.oy / sp.h)
-        .setDepth(w.thick ? DEPTH.wallThick : DEPTH.wallThin).setAngle(-w.angle).setScale(w.scaleX, 1));
+        .setDepth(w.thick ? DEPTH.wallThick : DEPTH.wallThin).setAngle(-w.angle).setScale(w.scaleX, 1).setVisible(visible));
     }
+    this.wallsDrawn = this.model.walls.walls;
+  }
+
+  /** Texture répétée d'un sol, découpée dans l'image de son tileset (mêmes clés que le jeu) ; null si l'image n'est pas chargée. */
+  private floorTexture(tileset: string): string | null {
+    const info = this.floorInfo[tileset];
+    const srcKey = `floorsrc:${tileset}`;
+    if (!info || !this.textures.exists(srcKey)) return null;
+    const key = `floor:${tileset}`;
+    if (!this.textures.exists(key)) {
+      const canvas = this.textures.createCanvas(key, info.periodW, info.periodH);
+      if (!canvas) return null;
+      canvas.context.drawImage(this.textures.get(srcKey).getSourceImage() as HTMLImageElement, info.srcX, info.srcY, info.periodW, info.periodH, 0, 0, info.periodW, info.periodH);
+      canvas.refresh();
+    }
+    return key;
+  }
+
+  /**
+   * Le jeu ne charge que les images des salles telles qu'elles sont : l'éditeur charge en plus les pièces de
+   * mur et les textures de sol qu'aucune salle n'utilise encore, pour pouvoir les poser.
+   */
+  private ensureAssets(): void {
+    let queued = 0;
+    for (const info of Object.values(WALL_OBJECTS)) {
+      const sprite = info.sprite ?? '';
+      if (!this.sprites[sprite] || this.textures.exists(frameKey(sprite, 0))) continue;
+      this.load.image(frameKey(sprite, 0), `assets/sprites/${sprite}/0.png`);
+      queued++;
+    }
+    for (const [tileset, info] of Object.entries(this.floorInfo)) {
+      if (this.textures.exists(`floorsrc:${tileset}`)) continue;
+      this.load.image(`floorsrc:${tileset}`, `assets/${info.image}`);
+      queued++;
+    }
+    if (queued === 0) return;
+    this.load.once('complete', () => {
+      if (!this.ready) return;
+      this.drawWalls();
+      for (const ent of this.model.ents) if (ent.kind === 'floor' && !this.visuals.get(ent.uid)?.tile) this.show(ent);
+    });
+    this.load.start();
   }
 
   // ---------- Éléments ----------
@@ -266,6 +327,7 @@ export class EditorScene extends Phaser.Scene {
   private depthOf(ent: Ent): number {
     const order = (this.ranks.get(ent.uid) ?? this.model.ents.length) * DRAW_ORDER_STEP;
     if (ent.kind === 'decal') return DEPTH.decal + order;
+    if (ent.kind === 'floor') return DEPTH.floor + order;
     const inst = ent.data as LevelInstance;
     switch (ent.category) {
       case 'light': return TOP.light;
@@ -277,7 +339,7 @@ export class EditorScene extends Phaser.Scene {
     }
   }
 
-  private place(img: Img, sprite: string, data: EntData, depth: number): Img {
+  private place(img: Img, sprite: string, data: Placed, depth: number): Img {
     const sp = this.sprites[sprite];
     return img.setTexture(frameKey(sprite, 0)).setOrigin(sp.ox / sp.w, sp.oy / sp.h).setPosition(data.x, data.y).setRotation(gmAngleToRad(data.angle))
       .setScale(data.scaleX, data.scaleY).setTint(tintOf(data.tint)).setAlpha(data.alpha).setDepth(depth);
@@ -286,9 +348,23 @@ export class EditorScene extends Phaser.Scene {
   private show(ent: Ent): void {
     this.hide(ent);
     const visible = this.layers.get(ent.category) ?? true;
-    const visual: Visual = { ent, img: null, marks: [], frame: null };
+    const visual: Visual = { ent, img: null, marks: [], frame: null, tile: null };
+    if (isFloor(ent)) {
+      const floor = ent.data;
+      const key = this.floorTexture(floor.tileset);
+      if (key) {
+        visual.tile = this.add.tileSprite(floor.x, floor.y, floor.w, floor.h, key).setOrigin(0, 0).setDepth(this.depthOf(ent)).setVisible(visible);
+        visual.tile.tilePositionX = floor.phaseX ?? 0;
+        visual.tile.tilePositionY = floor.phaseY ?? 0;
+      } else {
+        // texture pas encore chargée : un cadre en attendant
+        visual.frame = this.add.rectangle(floor.x, floor.y, floor.w, floor.h, 0x5c7cfa, 0.15).setOrigin(0, 0).setStrokeStyle(2, 0x5c7cfa, 0.8).setDepth(DEPTH.floor + 1).setVisible(visible);
+      }
+      this.visuals.set(ent.uid, visual);
+      return;
+    }
     const sprite = this.entSprite(ent);
-    const data = ent.data;
+    const data = ent.data as Placed;
     if (sprite) {
       const frame = ent.kind === 'decal' ? Math.min((data as LevelDecal).frame, this.sprites[sprite].frames - 1) : 0;
       visual.img = this.place(this.add.image(0, 0, frameKey(sprite, 0)), sprite, data, this.depthOf(ent)).setFrame(0).setTexture(frameKey(sprite, Math.max(0, frame)));
@@ -326,29 +402,45 @@ export class EditorScene extends Phaser.Scene {
     if (!visual) return;
     visual.img?.destroy();
     visual.frame?.destroy();
+    visual.tile?.destroy();
     for (const m of visual.marks) m.destroy();
     this.visuals.delete(ent.uid);
   }
 
-  /** Contour d'un élément, en coordonnées de la carte : sert à le désigner et à l'encadrer. */
-  private outline(ent: Ent, data: EntData = ent.data): Point[] {
-    const sprite = this.entSprite(ent);
-    const sp = this.info(sprite);
-    if (sp) {
-      const angle = gmAngleToRad(data.angle);
-      return [[0, 0], [sp.w, 0], [sp.w, sp.h], [0, sp.h]].map(([px, py]) => localToWorld(data.x, data.y, angle, (px - sp.ox) * data.scaleX, (py - sp.oy) * data.scaleY));
+  /** Rectangle d'un élément qui en est un (sol, zone de brouillard) : on le redimensionne par ses poignées. */
+  private rectOf(ent: Ent, data: EntData = ent.data): Rect | null {
+    if (ent.kind === 'floor') {
+      const f = data as LevelFloor;
+      return { x: f.x, y: f.y, w: f.w, h: f.h };
     }
     if (ent.category === 'fog') {
-      const w = 64 * data.scaleX;
-      const h = 64 * data.scaleY;
-      return [{ x: data.x, y: data.y }, { x: data.x + w, y: data.y }, { x: data.x + w, y: data.y + h }, { x: data.x, y: data.y + h }];
+      const i = data as LevelInstance;
+      return { x: i.x, y: i.y, w: 64 * i.scaleX, h: 64 * i.scaleY };
+    }
+    return null;
+  }
+
+  private withRect(ent: Ent, data: EntData, r: Rect): EntData {
+    if (ent.kind === 'floor') return { ...(data as LevelFloor), x: r.x, y: r.y, w: r.w, h: r.h };
+    return { ...(data as LevelInstance), x: r.x, y: r.y, scaleX: r.w / 64, scaleY: r.h / 64 };
+  }
+
+  /** Contour d'un élément, en coordonnées de la carte : sert à le désigner et à l'encadrer. */
+  private outline(ent: Ent, data: EntData = ent.data): Point[] {
+    const rect = this.rectOf(ent, data);
+    if (rect) return [{ x: rect.x, y: rect.y }, { x: rect.x + rect.w, y: rect.y }, { x: rect.x + rect.w, y: rect.y + rect.h }, { x: rect.x, y: rect.y + rect.h }];
+    const placed = data as Placed;
+    const sp = this.info(this.entSprite(ent));
+    if (sp) {
+      const angle = gmAngleToRad(placed.angle);
+      return [[0, 0], [sp.w, 0], [sp.w, sp.h], [0, sp.h]].map(([px, py]) => localToWorld(placed.x, placed.y, angle, (px - sp.ox) * placed.scaleX, (py - sp.oy) * placed.scaleY));
     }
     const r = 20 / this.zoom;
     return [{ x: data.x - r, y: data.y - r }, { x: data.x + r, y: data.y - r }, { x: data.x + r, y: data.y + r }, { x: data.x - r, y: data.y + r }];
   }
 
   private pickable(ent: Ent): boolean {
-    return EDITABLE.has(ent.category) && (this.layers.get(ent.category) ?? true);
+    return EDITABLE.has(ent.category) && MODE_PICKS[this.mode].includes(ent.category) && (this.layers.get(ent.category) ?? true);
   }
 
   /** Éléments retouchables sous un point, celui du dessus d'abord. */
@@ -369,13 +461,15 @@ export class EditorScene extends Phaser.Scene {
       else this.hide(change.ent);
     }
     // un élément ajouté, retiré ou passé devant décale le rang des autres
-    for (const visual of this.visuals.values()) visual.img?.setDepth(this.depthOf(visual.ent));
+    for (const visual of this.visuals.values()) (visual.img ?? visual.tile)?.setDepth(this.depthOf(visual.ent));
+    const wallsChanged = this.model.walls.walls !== this.wallsDrawn;
+    if (wallsChanged) this.drawWalls();
     this.selection = this.selection.filter((ent) => this.model.ents.includes(ent));
     if (this.hover && !this.model.ents.includes(this.hover)) this.hover = null;
     this.ui?.setSelection(this.selection);
     // l'aperçu de l'éclairage : une lampe modifiée est redessinée tout de suite ; un autre élément a pu
     // déplacer une ombre, tout est alors recalculé un instant plus tard
-    if (changes.some((c) => c.ent.category !== 'light')) {
+    if (wallsChanged || changes.some((c) => c.ent.category !== 'light')) {
       this.litStale = true;
       this.rebuildAt = this.time.now + 350;
     } else if (this.lit && !this.litStale) {
@@ -392,6 +486,9 @@ export class EditorScene extends Phaser.Scene {
   private select(ents: Ent[]): void {
     this.selection = ents;
     this.ui?.setSelection(ents);
+    // le prochain bouton posé ouvrira la porte à bouton que l'on vient de choisir
+    const door = ents.length === 1 && isInstance(ents[0]) && ents[0].data.object === 'obj_door' ? Number(ents[0].data.props.doorId) : NaN;
+    if (Number.isFinite(door)) this.lastDoorId = door;
   }
 
   private undo(): void {
@@ -421,20 +518,31 @@ export class EditorScene extends Phaser.Scene {
   }
 
   private flip(horizontal: boolean): void {
-    this.mutate(this.selection, (d) => (horizontal ? { ...d, scaleX: -d.scaleX } : { ...d, scaleY: -d.scaleY }));
+    this.mutate(this.selection, (d, ent) => {
+      if (ent.kind === 'floor') return d;
+      const placed = d as Placed;
+      return horizontal ? { ...placed, scaleX: -placed.scaleX } : { ...placed, scaleY: -placed.scaleY };
+    });
   }
 
   /** Angle « utile » d'un élément : la direction du faisceau pour un projecteur, son orientation sinon ; null s'il n'en a pas. */
   private angleOf(ent: Ent, data: EntData = ent.data): number | null {
-    if (ent.category !== 'light') return data.angle;
+    if (this.rectOf(ent)) return null;
+    if (ent.category !== 'light') return (data as Placed).angle;
     const cone = (data as LevelInstance).props.coneAngle;
     return cone === undefined ? null : Number(cone);
   }
 
   private withAngle(ent: Ent, data: EntData, angle: number): EntData {
-    if (ent.category !== 'light') return { ...data, angle: normAngle(angle) };
+    if (this.rectOf(ent)) return data;
+    if (ent.category !== 'light') return { ...(data as Placed), angle: normAngle(angle) };
     const inst = data as LevelInstance;
     return inst.props.coneAngle === undefined ? data : { ...inst, props: { ...inst.props, coneAngle: normAngle(angle) } };
+  }
+
+  /** Portes et fenêtres suivent les murs : elles tournent par quarts de tour. */
+  private turnStep(categories: Category[]): number {
+    return categories.length > 0 && categories.every((c) => c === 'door' || c === 'window') ? 90 : ANGLE_STEP;
   }
 
   /** Tourne la sélection de `deg` degrés (sens antihoraire, comme les angles du jeu) ; un groupe tourne autour de son centre. */
@@ -474,14 +582,29 @@ export class EditorScene extends Phaser.Scene {
         case 'color': return props(d, { ...colorToLamp(String(value)) });
         case 'spot': return value === true ? props(d, { coneAngle: 0, coneHalf: 25 }) : props(d, {}, ['coneAngle', 'coneHalf']);
         case 'coneHalf': return props(d, { coneHalf: Number(value) });
+        case 'w': case 'h': return { ...d, [field]: Math.max(MIN_SIDE, Number(value)) };
+        case 'phaseX': case 'phaseY': return { ...d, [field]: Number(value) };
+        case 'tileset': return { ...(d as LevelFloor), tileset: String(value), object: String(value).replace(/^til_sol_/, 'obj_textureGenerator_') };
+        case 'doorId': return props(d, { doorId: Number(value) });
+        case 'blockedOpen': return props(d, { blockedOpen: value === true });
         default: return d;
       }
     }, `${ent.uid}:${field}`);
     // le projecteur a des réglages que la lampe n'a pas : le panneau change
-    if (field === 'spot') this.ui?.rebuild(this.selection);
+    if (field === 'spot' || field === 'tileset') this.ui?.rebuild(this.selection);
+    if (field === 'doorId' && isInstance(ent) && ent.data.object === 'obj_door') this.lastDoorId = Number(value);
   }
 
   // ---------- Outil de pose ----------
+
+  private setMode(mode: Mode): void {
+    if (mode === this.mode) return;
+    this.setTool(null);
+    this.select([]);
+    this.hover = null;
+    this.mode = mode;
+    this.ui?.setMode(mode);
+  }
 
   private setTool(item: PaletteItem | null): void {
     this.tool = item;
@@ -495,9 +618,26 @@ export class EditorScene extends Phaser.Scene {
     if (sprite && this.textures.exists(frameKey(sprite, 0))) this.ghost = this.add.image(0, 0, frameKey(sprite, 0)).setDepth(TOP.overlay - 1);
   }
 
+  /** Numéros de porte déjà pris dans la salle (portes à bouton et boutons). */
+  private doorIds(): number[] {
+    return this.model.ents.filter(isInstance).map((e) => Number(e.data.props.doorId)).filter((n) => Number.isFinite(n) && n >= 0);
+  }
+
   private newEnt(item: PaletteItem, at: Point): Ent | null {
-    if (item.kind === 'object') return this.model.makeInstance(item.object, at.x, at.y, this.ghostAngle);
+    if (item.kind === 'object') {
+      const ent = this.model.makeInstance(item.object, at.x, at.y, this.ghostAngle);
+      if (!ent || !isInstance(ent)) return ent;
+      // une porte à bouton neuve prend un numéro libre ; un bouton neuf ouvre la dernière porte posée ou choisie
+      if (item.object === 'obj_door') {
+        this.lastDoorId = Math.max(0, ...this.doorIds()) + 1;
+        ent.data = { ...ent.data, props: { ...ent.data.props, doorId: this.lastDoorId } };
+      } else if (item.object === 'obj_button') {
+        ent.data = { ...ent.data, props: { ...ent.data.props, doorId: this.lastDoorId ?? Math.max(0, ...this.doorIds()) } };
+      }
+      return ent;
+    }
     if (item.kind === 'decal') return this.model.makeDecal(item.sprite, at.x, at.y, this.ghostAngle);
+    if (item.kind !== 'light') return null;
     const props = lightProps(item.spot);
     if (item.spot) props.coneAngle = this.ghostAngle;
     return this.model.makeInstance(LIGHT_OBJECT, at.x, at.y, 0, props);
@@ -510,7 +650,15 @@ export class EditorScene extends Phaser.Scene {
       this.ui?.toast('This element cannot be placed in this room.', true);
       return;
     }
-    this.model.apply([{ ent, before: null, after: ent.data }]);
+    // une porte ou une fenêtre s'ouvre dans le mur : les pièces qu'elle recouvre sont retirées du même geste
+    let walls: LevelWall[] | null = null;
+    if ((ent.category === 'door' || ent.category === 'window') && isInstance(ent) && ent.data.object !== 'obj_button') {
+      const corners = this.outline(ent);
+      const xs = corners.map((c) => c.x);
+      const ys = corners.map((c) => c.y);
+      walls = editWalls(this.model.walls.walls, { erase: { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) } });
+    }
+    this.model.apply([{ ent, before: null, after: ent.data }], null, walls);
     this.select([ent]);
   }
 
@@ -527,6 +675,17 @@ export class EditorScene extends Phaser.Scene {
 
   private altDown(): boolean {
     return Keys.isDown('AltLeft', 'AltRight');
+  }
+
+  /** Poignées de redimensionnement de l'élément seul sélectionné, si c'est un rectangle : coins et milieux des côtés. */
+  private resizeHandles(): { ent: Ent; hx: number; hy: number; x: number; y: number }[] {
+    const ent = this.selection[0];
+    if (this.selection.length !== 1 || !ent || this.tool) return [];
+    const r = this.rectOf(ent);
+    if (!r) return [];
+    const handles: { ent: Ent; hx: number; hy: number; x: number; y: number }[] = [];
+    for (const hx of [-1, 0, 1]) for (const hy of [-1, 0, 1]) if (hx !== 0 || hy !== 0) handles.push({ ent, hx, hy, x: r.x + ((hx + 1) / 2) * r.w, y: r.y + ((hy + 1) / 2) * r.h });
+    return handles;
   }
 
   /** Poignée de rotation de l'élément seul sélectionné : un rond au bout d'un trait, dans la direction de son angle. */
@@ -551,8 +710,22 @@ export class EditorScene extends Phaser.Scene {
     }
     if (!p.leftButtonDown()) return;
     const shift = p.event.shiftKey;
+    if (this.tool?.kind === 'wall') {
+      this.drag = this.tool.tool === 'erase' ? { kind: 'erase', from: at, to: at } : { kind: 'wall', thick: this.tool.tool === 'thick', from: at, to: at };
+      return;
+    }
+    if (this.tool?.kind === 'floor') {
+      const from = { x: this.snapped(at.x, p.event.altKey), y: this.snapped(at.y, p.event.altKey) };
+      this.drag = { kind: 'floor', tileset: this.tool.tileset, from, to: from };
+      return;
+    }
     if (this.tool) {
       this.placeAt({ x: this.snapped(at.x, p.event.altKey), y: this.snapped(at.y, p.event.altKey) });
+      return;
+    }
+    const grip = this.resizeHandles().find((h) => Math.abs(at.x - h.x) < 10 / this.zoom && Math.abs(at.y - h.y) < 10 / this.zoom);
+    if (grip) {
+      this.drag = { kind: 'resize', ent: grip.ent, before: grip.ent.data, hx: grip.hx, hy: grip.hy };
       return;
     }
     const handle = this.handle();
@@ -592,8 +765,25 @@ export class EditorScene extends Phaser.Scene {
       if (Math.hypot(p.x - drag.x, p.y - drag.y) > 4) drag.moved = true;
       this.camX = drag.camX - (p.x - drag.x) / this.zoom;
       this.camY = drag.camY - (p.y - drag.y) / this.zoom;
-    } else if (drag.kind === 'box') {
+    } else if (drag.kind === 'box' || drag.kind === 'wall' || drag.kind === 'erase') {
       drag.to = at;
+    } else if (drag.kind === 'floor') {
+      drag.to = { x: this.snapped(at.x, p.event.altKey), y: this.snapped(at.y, p.event.altKey) };
+    } else if (drag.kind === 'resize') {
+      const r = this.rectOf(drag.ent, drag.before);
+      if (!r) return;
+      // le côté saisi suit le curseur, calé sur la grille ; le côté opposé ne bouge pas
+      let x0 = r.x;
+      let y0 = r.y;
+      let x1 = r.x + r.w;
+      let y1 = r.y + r.h;
+      const sx = this.snapped(at.x, p.event.altKey);
+      const sy = this.snapped(at.y, p.event.altKey);
+      if (drag.hx < 0) x0 = Math.min(sx, x1 - MIN_SIDE);
+      if (drag.hx > 0) x1 = Math.max(sx, x0 + MIN_SIDE);
+      if (drag.hy < 0) y0 = Math.min(sy, y1 - MIN_SIDE);
+      if (drag.hy > 0) y1 = Math.max(sy, y0 + MIN_SIDE);
+      this.preview(drag.ent, this.withRect(drag.ent, drag.before, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }));
     } else if (drag.kind === 'move') {
       if (!drag.moved && Math.hypot(at.x - drag.from.x, at.y - drag.from.y) < 5 / this.zoom) return;
       drag.moved = true;
@@ -606,7 +796,8 @@ export class EditorScene extends Phaser.Scene {
     } else {
       const d = drag.before;
       let angle = (Math.atan2(-(at.y - d.y), at.x - d.x) * 180) / Math.PI;
-      if (!p.event.altKey) angle = Math.round(angle / ANGLE_STEP) * ANGLE_STEP;
+      const step = this.turnStep([drag.ent.category]);
+      if (!p.event.altKey || step === 90) angle = Math.round(angle / step) * step;
       this.preview(drag.ent, this.withAngle(drag.ent, d, angle));
     }
   }
@@ -635,6 +826,27 @@ export class EditorScene extends Phaser.Scene {
       }
       const hit = this.model.ents.filter((e) => this.pickable(e) && e.data.x >= x0 && e.data.x <= x1 && e.data.y >= y0 && e.data.y <= y1);
       this.select(drag.add ? [...new Set([...this.selection, ...hit])] : hit);
+    } else if (drag.kind === 'wall') {
+      // un trait droit de cases, de l'épaisseur choisie
+      const cells = lineCells(drag.thick, drag.from, drag.to);
+      this.model.apply([], null, editWalls(this.model.walls.walls, { add: { thick: drag.thick, cells } }));
+    } else if (drag.kind === 'erase') {
+      const erase = { x0: Math.min(drag.from.x, drag.to.x), y0: Math.min(drag.from.y, drag.to.y), x1: Math.max(drag.from.x, drag.to.x), y1: Math.max(drag.from.y, drag.to.y) };
+      this.model.apply([], null, editWalls(this.model.walls.walls, { erase }));
+    } else if (drag.kind === 'floor') {
+      const x = Math.min(drag.from.x, drag.to.x);
+      const y = Math.min(drag.from.y, drag.to.y);
+      const w = Math.abs(drag.to.x - drag.from.x);
+      const h = Math.abs(drag.to.y - drag.from.y);
+      if (w < MIN_SIDE || h < MIN_SIDE) {
+        this.ui?.toast('Drag a rectangle to lay the floor.');
+        return;
+      }
+      const ent = this.model.makeFloor(drag.tileset, x, y, w, h);
+      this.model.apply([{ ent, before: null, after: ent.data }]);
+      // le sol est posé : on lâche la texture, pour le déplacer ou le redimensionner tout de suite
+      this.setTool(null);
+      this.select([ent]);
     } else if (drag.kind === 'move') {
       if (!drag.moved) {
         if (drag.cycle && !p.event.shiftKey) this.select([drag.cycle[(drag.cycle.indexOf(drag.lead) + 1) % drag.cycle.length]]);
@@ -706,7 +918,9 @@ export class EditorScene extends Phaser.Scene {
     }
     if (k === 'r') {
       // sens horaire à l'écran, Maj pour l'autre sens ; Alt : au degré près
-      const deg = (e.altKey ? 1 : ANGLE_STEP) * (e.shiftKey ? 1 : -1);
+      const placing = this.tool?.kind === 'object' ? this.model.catalog.objects.get(this.tool.object)?.category : undefined;
+      const step = this.turnStep(this.tool ? (placing ? [placing] : []) : this.selection.map((s) => s.category));
+      const deg = (e.altKey && step !== 90 ? 1 : step) * (e.shiftKey ? 1 : -1);
       if (this.tool) this.ghostAngle = normAngle(this.ghostAngle + deg);
       else this.rotateSelection(deg);
       return done();
@@ -747,12 +961,12 @@ export class EditorScene extends Phaser.Scene {
   private setLayer(id: LayerId, visible: boolean): void {
     this.layers.set(id, visible);
     if (id === 'walls') for (const img of this.wallImgs) img.setVisible(visible);
-    else if (id === 'floors') for (const img of this.floorImgs) img.setVisible(visible);
     else {
       for (const visual of this.visuals.values()) {
         if (visual.ent.category !== id) continue;
         visual.img?.setVisible(visible);
         visual.frame?.setVisible(visible);
+        visual.tile?.setVisible(visible);
         for (const m of visual.marks) m.setVisible(visible);
       }
       if (!visible) this.select(this.selection.filter((e) => e.category !== id));
@@ -899,8 +1113,17 @@ export class EditorScene extends Phaser.Scene {
     this.drawOverlay();
     this.ui?.setStatus({
       dirty: this.model.dirty, canUndo: this.model.canUndo, canRedo: this.model.canRedo, zoom: this.zoom, x: this.cursor.x, y: this.cursor.y,
-      hint: this.tool ? 'Click to place · R rotates · Esc or right-click to stop' : this.selection.length > 0 ? `${this.selection.length} selected` : '',
+      hint: this.hint(),
     });
+  }
+
+  private hint(): string {
+    const tool = this.tool;
+    if (tool?.kind === 'wall') return tool.tool === 'erase' ? 'Drag a box over the walls to remove · Esc to stop' : 'Drag to draw a straight wall · Esc to stop';
+    if (tool?.kind === 'floor') return 'Drag a rectangle to lay this floor · Esc to stop';
+    if (tool) return 'Click to place · R rotates · Esc or right-click to stop';
+    if (this.selection.length > 0) return `${this.selection.length} selected`;
+    return this.mode === 'walls' ? 'Pick a wall tool on the left' : this.mode === 'floors' ? 'Click a floor, or pick a texture on the left' : '';
   }
 
   private drawGhost(): void {
@@ -912,7 +1135,7 @@ export class EditorScene extends Phaser.Scene {
     const sprite = this.tool.kind === 'object' ? this.objectSprite(this.tool.object) : this.tool.kind === 'decal' ? this.tool.sprite : null;
     const sample = this.tool.kind === 'object' ? this.model.catalog.objects.get(this.tool.object)?.sample : this.tool.kind === 'decal' ? this.model.catalog.decals.get(this.tool.sprite) : null;
     if (!sprite || !sample) return;
-    this.place(ghost, sprite, { ...sample, x, y, angle: this.ghostAngle }, TOP.overlay - 1).setAlpha(0.6);
+    this.place(ghost, sprite, { ...(sample as Placed), x, y, angle: this.ghostAngle }, TOP.overlay - 1).setAlpha(0.6);
   }
 
   private drawLightShape(g: Phaser.GameObjects.Graphics, inst: LevelInstance, alpha: number): void {
@@ -957,6 +1180,37 @@ export class EditorScene extends Phaser.Scene {
       const at = { x: this.snapped(this.cursor.x, free), y: this.snapped(this.cursor.y, free) };
       g.fillStyle(0xffffff, 0.8).fillCircle(at.x, at.y, 12 * px);
       this.drawLightShape(g, { x: at.x, y: at.y, scaleX: 1, props } as LevelInstance, 0.8);
+    }
+    // en mode sols, le contour de chaque sol : on voit où ils commencent et lesquels se recouvrent
+    if (this.mode === 'floors' && (this.layers.get('floor') ?? true)) {
+      g.lineStyle(1 * px, 0x66d9e8, 0.55);
+      for (const ent of this.model.ents) {
+        if (ent.kind !== 'floor') continue;
+        const f = ent.data as LevelFloor;
+        g.strokeRect(f.x, f.y, f.w, f.h);
+      }
+    }
+    for (const grip of this.resizeHandles()) {
+      g.fillStyle(0xffd43b, 1).fillRect(grip.x - 5 * px, grip.y - 5 * px, 10 * px, 10 * px);
+      g.lineStyle(1.5 * px, 0x10131c, 1).strokeRect(grip.x - 5 * px, grip.y - 5 * px, 10 * px, 10 * px);
+    }
+    const drag = this.drag;
+    if (this.tool?.kind === 'wall' && this.tool.tool !== 'erase') {
+      // les cases que le trait va remplir ; au repos, celle sous le curseur
+      const thick = this.tool.tool === 'thick';
+      const size = cellSize(thick);
+      const cells = drag?.kind === 'wall' ? lineCells(thick, drag.from, drag.to) : lineCells(thick, this.cursor, this.cursor);
+      g.fillStyle(0x51cf66, drag?.kind === 'wall' ? 0.55 : 0.3);
+      for (const c of cells) g.fillRect(c.cx * size, c.cy * size, size, size);
+      g.lineStyle(1.5 * px, 0x51cf66, 1);
+      for (const c of cells) g.strokeRect(c.cx * size, c.cy * size, size, size);
+    }
+    if (drag?.kind === 'erase' || drag?.kind === 'floor') {
+      const color = drag.kind === 'erase' ? 0xff6b6b : 0x66d9e8;
+      const x = Math.min(drag.from.x, drag.to.x);
+      const y = Math.min(drag.from.y, drag.to.y);
+      g.fillStyle(color, 0.2).fillRect(x, y, Math.abs(drag.to.x - drag.from.x), Math.abs(drag.to.y - drag.from.y));
+      g.lineStyle(1.5 * px, color, 1).strokeRect(x, y, Math.abs(drag.to.x - drag.from.x), Math.abs(drag.to.y - drag.from.y));
     }
     if (this.drag?.kind === 'box') {
       const { from, to } = this.drag;

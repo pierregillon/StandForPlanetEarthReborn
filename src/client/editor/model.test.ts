@@ -37,9 +37,9 @@ test('les familles suivent le chargement du jeu : décor, lumières et décalque
   assert.equal(of('obj_npc_human_pistol'), 'npc');
   assert.equal(of('obj_warFog'), 'fog');
   assert.equal(of('obj_spawnHeros'), 'marker');
-  assert.equal(of('obj_button'), 'marker');
-  assert.ok(EDITABLE.has('decor') && EDITABLE.has('light') && EDITABLE.has('decal'));
-  assert.ok(!EDITABLE.has('npc') && !EDITABLE.has('door'));
+  assert.equal(of('obj_button'), 'door', 'le bouton se règle avec sa porte');
+  assert.ok(['decor', 'light', 'decal', 'floor', 'door', 'window'].every((c) => EDITABLE.has(c as never)));
+  assert.ok(!EDITABLE.has('npc') && !EDITABLE.has('fog') && !EDITABLE.has('marker'));
   const model = open();
   assert.equal(model.ents.filter((e) => e.category === 'light').length, 37);
   assert.equal(model.ents.filter((e) => e.kind === 'decal').length, level.decals.length);

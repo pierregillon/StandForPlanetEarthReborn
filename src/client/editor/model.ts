@@ -1,20 +1,23 @@
 // Modèle de l'éditeur de niveaux (ADR-018) : la salle en cours de retouche, ses éléments, l'historique des
 // modifications. Sans Phaser ni navigateur : l'affichage est dans EditorScene, les panneaux dans EditorUi.
 import { CONFIG } from '../../sim/config.ts';
-import type { LevelData, LevelDecal, LevelInstance, LevelObjectInfo } from '../../sim/types.ts';
+import type { LevelData, LevelDecal, LevelFloor, LevelInstance, LevelObjectInfo, LevelWall } from '../../sim/types.ts';
+import { wallObjects, wallRectsOf } from './walls.ts';
+import type { WallRect } from './walls.ts';
 
 /**
  * Famille d'un élément. L'éditeur les montre toutes ; seules celles de `EDITABLE` se retouchent pour l'instant
- * (étape 1 : décor, lumières, décalques). Les autres viennent avec leurs outils : murs, sols et portes, puis
- * personnages, brouillard et repères.
+ * (étape 1 : décor, lumières, décalques ; étape 2 : sols, portes, boutons et fenêtres, et les murs, qui ne sont
+ * pas des éléments mais des cases). Restent les personnages, le brouillard et les repères.
  */
-export type Category = 'decor' | 'light' | 'decal' | 'door' | 'window' | 'npc' | 'fog' | 'wall' | 'marker';
+export type Category = 'decor' | 'light' | 'decal' | 'floor' | 'door' | 'window' | 'npc' | 'fog' | 'wall' | 'marker';
 
 export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'decor', label: 'Furniture & props' },
   { id: 'light', label: 'Lights' },
   { id: 'decal', label: 'Floor decals' },
-  { id: 'door', label: 'Doors' },
+  { id: 'floor', label: 'Floors' },
+  { id: 'door', label: 'Doors & buttons' },
   { id: 'window', label: 'Windows' },
   { id: 'npc', label: 'Characters' },
   { id: 'fog', label: 'Fog zones' },
@@ -22,7 +25,7 @@ export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'marker', label: 'Spawns & triggers' },
 ];
 
-export const EDITABLE: ReadonlySet<Category> = new Set<Category>(['decor', 'light', 'decal']);
+export const EDITABLE: ReadonlySet<Category> = new Set<Category>(['decor', 'light', 'decal', 'floor', 'door', 'window']);
 
 export const LIGHT_OBJECT = 'obj_lumiere';
 /** Décor sans parent que le jeu dessine quand même (même liste que `DECOR_ONLY` de world.ts). */
@@ -34,7 +37,8 @@ const isA = (objects: Record<string, LevelObjectInfo>, object: string, ancestor:
 /** Famille d'un type d'objet, d'après les mêmes règles que le chargement d'une salle (`World.addInstance`). */
 export function categoryOf(objects: Record<string, LevelObjectInfo>, object: string): Category {
   if (object === LIGHT_OBJECT) return 'light';
-  if (isA(objects, object, 'obj_door_parent')) return 'door';
+  // le bouton d'une porte se règle avec elle : même numéro (`doorId`)
+  if (isA(objects, object, 'obj_door_parent') || object === 'obj_button') return 'door';
   if (object === 'obj_fenetre') return 'window';
   if (isA(objects, object, 'obj_localNpc')) return 'npc';
   if (object === 'obj_warFog') return 'fog';
@@ -45,17 +49,26 @@ export function categoryOf(objects: Record<string, LevelObjectInfo>, object: str
   return 'marker';
 }
 
-export type EntData = LevelInstance | LevelDecal;
+export type EntData = LevelInstance | LevelDecal | LevelFloor;
+/** Élément qui a un angle, une échelle et une teinte : tout sauf un sol. */
+export type Placed = LevelInstance | LevelDecal;
 
-/** Un élément de la salle : une instance ou un décalque. `data` est remplacé à chaque modification, jamais modifié en place. */
+/** Un élément de la salle : une instance, un décalque ou un sol. `data` est remplacé à chaque modification, jamais modifié en place. */
 export interface Ent {
   readonly uid: number;
-  readonly kind: 'instance' | 'decal';
+  readonly kind: 'instance' | 'decal' | 'floor';
   readonly category: Category;
   data: EntData;
 }
 
 export const isInstance = (ent: Ent): ent is Ent & { data: LevelInstance } => ent.kind === 'instance';
+export const isFloor = (ent: Ent): ent is Ent & { data: LevelFloor } => ent.kind === 'floor';
+
+/** Les murs d'une salle : les pièces dessinées et les rectangles de collision qui en découlent. */
+export interface WallState {
+  walls: LevelWall[];
+  wallRects: WallRect[];
+}
 
 /** Une modification d'un élément : `before` null = il est créé, `after` null = il est retiré. */
 export interface Change {
@@ -67,6 +80,8 @@ export interface Change {
 interface Step {
   /** Changement d'ordre (devant, derrière) : la liste des éléments avant et après. */
   order?: { before: Ent[]; after: Ent[] };
+  /** Murs peints ou effacés, seuls ou avec les éléments de la même étape (une porte posée ouvre le mur). */
+  walls?: { before: WallState; after: WallState };
   changes: Change[];
   /** Position de chaque élément retiré, pour le remettre à sa place. */
   indexes: Map<number, number>;
@@ -123,6 +138,7 @@ export class EditorModel {
   readonly base: LevelData;
   readonly catalog: Catalog;
   ents: Ent[] = [];
+  walls: WallState;
   private nextUid = 1;
   private serial = 0;
   private readonly ids = new Set<string>();
@@ -141,6 +157,8 @@ export class EditorModel {
       this.ents.push({ uid: this.nextUid++, kind: 'instance', category: categoryOf(level.objects, inst.object), data: inst });
     }
     for (const decal of level.decals) this.ents.push({ uid: this.nextUid++, kind: 'decal', category: 'decal', data: decal });
+    for (const floor of level.floors) this.ents.push({ uid: this.nextUid++, kind: 'floor', category: 'floor', data: floor });
+    this.walls = { walls: level.walls, wallRects: level.wallRects };
   }
 
   get dirty(): boolean {
@@ -189,6 +207,12 @@ export class EditorModel {
     return { uid: this.nextUid++, kind: 'decal', category: 'decal', data: { ...clone(sample), x, y, angle } };
   }
 
+  /** Nouveau sol : un rectangle rempli par la texture répétée d'un tileset, motif calé sur son coin haut-gauche. */
+  makeFloor(tileset: string, x: number, y: number, w: number, h: number): Ent {
+    const data: LevelFloor = { object: tileset.replace(/^til_sol_/, 'obj_textureGenerator_'), tileset, x, y, w, h, phaseX: 0, phaseY: 0 };
+    return { uid: this.nextUid++, kind: 'floor', category: 'floor', data };
+  }
+
   /** Copie d'un élément, décalée. */
   duplicate(ent: Ent, dx: number, dy: number): Ent {
     const data = clone(ent.data);
@@ -202,13 +226,15 @@ export class EditorModel {
    * Applique des modifications et les inscrit dans l'historique. `mergeKey` : des modifications successives
    * portant la même clé (un même réglage du même élément) ne comptent que pour une.
    */
-  apply(changes: Change[], mergeKey: string | null = null): void {
+  apply(changes: Change[], mergeKey: string | null = null, walls: LevelWall[] | null = null): void {
     const real = changes.filter((c) => c.before !== c.after && JSON.stringify(c.before) !== JSON.stringify(c.after));
-    if (real.length === 0) return;
+    const wallStep = walls && walls !== this.walls.walls ? { before: this.walls, after: { walls, wallRects: wallRectsOf(walls) } } : undefined;
+    if (real.length === 0 && !wallStep) return;
+    if (wallStep) this.walls = wallStep.after;
     const now = Date.now();
     const last = this.done[this.done.length - 1];
     const indexes = this.perform(real, 'after', new Map());
-    if (last && mergeKey !== null && last.mergeKey === mergeKey && now - last.at < MERGE_MS && this.done.length !== this.savedAt) {
+    if (last && !wallStep && mergeKey !== null && last.mergeKey === mergeKey && now - last.at < MERGE_MS && this.done.length !== this.savedAt) {
       // même réglage qui continue de bouger : l'étape garde son point de départ et prend la nouvelle arrivée
       for (const change of real) {
         const known = last.changes.find((c) => c.ent === change.ent);
@@ -218,7 +244,7 @@ export class EditorModel {
       last.at = now;
     } else {
       if (this.savedAt > this.done.length) this.savedAt = -1;
-      this.done.push({ changes: real, indexes, mergeKey, at: now });
+      this.done.push({ changes: real, indexes, mergeKey, at: now, walls: wallStep });
     }
     this.undone = [];
     this.onChange(real);
@@ -267,6 +293,7 @@ export class EditorModel {
   undo(): boolean {
     const step = this.done.pop();
     if (!step) return false;
+    if (step.walls) this.walls = step.walls.before;
     if (step.order) {
       this.ents = [...step.order.before];
       this.undone.push(step);
@@ -284,6 +311,7 @@ export class EditorModel {
   redo(): boolean {
     const step = this.undone.pop();
     if (!step) return false;
+    if (step.walls) this.walls = step.walls.after;
     if (step.order) {
       this.ents = [...step.order.after];
       this.done.push(step);
@@ -296,21 +324,25 @@ export class EditorModel {
     return true;
   }
 
-  /** La salle telle qu'elle sera écrite : les éléments dans leur ordre, et le type de chaque objet utilisé. */
+  /** La salle telle qu'elle sera écrite : les éléments dans leur ordre, les murs, et le type de chaque objet utilisé. */
   toLevel(): LevelData {
     const objects = { ...this.base.objects };
     const instances: LevelInstance[] = [];
     const decals: LevelDecal[] = [];
+    const floors: LevelFloor[] = [];
     for (const ent of this.ents) {
-      if (ent.kind === 'decal') {
-        decals.push(ent.data as LevelDecal);
-        continue;
+      if (ent.kind === 'decal') decals.push(ent.data as LevelDecal);
+      else if (ent.kind === 'floor') floors.push(ent.data as LevelFloor);
+      else {
+        const inst = ent.data as LevelInstance;
+        instances.push(inst);
+        const info = this.catalog.objects.get(inst.object)?.info;
+        if (!objects[inst.object] && info) objects[inst.object] = info;
       }
-      const inst = ent.data as LevelInstance;
-      instances.push(inst);
-      const info = this.catalog.objects.get(inst.object)?.info;
-      if (!objects[inst.object] && info) objects[inst.object] = info;
     }
-    return { ...this.base, objects, instances, decals };
+    // une pièce de mur posée par l'éditeur peut être d'un type que la salle n'avait pas (croix, plot)
+    const pieces = wallObjects();
+    for (const wall of this.walls.walls) if (!objects[wall.object] && pieces[wall.object]) objects[wall.object] = pieces[wall.object];
+    return { ...this.base, objects, instances, walls: this.walls.walls, wallRects: this.walls.wallRects, floors, decals };
   }
 }

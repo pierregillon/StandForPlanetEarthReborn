@@ -354,7 +354,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 - `npm test` couvre aussi `server/` (`server/levels.test.ts` commite dans un dépôt jetable).
 - `keys.ts` ignore les touches frappées dans un champ de saisie.
 - Le bouton « Explore the level » du menu est remplacé ; la caméra libre reste en jeu (ADR-017).
-- Reste à faire : étape 2 (murs, sols, portes, fenêtres), étape 3 (personnages, brouillard, points d'apparition, repères), puis création d'une salle et essai depuis l'éditeur. L'éditeur est dans le jeu livré : à retirer du build avant une mise en ligne publique, comme la caméra libre.
+- Reste à faire : étape 3 (personnages, brouillard, points d'apparition, repères), puis création d'une salle et essai depuis l'éditeur. L'étape 2 (murs, sols, portes, fenêtres) est livrée le même jour : les murs se peignent par cases, la pièce de chaque case se déduit de ses voisines (`src/client/editor/walls.ts`, règle relevée sur les salles d'origine) et les rectangles de collision sont refaits depuis les cases comme le fait le convertisseur ; les sols sont des éléments comme les autres ; trois modes (objets, murs, sols) disent ce que la souris attrape. L'éditeur est dans le jeu livré : à retirer du build avant une mise en ligne publique, comme la caméra libre.
 
 ## ADR-019 — La sauvegarde de l'éditeur n'écrit que le fichier ; le commit se décide avec l'agent
 

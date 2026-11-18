@@ -56,7 +56,7 @@ npm run level-map    ─▶ plans annotés en SVG dans docs/narration/plans/
 | `src/net/` | Multijoueur, partagé client et serveur | `snapshot.ts`, `mirror.ts`, `messages.ts`, `net.test.ts` |
 | `server/` | Serveur Node : fichiers statiques, WebSocket, salon, sauvegarde de l'éditeur | `main.ts`, `game.ts`, `levels.ts` |
 | `src/client/` | Affichage Phaser | `main.ts`, `scenes/` (menu, choix du niveau et du héros, salon, `GameScene.ts`), `view/WorldView.ts` (dessin du monde, effets), `view/Hud.ts`, `view/IntroOverlay.ts` (bandes de cinéma, dialogues), `assets.ts`, `sfx.ts`, `keys.ts` |
-| | Éditeur de niveaux | `scenes/EditorScene.ts`, `scenes/EditorSelectScene.ts`, `editor/model.ts` (éléments, historique), `editor/EditorUi.ts` (panneaux HTML) |
+| | Éditeur de niveaux | `scenes/EditorScene.ts`, `scenes/EditorSelectScene.ts`, `editor/model.ts` (éléments, historique), `editor/walls.ts` (murs : pièces et collisions), `editor/EditorUi.ts` (panneaux HTML) |
 | `tools/` | Fabrication | `build.ts` (esbuild vers `dist/game.js`), `convert-rooms.ts`, `extract-assets.ts` + `assets.config.json`, `make-sprites.ts`, `make-studio.ts`, `level-map.ts` ; `lib/` (lecture du projet GameMaker, PNG, dessin) |
 | `public/` | Ce que sert le serveur | `index.html`, `levels/*.json`, `assets/` (sprites, sols, sons et leurs manifestes), `fonts/` |
 
