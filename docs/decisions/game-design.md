@@ -92,9 +92,10 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-084 | Aile est, retouches : toilettes, local technique à deux portes, places de parking | 2026-11-17 | Acceptée ; modifie GD-083 |
 | GD-085 | Fin de TvTv², première partie : la régie, le plateau, l'ultimatum | 2026-11-17 | Acceptée ; modifie GD-010 (consignes) ; applique GD-077 (la zone de forage et SallyBot quittent ce niveau) et GD-083 (le message est lu depuis la place du présentateur) ; modifiée par GD-087 (texte de la consigne 7, état de la salle retrouvé après un Retry) |
 | GD-086 | Fin de TvTv², deuxième partie : la riposte de la police | 2026-11-17 | Acceptée ; applique GD-083 (la police arrive par le sud, l'équipe se replie par le nord) ; modifiée par GD-087 (déclenchement, tailles des groupes, trajet, consigne, Retry) |
-| GD-087 | La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde | 2026-11-17 | Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) ; modifiée par GD-088 (le changement de plan passe par une cinématique, consigne 8) |
+| GD-087 | La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde | 2026-11-17 | Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) ; modifiée par GD-088 (le changement de plan passe par une cinématique, consigne 8) et par GD-090 (effectifs) |
 | GD-088 | Le face-à-face avec le barrage de police | 2026-11-18 | Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 ; complétée par GD-089 (la sortie) |
 | GD-089 | Fin de TvTv², troisième partie : le portail nord, l'extraction, la fin du niveau | 2026-11-18 | Acceptée ; applique GD-083 (exfiltration par le nord) et le script de la fin (section 10.5 à 10.7 de la fiche du niveau) ; remplace la fin d'origine (zone de sortie vers la zone de forage, GD-077) |
+| GD-090 | Effectifs de la riposte : un groupe de onze, et plus à plusieurs | 2026-11-18 | Acceptée ; modifie GD-087 (tailles des groupes, renforts) |
 
 ---
 
@@ -1940,7 +1941,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 ## GD-087 — La riposte attend l'équipe au sud ; « Retry » rend le monde de la sauvegarde
 
 - **Date** : 2026-11-17
-- **Statut** : Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) ; modifiée par GD-088 (le changement de plan passe par une cinématique, consigne 8)
+- **Statut** : Acceptée ; modifie GD-086 (la riposte) et GD-085 (le point de sauvegarde du plateau) ; modifiée par GD-088 (le changement de plan passe par une cinématique, consigne 8) et par GD-090 (effectifs)
 - **Décidée par** : l'utilisateur, après avoir joué C2, pour les trois demandes : retrouver « exactement le même monde » après un Retry, faire arriver la vague quand l'équipe arrive sur le parking avec une consigne qui l'envoie au sud, et des groupes de 10, 15 puis 20 avec 45 ennemis au plus à la fois. Le reste est un choix par défaut, à confirmer : les dix premiers déjà en place devant les fourgons, les délais, le texte de la consigne, le filet de sécurité, ce que la sauvegarde retient
 
 **Contexte.** Deux défauts à l'essai. Un : à peine sorti du plateau, le joueur avait toute la troupe sur lui, puisqu'elle partait à la fin de l'ultimatum et ralliait le plateau. Deux : après un échec, « Retry » reconstruisait le rez-de-chaussée à neuf ; tous les gardes tués avant l'ultimatum revenaient, en plus de la riposte, et il y avait trop d'ennemis.
@@ -2017,3 +2018,26 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** Les poursuivants ne débouchent pas sur le dépose-minute pendant le départ : le monde est figé pendant la séquence. Le véhicule garde son orientation d'origine au lieu de pivoter vers le nord. L'ancienne zone de sortie (`exitZone`, `obj_endLevel`) reste dans le niveau, inactive. La séquence n'a pas été essayée à plusieurs à l'écran. La difficulté du dernier combat n'a pas été éprouvée en jouant.
 
 **Conséquences.** `src/sim/scenes.ts` (`SCENE.pickup`, `pickupPhases`, `pickupPose`, `pickupShot`, `pickupLines`, textes), `src/sim/world.ts` (`lockNorthGates`, `slowNorthGates`, `northGatePressed`, `stepExit`, `levelEnded` ; la séquence finie reste sur son dernier plan et le monde ne reprend pas), `CONFIG.exit`, `TV_STUDIO.exit`, consignes 9 et 10 de `OBJECTIVES`, événements `pickup` et `pickupNews`, champ `alert` des répliques. Affichage : `WorldView.syncPickup` (véhicule et robots saisis), `IntroOverlay.ts` (bandeau d'urgence, fond noir), `GameScene.ts` (cadres, titre de l'écran de fin). Tests : `src/sim/exit.test.ts` (huit tests).
+
+---
+
+## GD-090 — Effectifs de la riposte : un groupe de onze, et plus à plusieurs
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; modifie GD-087 (tailles des groupes, renforts)
+- **Décidée par** : l'utilisateur, après essai (« ça fait beaucoup »), pour les chiffres d'un joueur seul : à l'arrivée 8 policiers, 1 robot léger, 1 fusil à pompe, 1 robot bouclier ; puis la même composition en renfort toutes les 10 secondes ; et pour le principe d'un effectif qui grandit avec le nombre de joueurs. Le ratio et le plafond sont des choix par défaut, à confirmer
+
+**Contexte.** Avec GD-087, 45 soldats entraient en 14 secondes (10, puis 15, puis 20), puis 6 renforts toutes les 10 secondes. À l'essai, c'était trop pour un joueur seul.
+
+**Décision.**
+
+- **Un groupe**, pour un joueur seul : 8 policiers, 1 robot léger, 1 robot fusil à pompe, 1 robot bouclier, soit 11 soldats. C'est lui qui tient le barrage quand l'équipe arrive : dix en ligne devant les fourgons, le reste juste derrière.
+- **Les renforts** : le même groupe entre par les portails 4 toutes les 10 secondes, à compter de la fin du face-à-face. Les groupes de 15 et de 20 de GD-087 disparaissent.
+- **À plusieurs** : chaque effectif du groupe grossit de moitié par joueur en plus, arrondi au plus proche. Policiers : 8, 12, 16, 20 pour un à quatre joueurs ; chaque type de robot : 1, 2, 2, 3. Un groupe compte donc 11, 18, 22 ou 29 soldats.
+- **Un plafond** : un renfort n'entre que tant que la riposte compte moins de deux groupes debout (22 seul, 36 à deux, 44 à trois), et jamais plus de 45 soldats (à quatre). Il ne comble que la place libre.
+
+**Pourquoi.** Les chiffres d'un joueur seul sont ceux de l'utilisateur. Moitié plus par joueur est la règle déjà appliquée aux points de vie des soldats (GD-058) : à deux, il y a une fois et demie plus de soldats, chacun une fois et demie plus solide, soit 2,25 fois plus à abattre pour deux fois plus de puissance de feu ; l'écart se creuse à trois et à quatre, ce qui rend la partie plus dure quand on est nombreux, comme demandé. Sans plafond, la troupe grossirait sans fin devant un joueur qui recule sans tuer : deux groupes debout gardent le sud infranchissable sans noyer le repli. La limite de 45 est celle de GD-087, la seule dont le coût de calcul ait été mesuré.
+
+**Limites connues.** Aucun combat n'a été joué avec ces effectifs : ni la difficulté seul, ni la progression à plusieurs ne sont éprouvées. À deux et à trois joueurs, le nombre de robots est le même (2 de chaque).
+
+**Conséquences.** `CONFIG.wave` : `units`, `perExtraPlayer`, `reinforceEverySteps`, `maxAliveGroups`, `maxAlive` (à la place de `groups` et `reinforce`). `src/sim/wave.ts` : `waveGroup`, `waveGroupSize`, `waveCap`, `barricade` ; `TV_STUDIO.wave.rear`. Tests : `src/sim/wave.test.ts`.

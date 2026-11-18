@@ -141,6 +141,8 @@ export const TV_STUDIO = {
       { x: 10030, y: 5612 }, { x: 10052, y: 5736 }, { x: 10080, y: 5860 }, { x: 10058, y: 5980 }, { x: 10040, y: 6104 },
     ],
     outside: { x0: 9960, x1: 10650, y0: 6460, y1: 7120 },
+    /** Au-delà de dix, les suivants se rangent derrière la ligne et les fourgons, au plus près d'abord. */
+    rear: { x0: 10000, x1: 10900, y0: 4990, y1: 6060 },
     vans: [{ x: 10226, y: 5150, angle: 10 }, { x: 10256, y: 5650, angle: -12 }, { x: 10560, y: 5400, angle: 4 }],
   },
   /**

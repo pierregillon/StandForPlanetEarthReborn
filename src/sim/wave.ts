@@ -1,8 +1,8 @@
 // La riposte (GD-086 à GD-088) : après l'ultimatum, la police barre le parking sud. Ses fourgons sont en
 // travers, dix policiers en ligne devant. Rien ne bouge tant que l'équipe n'y est pas : c'est en arrivant sur
 // le parking qu'elle tombe sur le barrage. Un face-à-face se joue (`World.startStandoff`) ; à sa fin la police
-// ouvre le feu, les portails 4 s'ouvrent et la troupe grossit, groupe après groupe, puis par des renforts : le
-// sud ne se vide jamais. Chaque soldat va droit sur le robot le plus proche.
+// ouvre le feu, les portails 4 s'ouvrent, et un groupe de renfort entre toutes les dix secondes : le sud ne se
+// vide jamais. Chaque soldat va droit sur le robot le plus proche. L'effectif dépend du nombre de joueurs (GD-090).
 import { CONFIG } from './config.ts';
 import { TV_STUDIO } from './additions.ts';
 import { vehicleVoice } from './broadcast.ts';
@@ -26,6 +26,23 @@ export const HUNTING = 2;
 type Units = Record<string, number>;
 type Area = { x0: number; x1: number; y0: number; y1: number };
 type Spot = { x: number; y: number };
+
+/** Un groupe de la riposte pour cette partie : les effectifs d'un joueur seul, grossis selon le nombre de joueurs. */
+export function waveGroup(players: number): Units {
+  const cfg = CONFIG.wave;
+  const factor = 1 + cfg.perExtraPlayer * Math.max(0, players - 1);
+  return Object.fromEntries(Object.entries(cfg.units).map(([object, count]) => [object, Math.round(count * factor)]));
+}
+
+/** Nombre de soldats d'un groupe. */
+export function waveGroupSize(players: number): number {
+  return Object.values(waveGroup(players)).reduce((a, b) => a + b, 0);
+}
+
+/** Plafond de soldats de la riposte debout en même temps. */
+export function waveCap(players: number): number {
+  return Math.min(CONFIG.wave.maxAlive, CONFIG.wave.maxAliveGroups * waveGroupSize(players));
+}
 
 /** Liste des soldats d'un groupe, mélangés : les types arrivent entremêlés, pas par paquets. */
 function roster(world: World, units: Units): string[] {
@@ -134,16 +151,25 @@ function clearBarricade(world: World): void {
 }
 
 /**
- * Mise en place, à la fin de l'ultimatum : les fourgons barrent le parking, dix policiers sont en ligne devant
- * eux, tournés vers le bâtiment. Personne ne bouge encore.
+ * Places du barrage pour `count` soldats : la ligne devant les fourgons d'abord, puis, au-delà de dix, les
+ * places libres derrière elle, au plus près. Rendues dans l'ordre inverse : `deploy` les prend par la fin.
+ */
+function barricade(world: World, count: number): Spot[] {
+  const line = TV_STUDIO.wave.line.filter((p) => world.collision.circleFree(p.x, p.y, 30, BLOCK_MOVE));
+  const rear = freeSpots(world, TV_STUDIO.wave.rear, line).sort((a, b) => a.x - b.x || a.y - b.y);
+  return [...line, ...rear].slice(0, count).reverse();
+}
+
+/**
+ * Mise en place, à la fin de l'ultimatum : les fourgons barrent le parking, un groupe tient le barrage, en
+ * ligne devant eux, tourné vers le bâtiment. Personne ne bouge encore.
  */
 export function stageWave(world: World): void {
   world.waveSteps = 0;
-  world.waveGroup = 1;
   world.parkVans();
   clearBarricade(world);
-  const line = TV_STUDIO.wave.line.filter((p) => world.collision.circleFree(p.x, p.y, 30, BLOCK_MOVE));
-  world.waveHeld = deploy(world, CONFIG.wave.groups[0].units, line, 180, true);
+  const players = world.session.heroNames.length;
+  world.waveHeld = deploy(world, waveGroup(players), barricade(world, waveGroupSize(players)), 180, true);
 }
 
 /**
@@ -196,17 +222,11 @@ export function stepWave(world: World): void {
   }
   const t = ++world.waveSteps;
   if (world.wavePlanB > 0 && --world.wavePlanB === 0) radioPlanB(world);
-  // les groupes suivants arrivent de dehors, par les portails, de plus en plus nombreux
-  const group = cfg.groups[world.waveGroup];
-  if (group && t >= group.atSteps) {
-    deploy(world, group.units, outside(world), 90, false);
-    world.waveGroup++;
-  }
-  // puis des renforts, tant qu'il reste de la place dans la troupe
-  const last = cfg.groups[cfg.groups.length - 1].atSteps;
-  if (!group && (t - last) % cfg.reinforce.everySteps === 0) {
-    const room = cfg.reinforce.maxAlive - waveAlive(world).length;
-    if (room > 0) deploy(world, cfg.reinforce.units, outside(world), 90, false, room);
+  // un groupe de renfort entre de dehors, par les portails, tant qu'il reste de la place dans la troupe
+  if (t % cfg.reinforceEverySteps === 0) {
+    const players = world.session.heroNames.length;
+    const room = waveCap(players) - waveAlive(world).length;
+    if (room > 0) deploy(world, waveGroup(players), outside(world), 90, false, room);
   }
   // la traque : ceux qui n'ont plus personne en vue vont là où se trouve le robot le plus proche
   if (t % cfg.huntEverySteps !== 0) return;

@@ -254,10 +254,19 @@ Notes sur le texte :
 
 | Moment | Qui | D'où |
 |---|---|---|
-| À l'arrivée de l'équipe | 10 policiers | En ligne devant les fourgons qui barrent le parking, à plus de 400 px des portes du local technique. Le face-à-face se joue (ci-dessous) ; à sa fin ils tirent sans attendre |
-| + 6 secondes après le face-à-face | 15 de plus : 10 policiers, 3 robots boucliers, 2 robots fusils à pompe | Par les portails 4, qui se sont ouverts à l'arrivée de l'équipe |
-| + 14 secondes après le face-à-face | 20 de plus : 13 policiers, 4 robots légers, 3 robots boucliers | Par les portails 4 |
-| Ensuite, tant que l'équipe n'est pas sortie | 6 renforts toutes les 10 secondes, sans dépasser 45 ennemis vivants à la fois | Par les portails 4 |
+| À l'arrivée de l'équipe | Un groupe : 8 policiers, 1 robot léger, 1 robot fusil à pompe, 1 robot bouclier (11) | Au barrage : dix en ligne devant les fourgons, le reste juste derrière, à plus de 400 px des portes du local technique. Le face-à-face se joue (ci-dessous) ; à sa fin ils tirent sans attendre |
+| Toutes les 10 secondes après le face-à-face, tant que l'équipe n'est pas sortie | Le même groupe, en renfort | Par les portails 4, qui se sont ouverts à la fin du face-à-face. Seulement tant que la riposte compte moins de deux groupes debout (22 seul), et jamais plus de 45 soldats |
+
+**À plusieurs** (GD-090) : chaque effectif du groupe grossit de moitié par joueur en plus, arrondi au plus proche.
+
+| Joueurs | Policiers | Robots légers | Fusils à pompe | Boucliers | Groupe | Debout au plus |
+|---|---|---|---|---|---|---|
+| 1 | 8 | 1 | 1 | 1 | 11 | 22 |
+| 2 | 12 | 2 | 2 | 2 | 18 | 36 |
+| 3 | 16 | 2 | 2 | 2 | 22 | 44 |
+| 4 | 20 | 3 | 3 | 3 | 29 | 45 |
+
+Les chiffres d'un joueur seul sont de l'utilisateur ; ils remplacent les groupes de 10, 15 et 20 de GD-087, jugés trop nombreux à l'essai.
 
 - **Leur trajet** : chaque soldat va droit là où se trouve le robot le plus proche, et le suit si l'équipe se replie : le local technique, le salon de sortie, le plateau, puis le nord. Dès qu'il voit un robot, il se bat comme les autres soldats. Il n'y a plus de point de ralliement sur le plateau.
 - **Pourquoi des renforts sans fin** : la consigne dit « ils sont trop nombreux ». Si le joueur pouvait tuer les 45 et sortir par le sud, la consigne mentirait. Le sud ne se vide donc jamais, et il n'y a pas de sortie de ce côté.
@@ -327,7 +336,7 @@ Trois livraisons jouables, à essayer l'une après l'autre.
 1. **Le texte de l'ultimatum** (répliques 1 à 7), et le fait qu'il soit le même quel que soit le robot qui le lit.
 2. **Qui le lit** : le robot à la place du présentateur. L'autre possibilité : les quatre robots se partagent les phrases, ceux du véhicule par radio.
 3. **Ne pas montrer l'arrivée des fourgons** pour garder la surprise. L'autre possibilité : un plan du parking sud à la fin de l'ultimatum, plus spectaculaire, mais le joueur sait alors avant ses robots.
-4. **Des renforts sans fin au sud**, pour que « trop nombreux » soit vrai. L'utilisateur a fixé le plafond : 45 ennemis à la fois (GD-087).
+4. **Des renforts sans fin au sud**, pour que « trop nombreux » soit vrai. L'utilisateur a fixé la composition et le rythme (GD-090) ; le plafond de deux groupes debout et la progression à plusieurs sont proposés.
 5. **Le portail 3 qui s'ouvre en 10 secondes**, pour un dernier combat dos au mur ; et rien qui arrive par le nord.
 6. **La radio en jeu** qui ne fige pas l'action, en plus des cinématiques.
 7. **La fin** : le communiqué d'urgence, puis les trois répliques des robots.

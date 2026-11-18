@@ -10,7 +10,7 @@ import { retrySession } from './match.ts';
 import { LATE_FOR_DINNER, PLAN_B, POLICE, SCENE, SURRENDER, sceneLines, standoffPhases, standoffShot } from './scenes.ts';
 import { GROUND_FLOOR, OBJ, OBJECTIVES, createSession } from './session.ts';
 import type { Session } from './session.ts';
-import { HOLDING, HUNTING, NORTH_GARAGE, TOO_MANY, waveAlive } from './wave.ts';
+import { HOLDING, HUNTING, NORTH_GARAGE, TOO_MANY, waveAlive, waveCap, waveGroup, waveGroupSize } from './wave.ts';
 import { World } from './world.ts';
 import { NO_INPUT } from './types.ts';
 import type { Hero, Input, LevelData, SimEvent, SpriteManifest } from './types.ts';
@@ -79,7 +79,7 @@ const inside = (r: { x0: number; x1: number; y0: number; y1: number }, p: { x: n
 const size = (units: Record<string, number>): number => Object.values(units).reduce((a, b) => a + b, 0);
 const gates = (w: World): string[] => w.doors.filter((d) => d.kind === 'button' && d.doorId === CONFIG.wave.gates).map((d) => d.phase);
 
-test('à la fin de l\'ultimatum la police barre le parking sud : trois fourgons, dix policiers en ligne, portails fermés', () => {
+test('à la fin de l\'ultimatum la police barre le parking sud : trois fourgons, un groupe en ligne, portails fermés', () => {
   const { w } = after(['PetBot']);
   assert.equal(gates(w).length, 2);
   const decor = w.decor.length;
@@ -95,16 +95,20 @@ test('à la fin de l\'ultimatum la police barre le parking sud : trois fourgons,
     assert.equal(w.collision.circleFree(van.x, van.y, 40, BLOCK_MOVE), false, 'on ne le traverse pas');
   }
   for (let i = 0; i < vans.length; i++) for (let j = i + 1; j < vans.length; j++) assert.ok(Math.hypot(vans[i].x - vans[j].x, vans[i].y - vans[j].y) > 380);
-  // le premier groupe : dix policiers à pied, en ligne devant les fourgons, loin des portes par où l'équipe arrivera
+  // le groupe d'un joueur seul (GD-090) : huit policiers, un robot léger, un fusil à pompe, un bouclier. Les
+  // dix premiers sont en ligne devant les fourgons, le onzième juste derrière ; tous loin des portes
   const first = waveAlive(w);
-  assert.equal(first.length, 10);
+  assert.equal(first.length, 11);
+  const count = (object: string): number => first.filter((n) => n.object === object).length;
+  assert.deepEqual(['obj_npc_human_pistol', 'obj_npc_robot_lightBot', 'obj_npc_robot_shotBot', 'obj_npc_robot_shield'].map(count), [8, 1, 1, 1]);
   const line = TV_STUDIO.wave.line;
   assert.equal(line.length, 10);
+  const onLine = first.filter((npc) => line.some((p) => p.x === npc.x && p.y === npc.y));
+  assert.equal(onLine.length, 10, 'la ligne est pleine');
+  for (const npc of onLine) assert.ok(vans.slice(0, 2).every((van) => van.x > npc.x), 'devant les fourgons, côté bâtiment');
   for (const npc of first) {
-    assert.equal(npc.object, 'obj_npc_human_pistol');
-    assert.ok(line.some((p) => p.x === npc.x && p.y === npc.y), 'à une place de la ligne');
+    assert.ok(inside(TV_STUDIO.wave.rear, npc) || onLine.includes(npc), 'sur la ligne ou juste derrière');
     assert.ok(npc.x - 9584 > 400, 'à distance des portes du local technique');
-    assert.ok(vans.every((van) => van.x > npc.x), 'devant les fourgons, côté bâtiment');
     assert.ok(w.collision.circleFree(npc.x, npc.y, npc.def.radius * 0.5, BLOCK_MOVE), 'pas dans un fourgon');
     assert.ok(Math.cos(npc.angle) < -0.9, 'tourné vers le bâtiment');
     assert.deepEqual([npc.hunt, npc.alerted, npc.patrolType], [HOLDING, false, 'none']);
@@ -134,7 +138,7 @@ test('tant que l\'équipe n\'est pas au sud, rien ne bouge : ni renfort, ni radi
   events = events.concat(run(w, 60 * 5));
   assert.equal(w.waveSteps, 0);
   assert.equal(w.cast, -1);
-  assert.equal(waveAlive(w).length, 10);
+  assert.equal(waveAlive(w).length, waveGroupSize(2));
   assert.deepEqual(waveAlive(w).map((n) => [n.x, n.y]), places, 'les policiers n\'ont pas quitté leur place');
   assert.ok(gates(w).every((p) => p === 'closed'));
   assert.equal(events.filter((e) => e.type === 'radio' || e.type === 'standoff').length, 0);
@@ -185,7 +189,7 @@ test('le face-à-face : un robot arrive sur le parking, le monde se fige, la pol
   assert.equal(w.objective, 'Plan B: leave by the north garage');
   assert.equal(OBJECTIVES[OBJ.northGate], 'Plan B: leave by the north garage');
   const first = waveAlive(w);
-  assert.equal(first.length, 10);
+  assert.equal(first.length, waveGroupSize(2));
   for (const npc of first) assert.deepEqual([npc.hunt, npc.active, npc.alerted, npc.surpriseTimer], [HUNTING, true, true, 0], 'ils tirent sans attendre');
   assert.equal(end.filter((e) => e.type === 'radio').length, 0, 'le plan B est dit dans la séquence, pas à la radio');
   // et ils avancent vraiment
@@ -261,28 +265,61 @@ test('filet de sécurité : l\'équipe repart vers l\'ouest, la police se lance 
   assert.equal(run(w, 600).filter((e) => e.type === 'radio').length, 0, 'une seule fois');
 });
 
-test('la troupe grossit : dix, puis quinze, puis vingt, les deux derniers groupes par les portails', () => {
+test('l\'effectif dépend du nombre de joueurs : onze seul, puis moitié plus par joueur en plus (GD-090)', () => {
   const cfg = CONFIG.wave;
-  assert.deepEqual(cfg.groups.map((g) => size(g.units)), [10, 15, 20]);
-  assert.equal(cfg.reinforce.maxAlive, 45);
+  assert.deepEqual(cfg.units, { obj_npc_human_pistol: 8, obj_npc_robot_lightBot: 1, obj_npc_robot_shotBot: 1, obj_npc_robot_shield: 1 });
+  assert.deepEqual(waveGroup(1), cfg.units);
+  assert.deepEqual([1, 2, 3, 4].map((n) => waveGroup(n).obj_npc_human_pistol), [8, 12, 16, 20]);
+  assert.deepEqual([1, 2, 3, 4].map((n) => waveGroup(n).obj_npc_robot_shield), [1, 2, 2, 3]);
+  assert.deepEqual([1, 2, 3, 4].map(waveGroupSize), [11, 18, 22, 29]);
+  // le plafond : deux groupes debout, jamais plus de quarante-cinq soldats
+  assert.deepEqual([1, 2, 3, 4].map(waveCap), [22, 36, 44, 45]);
+  // à quatre, tout le groupe trouve sa place au barrage, sans se chevaucher ni se mettre dans un fourgon
+  const { w } = after(['PetBot', 'BatBot', 'EngiBot', 'BadaBot']);
+  run(w, 1);
+  const held = waveAlive(w);
+  assert.equal(held.length, 29);
+  for (const npc of held) {
+    assert.ok(inside(TV_STUDIO.parkings.south, npc) && npc.x - 9584 > 400);
+    assert.ok(w.collision.circleFree(npc.x, npc.y, npc.def.radius * 0.5, BLOCK_MOVE));
+    assert.equal(npc.hunt, HOLDING);
+  }
+  for (let i = 0; i < held.length; i++) for (let j = i + 1; j < held.length; j++) assert.ok(Math.hypot(held[i].x - held[j].x, held[i].y - held[j].y) > 90);
+});
+
+test('les renforts : le même groupe toutes les dix secondes par les portails, deux groupes debout au plus', () => {
+  const cfg = CONFIG.wave;
+  assert.equal(cfg.reinforceEverySteps, 600);
   const { w, session } = engaged(['PetBot']);
   const soldiers = session.stats.totalSoldier;
-  run(w, cfg.groups[1].atSteps - 2);
-  assert.equal(waveAlive(w).length, 10);
-  run(w, 2);
-  const second = waveAlive(w).slice(10);
-  assert.equal(second.length, 15);
+  run(w, cfg.reinforceEverySteps - 3);
+  assert.equal(waveAlive(w).length, 11, 'rien de plus pendant dix secondes');
+  run(w, 3);
+  const second = waveAlive(w).slice(11);
+  assert.equal(second.length, 11);
   assert.ok(second.every((n) => n.y > 6304), 'ils arrivent de dehors, au sud des portails');
   assert.ok(second.every((n) => n.hunt === HUNTING && n.active && n.surpriseTimer === 0), 'et ils savent où aller');
-  assert.deepEqual(second.map((n) => n.object).sort().filter((o, i, a) => a.indexOf(o) === i), ['obj_npc_human_pistol', 'obj_npc_robot_shield', 'obj_npc_robot_shotBot']);
-  run(w, cfg.groups[2].atSteps - cfg.groups[1].atSteps - 2);
-  assert.equal(waveAlive(w).length, 25);
-  run(w, 2);
-  assert.equal(waveAlive(w).length, 45);
-  assert.equal(session.stats.totalSoldier, soldiers + 35, 'ils comptent dans les statistiques de la partie');
-  // la troupe est au complet : pas de renfort tant que personne n'est tombé
-  run(w, cfg.reinforce.everySteps + 5);
-  assert.equal(waveAlive(w).length, 45);
+  const count = (object: string): number => second.filter((n) => n.object === object).length;
+  assert.deepEqual(['obj_npc_human_pistol', 'obj_npc_robot_lightBot', 'obj_npc_robot_shotBot', 'obj_npc_robot_shield'].map(count), [8, 1, 1, 1], 'la même composition');
+  assert.equal(session.stats.totalSoldier, soldiers + 11, 'ils comptent dans les statistiques de la partie');
+  // la troupe est au plafond : pas de renfort tant que personne n'est tombé
+  run(w, cfg.reinforceEverySteps * 2);
+  assert.equal(waveAlive(w).length, 22);
+  // cinq tombent : le renfort suivant ne comble que la place libre
+  for (const npc of waveAlive(w).slice(0, 5)) w.killNpc(npc);
+  run(w, cfg.reinforceEverySteps);
+  assert.equal(waveAlive(w).length, 22);
+  // tous tombent : un groupe entier revient, puis un second, jamais plus
+  for (const npc of waveAlive(w)) w.killNpc(npc);
+  run(w, cfg.reinforceEverySteps);
+  assert.equal(waveAlive(w).length, 11);
+  run(w, cfg.reinforceEverySteps * 4);
+  assert.equal(waveAlive(w).length, waveCap(1));
+  // à deux, les groupes sont plus gros
+  const duo = engaged(['PetBot', 'BatBot']);
+  assert.equal(waveAlive(duo.w).length, 18);
+  run(duo.w, cfg.reinforceEverySteps);
+  assert.equal(waveAlive(duo.w).length, 36);
 });
 
 test('la troupe traque les robots : l\'équipe repartie vers le nord, elle la suit à travers l\'aile', () => {
@@ -306,20 +343,6 @@ test('la troupe traque les robots : l\'équipe repartie vers le nord, elle la su
   assert.deepEqual(seen, { tech: true, studio: true }, 'par le local technique, puis le plateau');
 });
 
-test('des renforts remplacent ceux qui tombent, jamais plus de quarante-cinq debout', () => {
-  const { w } = engaged(['PetBot']);
-  const cfg = CONFIG.wave;
-  run(w, cfg.groups[2].atSteps + 2);
-  assert.equal(waveAlive(w).length, 45);
-  for (const npc of waveAlive(w).slice(0, 20)) w.killNpc(npc);
-  assert.equal(waveAlive(w).length, 25);
-  run(w, cfg.reinforce.everySteps);
-  assert.equal(waveAlive(w).length, 25 + size(cfg.reinforce.units), 'un groupe de renfort');
-  // et encore, jusqu'au plafond, jamais au-delà
-  run(w, cfg.reinforce.everySteps * 6);
-  assert.equal(waveAlive(w).length, cfg.reinforce.maxAlive);
-});
-
 test('un garde d\'origine qui se tenait à la place d\'un fourgon ou d\'un policier du barrage est écarté', () => {
   const { w } = after(['PetBot'], true);
   untouchable(w);
@@ -332,16 +355,16 @@ test('un garde d\'origine qui se tenait à la place d\'un fourgon ou d\'un polic
   w.step(NO_INPUT);
   assert.ok(Math.hypot(guards[0].x - van.x, guards[0].y - van.y) > 60);
   assert.ok(Math.hypot(guards[1].x - spot.x, guards[1].y - spot.y) > guards[1].def.radius + 40);
-  assert.equal(waveAlive(w).length, 10, 'la ligne est complète');
+  assert.equal(waveAlive(w).length, 11, 'le barrage est complet');
   for (const n of w.npcs) if (inside(TV_STUDIO.parkings.south, n)) assert.ok(w.collision.circleFree(n.x, n.y, n.def.radius * 0.5, BLOCK_MOVE), `${n.object} n'est pas dans un fourgon`);
 });
 
 test('après un échec, « Retry » ramène sur le plateau et le barrage est de nouveau en place, sans avoir bougé', () => {
   const { w, session } = engaged(['PetBot']);
   session.checkpoint = { room: GROUND_FLOOR, x: TV_STUDIO.regroup.x - 110, y: TV_STUDIO.regroup.y - 40, objective: OBJ.dropPoint };
-  run(w, CONFIG.wave.groups[1].atSteps);
+  run(w, CONFIG.wave.reinforceEverySteps);
   assert.equal(session.objective, OBJ.northGate);
-  assert.equal(waveAlive(w).length, 25);
+  assert.equal(waveAlive(w).length, 22);
   retrySession(session);
   assert.equal(session.objective, OBJ.dropPoint, 'la consigne du point de sauvegarde');
   const fresh = new World(ground, sprites, session.heroNames, 9, session);
@@ -349,7 +372,7 @@ test('après un échec, « Retry » ramène sur le plateau et le barrage est de 
   assert.equal(fresh.waveSteps, -1);
   for (let i = 0; i < 120; i++) fresh.step(NO_INPUT);
   assert.equal(fresh.waveSteps, 0);
-  assert.equal(waveAlive(fresh).length, 10);
+  assert.equal(waveAlive(fresh).length, 11);
   assert.ok(waveAlive(fresh).every((n) => n.hunt === HOLDING));
   assert.equal(fresh.decor.filter((d) => d.sprite === 'spr_pk_police_van').length, 3);
   // et le face-à-face se rejoue quand l'équipe revient sur le parking

@@ -592,17 +592,23 @@ export const CONFIG = {
     /** Numéro des portails par où elle entre, au sud. */
     gates: 4,
     /**
-     * Trois groupes de plus en plus nombreux, 10 puis 15 puis 20 (GD-087, demande de l'utilisateur). Le premier
-     * tient le barrage devant les fourgons ; l'horloge part à la fin du face-à-face (GD-088), et les suivants
-     * entrent alors de dehors par les portails. 45 soldats en tout.
+     * Un groupe, pour un joueur seul (GD-090, chiffres de l'utilisateur) : c'est ce qui tient le barrage quand
+     * l'équipe arrive, et c'est ce qui entre ensuite en renfort par les portails.
      */
-    groups: [
-      { atSteps: 0, units: { obj_npc_human_pistol: 10 } },
-      { atSteps: s(6), units: { obj_npc_human_pistol: 10, obj_npc_robot_shield: 3, obj_npc_robot_shotBot: 2 } },
-      { atSteps: s(14), units: { obj_npc_human_pistol: 13, obj_npc_robot_lightBot: 4, obj_npc_robot_shield: 3 } },
-    ] as { atSteps: number; units: Record<string, number> }[],
-    /** Ensuite, des renforts à intervalle régulier, tant que la troupe compte moins de `maxAlive` soldats debout. */
-    reinforce: { everySteps: s(10), maxAlive: 45, units: { obj_npc_human_pistol: 4, obj_npc_robot_shield: 1, obj_npc_robot_lightBot: 1 } as Record<string, number> },
+    units: { obj_npc_human_pistol: 8, obj_npc_robot_lightBot: 1, obj_npc_robot_shotBot: 1, obj_npc_robot_shield: 1 } as Record<string, number>,
+    /**
+     * À plusieurs, chaque effectif du groupe grossit de cette part par joueur en plus, arrondi au plus proche
+     * (8 policiers seul, 12 à deux, 16 à trois, 20 à quatre). Les soldats sont aussi plus solides (GD-058).
+     */
+    perExtraPlayer: 0.5,
+    /** Un groupe de renfort à cet intervalle, compté depuis la fin du face-à-face. */
+    reinforceEverySteps: s(10),
+    /**
+     * Les renforts n'entrent que tant que la riposte compte moins de ce nombre de groupes debout, et jamais plus
+     * de `maxAlive` soldats : sans plafond, la troupe grossirait sans fin devant un joueur qui recule.
+     */
+    maxAliveGroups: 2,
+    maxAlive: 45,
     /**
      * Quand la riposte part sans face-à-face (l'équipe a quitté l'aile par l'ouest) : temps avant que la voix
      * du véhicule annonce le changement de plan.

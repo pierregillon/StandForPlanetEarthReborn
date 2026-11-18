@@ -997,10 +997,9 @@ export class World {
   private castSirens = false;
   /**
    * La riposte (GD-086, GD-087) : -1 avant l'ultimatum ; 0 quand la police est en place au sud et attend ;
-   * puis les steps écoulés depuis que l'équipe l'a trouvée. `waveGroup` : rang du prochain groupe à faire entrer.
+   * puis les steps écoulés depuis que la police a ouvert le feu.
    */
   waveSteps = -1;
-  waveGroup = 0;
   /** Soldats du premier groupe posés devant les fourgons. */
   waveHeld = 0;
   /** Steps avant l'annonce radio du plan B, quand la riposte part sans face-a-face ; 0 sinon. */

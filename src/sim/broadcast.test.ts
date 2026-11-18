@@ -320,7 +320,7 @@ test('« Retry » après l\'ultimatum rend le monde de la sauvegarde : mêmes su
   w.breakWindow(later);
   w.outlets[0].energyLeft = 0;
   for (let i = 0; i < 30; i++) w.step(NO_INPUT);
-  assert.equal(w.npcs.filter((n) => n.hunt > 0).length, 10, 'la police est en place');
+  assert.equal(w.npcs.filter((n) => n.hunt > 0).length, 11, 'la police est en place');
   retrySession(session);
   const fresh = new World(ground, sprites, session.heroNames, 5, session);
   // mêmes survivants, à la même place, avec les mêmes points de vie ; seule la chaîne a quitté le plateau (GD-085)
