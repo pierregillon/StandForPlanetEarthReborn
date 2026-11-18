@@ -1,10 +1,10 @@
 # Feuille de route
 
-Dernière mise à jour : 2026-11-17.
+Dernière mise à jour : 2026-11-18.
 
 Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque étape, le jeu se lance et se joue ; l'utilisateur teste et corrige la direction avant l'étape suivante.
 
-**Tenir ce fichier à jour** : cocher ce qui est fait, noter la date, et ajouter une ligne dans « Journal d'avancement » à chaque session de travail.
+**Tenir ce fichier à jour** : cocher ce qui est fait, noter la date, et réécrire « État actuel » quand la situation ou la prochaine action change. L'historique des modifications est dans git (`git log`).
 
 ## État actuel
 
@@ -140,96 +140,3 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 - [ ] Équilibrage des ultis et du boss après essais à plusieurs.
 - [ ] Multijoueur public : plusieurs parties à la fois, reconnexion, hébergement, assets allégés.
 - Non planifié : manette, autres mondes, autres héros.
-
-## Journal d'avancement
-
-| Date | Ce qui a été fait |
-|---|---|
-| 2026-11-15 | Analyse du jeu d'origine (version 2019), cadrage du MVP avec l'utilisateur, création du dépôt et de la documentation. |
-| 2026-11-16 | Étape 1 : Node 22 portable, squelette du projet, outils d'extraction et de conversion, simulation (héros, ennemis, civils, portes, bornes), affichage, menus. Décisions GD-016 à GD-021 et ADR-009 à ADR-012. |
-| 2026-11-16 | Retours de l'utilisateur sur l'étape 1 (GD-022). Étape 2 : les quatre héros, leurs tirs principaux et secondaires, écran de choix, carte verte et portes à carte. Décisions GD-023 et GD-024. |
-| 2026-11-16 | Retours sur l'étape 2 (GD-025). Étape 3 : partie partagée entre les salles, escalier, étage, carte violette, consignes 1 à 4, sortie et fin provisoire (GD-026). |
-| 2026-11-16 | Boîtes bonus retirées (GD-027). Étape 4 : zone de forage, foreuses destructibles, boss SallyBot, brouillard de guerre, lumières, écran de score (GD-028). Le MVP est complet. |
-| 2026-11-16 | Retours de l'utilisateur sur le niveau complet (GD-029) : bornes à réserve limitée avec lien mobile et réparation, surplus d'énergie plus durable, bouclier des tanks qui casse, caméra vers le curseur, Retry au début du niveau, cartes redessinées, effets sur le robot, nom dans le HUD, réticule. |
-| 2026-11-16 | BatBot : R rappelle les battes, dégâts au retour, lueur sur les mains libres (GD-030). |
-| 2026-11-16 | Deuxième série de retours (GD-031) : point de sauvegarde devant le boss, vitesse et bonus d'énergie, dash intouchable, vitres traversées par le regard et les tirs, chaises à roulettes, boutons animés, déploiement, marqueur d'alerte, effets et sons de synthèse. 35 tests. |
-| 2026-11-16 | Rechargement animé et sonorisé par robot, jauge masquée à plein, écran de choix du point de départ dont le boss (GD-032). |
-| 2026-11-16 | Orbe de BadaBot placée avec les tables de coordonnées d'origine, rechargement de PetBot avec son autre bras, bruitages plus forts, cercle sombre retiré (GD-033). |
-| 2026-11-16 | Rechargement de PetBot avec ses sprites de déploiement (GD-034). Arrivée par le véhicule de largage d'origine au début du niveau (GD-035). 36 tests. |
-| 2026-11-16 | Les soldats vont voir d'où vient le bruit ; le « ! » ne s'affiche plus sous le brouillard (GD-036). 37 tests. |
-| 2026-11-16 | Départ à l'étage : portes déjà franchies ouvertes (GD-037). Lumières avec ombres portées par les murs et les portes, lampes colorées, lueur du héros ombrée (GD-038, ADR-013) ; 60 images par seconde conservées. 42 tests. |
-| 2026-11-16 | Premier multijoueur : simulation à plusieurs héros avec résurrection (GD-039), serveur de partie par WebSocket, salon avec choix exclusif des robots, miroir prédit côté client (GD-040, ADR-014). Essayé à deux onglets : salon, déplacement, tirs, changement de salle. 55 tests. |
-| 2026-11-16 | Retours du premier essai à deux (GD-041) : vignettes des coéquipiers, collision légère, balles qui traversent les alliés, animations complètes de tous les robots, lumière qui perce le brouillard, lueur de chaque joueur, départ à 5 s, chargement synchronisé. 57 tests. |
-| 2026-11-16 | Balles de PetBot sans soin ; HUD allégé (plus de chiffres ni d'indicateurs de dash), avatars des coéquipiers identiques au sien et collés à sa droite (GD-042). 57 tests. |
-| 2026-11-16 | Link entre héros (touche A), surcharge sans paliers, bornes partagées selon le nombre de joueurs, attaque ultime (touche F, 2 s de lancement) ; ulti de BatBot avec ses sprites fabriqués par `tools/make-sprites.ts` (GD-043, ADR-015). 65 tests. |
-| 2026-11-16 | Les quatre ultis (GD-044) : postures de lancement stables, effets séparés des sprites de robot, essaim de PetBot, mur de BadaBot, grenade d'EngiBot ; lien deux fois plus rapide ; avatar « ulti prêt » ; animation à distance corrigée. 68 tests. |
-| 2026-11-17 | Les trois mini-bots de PetBot l'accompagnent en permanence et partent en salve au tir secondaire (GD-045). 69 tests. |
-| 2026-11-17 | Mini-bots de PetBot deux fois plus gros, sortis un par un de son coffre, ombre à leur taille dessinée sur PetBot (GD-046). |
-| 2026-11-17 | Ulti de PetBot : ses trois mini-bots tournent autour de lui sur trois cercles, le plus grand marquant la zone de soin ; pas de tir secondaire pendant l'ulti (GD-047). 69 tests. |
-| 2026-11-17 | Lancement d'un ulti : robot immobile, arcs d'énergie autour de lui (GD-048). Corrigé : les sprites d'énergie du lancement et le nuage de poussière de BatBot n'étaient jamais chargés. |
-| 2026-11-17 | Lancement d'un ulti en trois temps : l'énergie de surcharge prend la couleur du robot, halo discret quatre fois plus petit (GD-049). |
-| 2026-11-17 | Ulti de PetBot : la ronde des mini-bots et le nuage suivent PetBot avec un léger retard (GD-050). |
-| 2026-11-17 | Ulti de BadaBot refait : il frappe ses boucliers, une vague d'énergie projette ennemis, chaises, débris et balles à deux écrans ; le mur est retiré (GD-051). 70 tests. |
-| 2026-11-17 | Vague de BadaBot : 2 points de dégâts au contact, onde découpée en bandes qui s'arrêtent chacune à son obstacle, dessin en onde, détonation de canon magnétique (GD-052). 71 tests. |
-| 2026-11-17 | L'onde de BadaBot fait 14 points de dégâts, comme le bond de BatBot (GD-053). |
-| 2026-11-17 | Boss plus coriace à plusieurs : +40 PV et +1 de vitesse par joueur en plus, charge sur un héros au hasard parmi ceux en vue (GD-054). 74 tests. |
-| 2026-11-17 | Tir principal de BadaBot rééquilibré : 2 points par boule au lieu de 20, 0,4 s entre deux tirs (GD-055). 75 tests. |
-| 2026-11-17 | Stats par rôle : vie 12/10/14/16, vitesse 11,5/14/13/10,5, batte de BatBot à 2, dashs 2/2/3/1, PetBot relève en 1,5 s (GD-056). 77 tests. |
-| 2026-11-17 | Chargeurs réduits : PetBot 12, EngiBot 18, BadaBot 9 (GD-057). |
-| 2026-11-17 | Ennemis : réglages par type (LightBot en rafales, ShotBot au contact), vie +50 % par joueur en plus, déplacement de combat propre à chaque arme (GD-058). 82 tests. |
-| 2026-11-17 | ShotBot plus vif (GD-059), un robot par pince du véhicule de largage et orbe de BadaBot en vol (GD-060), bornes identiques pour le client et le serveur au retour de l'étage (GD-061). 85 tests. |
-| 2026-11-17 | Balle de PetBot à 2 400 px/s comme les autres ; la traînée des balles suit leur vitesse (GD-062). |
-| 2026-11-17 | Corrigé : en réseau, un robot qui tirait en courant alternait posture de marche et posture de tir (GD-063). |
-| 2026-11-17 | Prototype à l'essai : balles trois fois plus rapides, dessinées en traits de lumière, éclair à la bouche des canons ; désactivable par `TRACERS.enabled` (GD-064). |
-| 2026-11-17 | Prototype des traits de lumière, suite : déflagration qui éclaire la pièce et s'éteint progressivement, traînées plus longues qui refroidissent vers le gris (GD-065). |
-| 2026-11-17 | Lueur des tirs : un cône étroit et intense vers l'avant au lieu d'un halo rond (GD-065). |
-| 2026-11-17 | Déflagration des tirs redessinée en flamme : langue de feu, pointes fines et étincelles (GD-065). |
-| 2026-11-17 | Tirs : la flamme part de la bouche du canon et s'éteint en s'en éloignant ; traînée des balles plus nette (GD-065). |
-| 2026-11-17 | Tirs : la flamme s'éteint sur place, tout entière en même temps (GD-065). |
-| 2026-11-17 | Tirs : la flamme jaillit du canon puis s'étire en s'éteignant, pour ne plus paraître y rentrer (GD-065). |
-| 2026-11-17 | Tirs : toute la flamme avance de 80 px en s'estompant (GD-065). |
-| 2026-11-17 | Tirs : la flamme avance de 40 px au lieu de 80 et s'éteint en 0,16 s au lieu de 0,3 s (GD-065). |
-| 2026-11-17 | Tirs : flamme plus droite (pointes à 8° au lieu de 20°) et plus brève (0,11 s) (GD-065). |
-| 2026-11-17 | Tirs : flamme réduite d'un quart ; traînée en étoile filante, aiguille pleine et nette, sans halo (GD-065). |
-| 2026-11-17 | Tirs : la traînée reste vive sur 1 000 px au lieu de 450, grise à 2 000 px au lieu de 1 150 (GD-065). |
-| 2026-11-17 | Tirs : la flamme naît au bout du canon mesuré sur chaque sprite et suit le tireur tant qu'elle brûle (GD-065). |
-| 2026-11-17 | Tirs : traînée en pleine couleur sur 800 px au lieu de 1 000 ; jaune des héros éclairci vers le blanc (GD-065). |
-| 2026-11-17 | Tirs : le sprite de chaque balle est réduit à l'épaisseur de sa traînée, 7,5 px (GD-065). |
-| 2026-11-17 | Tirs : une fumée chaude prend la place de la flamme, avance et s'efface en 0,4 s (GD-065). |
-| 2026-11-17 | Tirs : fumée redessinée en petits nuages cartoon cernés, avec ombre, reflet et volute, d'opacités variées (GD-065). |
-| 2026-11-17 | Tirs : fumée redessinée d'après le brouillard du jeu (spr_fog), nappes en aplats sans contour ; le dessin cartoon cerné est abandonné (GD-065). |
-| 2026-11-17 | Tirs : panache de fumée un peu plus court et plus ramassé (GD-065). |
-| 2026-11-17 | Civils en fuite plus rapides (GD-066) ; mort des humains : explosion plus forte, flaque, gouttes projetées, personnages éclaboussés (GD-067) ; viseurs laser retirés (GD-068). |
-| 2026-11-17 | Même explosion pour tous les humains (GD-067) ; traces de pas après une flaque de sang ou d'huile (GD-069) ; plus d'invulnérabilité après un dégât (GD-070). |
-| 2026-11-17 | Traces de pas moins nettes : bords grignotés, manques, traînées, usure croissante (GD-069). |
-| 2026-11-17 | Rechargement d'EngiBot : nouveau sprite fabriqué, le fusil en accordéon se comprime, chauffe et se détend (GD-071). |
-| 2026-11-17 | L'éclair de fin de rechargement est retiré pour tous les héros (GD-071). |
-| 2026-11-17 | Rechargement de PetBot : nouveau sprite fabriqué, trois doses de sérum pompées du dos vers l'arme par le tuyau (GD-072). |
-| 2026-11-17 | Plus de chargeur éjecté au rechargement (GD-071, GD-072) ; BadaBot : salve de trois boules, effet de tir plasma, bouclier à cinq balles par énergie (GD-073) ; dash prioritaire qui annule l'action en cours (GD-074). |
-| 2026-11-17 | BadaBot : chargeur de douze boules, quatre salves (GD-073) ; un soldat qui retrouve sa cible attend 0,35 s avant de tirer (GD-075). |
-| 2026-11-17 | Documentation : l'arc narratif de l'utilisateur entre dans le dépôt (`docs/narration/arc-narratif.md`) et devient la référence pour tout travail de scénario (GD-076) ; `AGENTS.md` devient le guide unique d'un agent (règles de travail et index du dépôt) ; `CLAUDE.md` ne fait plus que l'importer. |
-| 2026-11-17 | Game design, sans changement du jeu : le niveau en construction est TvTv² (acte II), la zone de forage et SallyBot en sortiront ; cinématique d'introduction en trois temps décidée, avec son texte (GD-077). |
-| 2026-11-17 | Niveau TvTv² : fiche de mission et script détaillé de la cinématique d'introduction, proposés à l'utilisateur (`docs/narration/niveau-tvtv2.md`) ; plans annotés des deux étages et outil `npm run level-map`. Aucun changement du jeu. |
-| 2026-11-17 | Niveau TvTv² : la régie doit être mitoyenne du plateau (GD-077). Le niveau d'origine a déjà les deux salles, séparées par une baie vitrée ; script et suite d'objectifs mis à jour, plan de détail de l'aile est. Aucun changement du jeu. |
-| 2026-11-17 | Introduction du niveau, première livraison (GD-078) : vol stationnaire et cinq répliques radio, les quatre robots dans les pinces, largage des seuls robots joués avec son échange, bandes de cinéma et boîte de dialogue, passage par l'hôte avec Espace. 96 tests. |
-| 2026-11-17 | Dialogues de l'introduction (GD-079, retour d'essai) : Espace passe à la réplique suivante, Espace tenu passe la séquence ; le véhicule attend le lecteur. 98 tests. |
-| 2026-11-17 | Introduction du niveau, deuxième livraison (GD-080) : le journal de TvTv² ouvre la séquence (plateau et régie, hall d'accueil, coupure, sortie de la caméra) ; plateau aménagé avec pupitre, présentateur et caméras (ADR-016). 99 tests. |
-| 2026-11-17 | Le plateau de TvTv² devient une vraie pièce de studio (GD-081, retour d'essai) : pièce fermée à deux portes, sol de résine, estrade au logo, pupitre courbe, projecteurs, mur d'écrans, coulisses ; portrait du présentateur en vrai sprite ; personne ne bouge pendant le journal. Sprites fabriqués par `npm run make-studio`. 101 tests. |
-| 2026-11-17 | Plateau de TvTv² (GD-082, retours de l'utilisateur) : les quatre projecteurs ont un faisceau braqué sur le présentateur, personnages et mobilier portent une ombre ; aucun garde sur le plateau au départ. 101 tests. |
-| 2026-11-17 | Aile est réorganisée (GD-083) : plateau à la hauteur de la régie, pupitre dégagé ; au nord dépose-minute, salon d'attente et maquillage ; au sud salon de sortie et parking ; parkings refaits (bitume, marquages) ; scénario de fin consigné (la police arrive par le sud, exfiltration par le nord). |
-| 2026-11-17 | Caméra libre (ADR-017) : « Explore the level » au menu, « Free camera » en pause, touche V ou `?view` ; déplacement au clavier, zoom à la molette, sans brouillard ; le jeu s'arrête en solo. |
-| 2026-11-17 | Aile est, retouches (GD-084, retours de l'utilisateur) : sièges face aux coiffeuses, toilettes au-dessus du maquillage, places de parking du fond retirées, local technique au sud jusqu'au mur extérieur avec deux portes sur le parking, canapés du salon sud retirés. 102 tests. |
-| 2026-11-17 | Caméra libre (ADR-017, retour de l'utilisateur) : l'éclairage est coupé au départ, la touche L le rallume. Une image du plateau coûte 5,5 ms sans lui, 9,5 ms avec. |
-| 2026-11-17 | Script de la fin de TvTv² écrit, à valider (`docs/narration/niveau-tvtv2.md`, section 10) : régie, ultimatum, vague de police par le sud, repli par le nord, récupération ; trois livraisons C1 à C3. Rien de codé. |
-| 2026-11-17 | Fin de TvTv², livraison C1 (GD-085) : consignes de la régie, du plateau et du message ; bouton de la régie, marque derrière le pupitre, cinématique de l'ultimatum, radio en jeu, point de sauvegarde sur le plateau. La zone de forage n'est plus reliée au niveau. 114 tests. Reste C2 (la vague) et C3 (la sortie) : le niveau n'a pas de fin d'ici là. |
-| 2026-11-17 | Fin de TvTv², livraison C2 (GD-086) : trois fourgons de police sur le parking sud, 45 soldats en trois arrivées par les portails 4, ralliement au plateau puis traque, renforts sans fin, changement de plan (deux répliques radio, consigne « Take the north gate »). Les PNJ apparus en cours de partie existent aussi chez les clients. 122 tests. Reste C3 (la sortie par le nord). |
-| 2026-11-17 | Riposte revue après essai (GD-087, demandes de l'utilisateur) : la police attend sur le parking sud et ne se lance qu'à l'arrivée de l'équipe ; groupes de 10, 15 puis 20, 45 ennemis au plus ; consigne « Leave by the south parking lot » ; « Retry » après l'ultimatum rend le monde de la sauvegarde (mêmes survivants, portes, vitres, bornes). 125 tests. Reste C3 (la sortie par le nord). |
-| 2026-11-18 | Face-à-face avec le barrage (GD-088, scène de l'utilisateur) : à l'arrivée sur le parking sud, une cinématique montre la ligne de police et ses fourgons en travers ; sommation du policier, réponse d'un robot (« late for dinner », puis le plan B) ; à la fin la police tire. Consigne 8 : « Plan B: leave by the north garage ». Portrait du policier dessiné. 127 tests. Reste C3. |
-| 2026-11-18 | Fin de TvTv², livraison C3 (GD-089) : le portail nord s'ouvre en dix secondes pendant le repli (« Hold on »), puis « Get out! » ; zone de sortie derrière le portail ; cinématique d'extraction (le véhicule reprend l'équipe), communiqué d'urgence, radio des robots, écran de fin. **Le niveau se joue du largage à la fin.** 135 tests. |
-| 2026-11-18 | Effectifs de la riposte revus (GD-090, chiffres de l'utilisateur) : un groupe de 11 seul (8 policiers, 1 robot léger, 1 fusil à pompe, 1 bouclier) au barrage, puis le même en renfort toutes les 10 secondes, deux groupes debout au plus ; moitié plus par joueur en plus (11, 18, 22, 29). 135 tests. |
-| 2026-11-18 | Choix de la carte et du point de départ (GD-091, demande de l'utilisateur) : même écran en solo et pour l'hôte d'une partie à plusieurs, après le choix des robots ; nouveau départ « AFTER THE BROADCAST », sur le plateau, police au sud. Raccourci `?play&start=studio`. 138 tests. |
-| 2026-11-18 | Retours d'essai sur la fin de TvTv² (GD-092) : face-à-face seulement à la porte du parking ; portail nord normal ; zone d'extraction au nord du bâtiment, toute l'équipe requise ; véhicule de gauche à droite, avec de la poussière près du sol (au largage aussi) ; local technique dégagé, potelets des parkings sans collision, deux chaises retirées du salon d'attente. 137 tests. |
-| 2026-11-18 | Tir principal de PetBot (GD-093, demande de l'utilisateur) : des mini-drones à tête chercheuse à la place des balles. Cliquer sur un ennemi le verrouille tant que le clic est tenu ; le drone le poursuit en contournant les obstacles et ne touche que lui ; sans cible, il va au point cliqué puis prend l'ennemi le plus proche ; contour rouge au survol. 145 tests. |
-| 2026-11-18 | Drone de PetBot, retour d'essai (GD-094) : plus de ciblage au clic ni de contour rouge, on clique devant les ennemis ; le drone va au point cliqué puis prend l'ennemi le plus proche dans 500 px ; report de cible à 500 px aussi. 146 tests. |
-| 2026-11-18 | Le projet tourne sur macOS (Node 24 par nvm), sans changement du code : `npm install`, typecheck, 146 tests, jeu lancé dans le navigateur. Consignes de lancement par plateforme dans le README et AGENTS.md (« Selon la machine ») ; emplacement du dépôt d'origine décrit sans chemin Windows (`../Stand-For-Planet-Earth` ou `SFPE_REFERENCE_REPO`). |
-| 2026-11-18 | `AGENTS.md` réorganisé (demande de l'utilisateur) : il ne garde que le comportement attendu et le sommaire, avec deux nouvelles règles : il doit rester concis, et chaque friction résolue doit donner lieu à une proposition d'amélioration du guide ou de la doc. Le détail en sort dans `docs/README.md` (sommaire de la documentation), `docs/developpement.md` (lancer, tester, déboguer, machines) et `docs/architecture-code.md` (principe, multijoueur, chaîne des assets, carte du code). Aucun changement du jeu. |

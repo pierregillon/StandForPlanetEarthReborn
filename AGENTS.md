@@ -29,7 +29,7 @@ Remake web (TypeScript, Phaser 3, serveur Node) du jeu GameMaker « Stand For Pl
 - **Code** : `src/sim`, `src/net` et `server` restent sans Phaser, sans navigateur et sans syntaxe TypeScript non effaçable (`enum`, propriétés-paramètres). Les valeurs d'équilibrage vont dans `src/sim/config.ts` seulement.
 - **Sprites manquants** : en fabriquer est autorisé, fidèlement au style d'origine ; le consigner en `GD`.
 - **Vérifier** : `npm test` et `npm run typecheck`. Dans le navigateur, garder le panneau affiché, sinon la page tourne au ralenti.
-- **Feuille de route** : cocher ce qui est fait et ajouter une ligne au journal à chaque session.
+- **Feuille de route** : cocher ce qui est fait et tenir « État actuel » à jour. L'historique des modifications est dans git (`git log`).
 - **Git** : commits intermédiaires sur `main` ; pas de `git push` sans l'accord de l'utilisateur.
 - **Proposer de pousser** : à la fin d'une étape, ou dès que plusieurs commits attendent, demander à l'utilisateur s'il veut pousser sur GitHub, sans attendre qu'il y pense. Il n'est pas expert de git : expliquer en une phrase ce qui part et pourquoi (éviter d'accumuler des changements locaux et des conflits).
 - **Livraison** : par étapes jouables ; l'utilisateur teste avant la suite.

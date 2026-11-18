@@ -6,7 +6,7 @@ Les sessions de travail ne partagent pas de mémoire : ces documents sont la mé
 
 | Document | Contenu |
 |---|---|
-| [02-feuille-de-route.md](02-feuille-de-route.md) | Étapes de livraison, état actuel, prochaine action, journal d'avancement (une ligne par changement) |
+| [02-feuille-de-route.md](02-feuille-de-route.md) | Étapes de livraison, état actuel, prochaine action. L'historique des modifications est dans git |
 | [01-cadre-mvp.md](01-cadre-mvp.md) | Périmètre de la première version, écarts voulus avec le jeu d'origine, sources de vérité, points ouverts |
 
 ## Narration
