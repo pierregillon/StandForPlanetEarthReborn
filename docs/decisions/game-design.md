@@ -98,6 +98,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-090 | Effectifs de la riposte : un groupe de onze, et plus à plusieurs | 2026-11-18 | Acceptée ; modifie GD-087 (tailles des groupes, renforts) |
 | GD-091 | Choix de la carte et du point de départ, aussi à plusieurs ; départ « après l'ultimatum » | 2026-11-18 | Acceptée ; étend GD-032 (choix du départ en solo) et GD-040 (salon multijoueur) |
 | GD-092 | Retours d'essai sur la fin de TvTv² : déclencheur du face-à-face, zone d'extraction, véhicule, passages dégagés | 2026-11-18 | Acceptée ; modifie GD-088 (déclencheur du face-à-face), GD-089 (portail nord, zone de sortie, sens du véhicule), GD-084 (mobilier de l'aile est) |
+| GD-093 | Tir principal de PetBot : des mini-drones à tête chercheuse | 2026-11-18 | Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas |
 
 ---
 
@@ -2093,3 +2094,35 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** La règle « toute l'équipe » n'a pas été essayée à plusieurs à l'écran. Si un robot à terre ne peut pas être relevé, l'équipe ne peut pas partir : à surveiller en jouant. La poussière est réglée à l'œil sur deux captures ; elle se règle dans `DUST` (`WorldView.ts`).
 
 **Conséquences.** `found` (`src/sim/wave.ts`), `HOLDING` ignoré par `stepNpcs` (`src/sim/npc.ts`), `CONFIG.standoff.doorRange`, `TV_STUDIO.wave.doors` ; `World.stepExit`, `World.inExitZone`, `TV_STUDIO.exit` (cercle), `pickupPose` (`shift`), `EXTRACTION_CALL`, `OBJECTIVES` (neuf consignes) ; `WorldView.ts` : `raiseDust`, `syncExitZone` ; `src/sim/additions.ts` pour le mobilier. Tests : `src/sim/exit.test.ts` réécrit, un test du déclencheur dans `src/sim/wave.test.ts`, `src/sim/intro.test.ts`.
+
+---
+
+## GD-093 — Tir principal de PetBot : des mini-drones à tête chercheuse
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas
+- **Décidée par** : l'utilisateur pour la mécanique (drone guidé, clic sur un ennemi, contour rouge, tolérance du clic, tir droit sans cible) et pour quatre points tranchés par ses réponses : verrouillage tant que le clic est tenu, tir sans cible qui va au point cliqué puis choisit une fois, report sur une autre cible si la sienne meurt, drone qui ne touche que sa cible, puissance inchangée. Sont des choix par défaut : toutes les valeurs chiffrées, et les règles signalées « par défaut » ci-dessous
+
+**Décision.** PetBot ne tire plus de balle. Son clic gauche lance un mini-drone, pour que son jeu soit cohérent avec le personnage (il commande des petits robots) et différent de celui des trois autres : il faut cliquer sur les ennemis.
+
+1. **Cliquer sur un ennemi le prend pour cible.** Le drone le poursuit, y compris s'il bouge. Si un obstacle les sépare, le drone cherche un chemin (la grille de navigation des PNJ) et contourne murs et décors. S'il n'y a pas de chemin, la tête chercheuse décroche : il continue tout droit et s'écrase.
+2. **Verrouillage.** L'ennemi cliqué reste la cible de tous les drones tant que le clic est tenu, même si le curseur s'en va. Relâcher puis recliquer change de cible. Si la cible meurt, le verrou tombe.
+3. **Sans ennemi sous le clic**, le drone part droit vers le point cliqué. Arrivé là, il cherche une seule fois un ennemi dans un rayon de 320 px autour de ce point et prend le plus proche du point. S'il n'y en a pas, il continue tout droit.
+4. **Cible morte en vol** : le drone se reporte sur l'ennemi le plus proche de lui (rayon de 520 px) ; à défaut, il file tout droit.
+5. **Un drone qui poursuit une cible ne touche qu'elle** : il passe au-dessus des autres ennemis. Par défaut : un drone sans cible (en route vers le point cliqué, ou après avoir décroché) touche le premier personnage qu'il rencontre, comme une balle.
+6. **Contour rouge.** Pour le joueur de PetBot seulement, l'ennemi que le clic prendrait pour cible est entouré de rouge au survol ; verrouillé, le contour s'épaissit et reste sur lui. La tolérance du clic est de 55 px autour de l'ennemi (son rayon + 55).
+7. **Puissance inchangée** : 1 dégât, 3 drones par seconde, chargeur de 12. Vitesse 22 px par step (une balle en fait 40). Par défaut : pas de dispersion, un drone est guidé.
+
+**Règles par défaut à connaître.**
+
+- On ne peut désigner qu'un ennemi que PetBot voit (pas à travers un mur). De même, un drone qui choisit seul sa cible (points 3 et 4) ne prend qu'un ennemi qu'il voit de là où il est. Seule une cible déjà verrouillée est poursuivie derrière un mur.
+- Les civils ne peuvent pas être pris pour cible. Les foreuses non plus : un drone tiré dessus sans cible les abîme en s'y écrasant, comme une balle.
+- Les portes automatiques ne s'ouvrent pas pour un drone : si le chemin passe par une porte fermée, il s'écrase dessus.
+- Le robot bouclier arrête le drone de face, comme une balle ; le drone ne le contourne pas pour le prendre à revers.
+- Le drone vole 2 600 px au plus, détours compris, puis s'éteint. Il brise les vitres qu'il traverse.
+
+**Pourquoi.** Demande de l'utilisateur : donner à PetBot un tir qui lui ressemble et un geste de jeu à part. Le verrouillage évite d'avoir à suivre du curseur un ennemi qui court ; le tir sans cible reste utile quand on clique à côté.
+
+**Limites connues.** Mesuré sur le vrai niveau, portes ouvertes : 127 cibles cachées sur 127 atteintes en contournant les murs. Non essayé en combat réel : l'équilibrage (un tir qui ne rate presque pas, à la même cadence qu'avant) est à juger en jouant. Le contour rouge a été vu au survol et verrouillé, en solo ; pas vu à plusieurs à l'écran (le test réseau vérifie que le verrou arrive chez le joueur).
+
+**Conséquences.** `CONFIG.abilities.petBot.seeker` (tous les réglages) ; `src/sim/abilities.ts` : `petBotFire1`, `seekerPick`, `stepSeeker` ; `Seeker`, `Hero.lock` (`src/sim/types.ts`) ; `World.seekers` ; liste `seekers` des instantanés réseau ; `WorldView.ts` : `SEEKER`, `syncMark` ; `GameScene.markSeekerTarget`. Tests : `src/sim/seeker.test.ts`, et le tir de PetBot dans `src/net/net.test.ts`. La balle `heroes.PetBot.bullet` n'est plus tirée.

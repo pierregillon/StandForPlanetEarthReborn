@@ -190,6 +190,9 @@ export interface Hero {
   reviveSteps: number;
   /** Soin fractionnaire accumulé (percentOfOneHp d'origine) : +1 PV quand il atteint 1. */
   healPool: number;
+  /** PetBot (GD-093) : PNJ verrouillé par le clic en cours, que visent tous ses drones ; -1 si aucun. */
+  lock: number;
+  fire1Was: boolean;
   // --- tir secondaire ---
   fire2Timer: number;
   fire2Was: boolean;
@@ -246,6 +249,29 @@ export interface Drone {
   level: number;
   startX: number;
   startY: number;
+}
+
+/** Mini-drone à tête chercheuse : le tir principal de PetBot (GD-093). */
+export interface Seeker {
+  id: number;
+  /** Rang du héros qui l'a lancé. */
+  owner: number;
+  x: number;
+  y: number;
+  angle: number;
+  /** PNJ poursuivi, -1 quand il vole tout droit. */
+  target: number;
+  /** Tir sans cible : distance qui le sépare encore du point cliqué, où il cherchera un ennemi ; 0 sinon. */
+  scout: number;
+  /** Le point cliqué. */
+  destX: number;
+  destY: number;
+  travelled: number;
+  /** Chemin vers la cible quand elle n'est pas en ligne droite. */
+  path: Point[] | null;
+  pathIdx: number;
+  /** Steps avant la prochaine recherche de chemin. */
+  replan: number;
 }
 
 export interface Explosion {

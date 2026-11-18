@@ -26,7 +26,7 @@ import { NO_INPUT } from './types.ts';
 import { clearEffects, stepEffects } from './ulti.ts';
 import type {
   Bat, Bullet, Button, Card, Chair, Checkpoint, DecorItem, Door, Drill, Drone, Explosion, Fog, Hero, Input, LevelData, LevelInstance, Npc, Outlet,
-  SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, UltiEffect, WindowPane, Zone,
+  Seeker, SimEvent, SpriteInfo, SpriteManifest, Stats, Turret, UltiEffect, WindowPane, Zone,
 } from './types.ts';
 
 const FALLBACK_SPRITE: SpriteInfo = {
@@ -72,6 +72,8 @@ export class World {
   npcs: Npc[] = [];
   bullets: Bullet[] = [];
   drones: Drone[] = [];
+  /** Mini-drones à tête chercheuse du tir principal de PetBot (GD-093). */
+  seekers: Seeker[] = [];
   explosions: Explosion[] = [];
   bats: Bat[] = [];
   /** Effets d'ultis en cours : essaim, mur, grenade. */
@@ -467,6 +469,7 @@ export class World {
       h.moving = false;
     }
     this.bullets.length = 0;
+    this.seekers.length = 0;
     this.emit({ type: 'castStart' });
   }
 
@@ -483,6 +486,7 @@ export class World {
     this.introLineSteps = 0;
     this.introHold = 0;
     this.bullets.length = 0;
+    this.seekers.length = 0;
     // le brouillard du parking finit de se lever d'un coup : figé à mi-course, il voilerait toute la scène
     const p = TV_STUDIO.parkings.south;
     this.fogs = this.fogs.filter((f) => f.x + f.w <= p.x0 || f.x >= p.x1 || f.y + f.h <= p.y0 || f.y >= p.y1);
@@ -606,6 +610,7 @@ export class World {
     this.introLineSteps = 0;
     this.introHold = 0;
     this.bullets.length = 0;
+    this.seekers.length = 0;
     for (const h of team) h.moving = false;
     this.emit({ type: 'pickup' });
   }
@@ -751,6 +756,7 @@ export class World {
     this.bats.length = 0;
     this.drones.length = 0;
     this.bullets.length = 0;
+    this.seekers.length = 0;
     this.exitCountdown = -1;
     for (const z of this.zones) {
       z.active = false;
@@ -935,6 +941,7 @@ export class World {
       dashCharges: def.dashCharges, dashRechargeTimer: 0, dashing: false, bump: false, targetX: x, targetY: y,
       deploySteps: 0, deployTotal: 0, arrivalSteps: 0, arrivalTotal: 0,
       invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0, repairTimer: 0, linkedOutlet: -1, overchargeHold: 0, healPool: 0,
+      lock: -1, fire1Was: false,
       fire2Timer: 0, fire2Was: false, fire2Hold: 0, fire2Anim: -1, speedFactor: 1,
       shieldUp: false, tanked: 0,
       bats: 2, swingRight: true, swing: 'd', swingSteps: 0, swingHit: new Set(), recallDone: false,

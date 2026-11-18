@@ -29,7 +29,7 @@ Quatre héros sélectionnables, avec les capacités du code de 2019. Tous : 12 P
 | BadaBot | Tir chargé : 1 à 3 boules de plasma explosives selon la durée de charge | Bouclier qui bloque les balles ennemies |
 | BatBot | Coups de batte au corps à corps | Lance une batte ; appui long pour rappeler les battes |
 | EngiBot | Rafale de balles qui rebondissent | Pose une tourelle (une seule à la fois) |
-| PetBot | Tir qui blesse les ennemis et soigne les alliés | Lâche 3 drones qui explosent et soignent autour d'eux |
+| PetBot | Tir qui blesse les ennemis et soigne les alliés (remake : des mini-drones à tête chercheuse, GD-093) | Lâche 3 drones qui explosent et soignent autour d'eux |
 
 Les tirs secondaires ont **4 stades de puissance**, par tranches de 3 points d'énergie (3, 6, 9, 12).
 

@@ -173,11 +173,33 @@ test('en jeu : les miroirs suivent le serveur, mon robot est prédit sans attend
   // à quelques pixels près : un PNJ qui marche est vu avec un instantané de retard
   assert.ok(seen && Math.abs(seen.x - npc.x) < 15 && seen.def === npc.def, 'les PNJ sont à leur place, avec leurs réglages');
 
-  // un tir : la balle apparaît chez l'autre joueur et continue d'avancer entre deux instantanés
+  // un tir de PetBot (GD-093) : ses mini-drones apparaissent chez l'autre joueur, à leur place
   for (let i = 0; i < 30; i++) step({ ...idle, aimX: 9000, fire1: true }, idle);
   assert.ok(world.heroes[0].ammo < world.heroes[0].def.magazine);
-  assert.ok(b.mirror.world.bullets.length > 0 || world.bullets.length === 0, 'les balles sont visibles chez l\'autre joueur');
+  assert.equal(world.bullets.length, 0);
+  assert.ok(world.seekers.length > 0);
+  b.mirror.frame(1000);
+  const drone = world.seekers[0];
+  const shown = b.mirror.world.seekers.find((d) => d.id === drone.id);
+  assert.ok(shown && Math.hypot(shown.x - drone.x, shown.y - drone.y) < 80, 'les drones sont visibles chez l\'autre joueur');
   assert.equal(a.mirror.world.heroes[0].ammo, world.heroes[0].ammo);
+  for (let i = 0; i < 12; i++) step(idle, idle);
+  // un clic sur un ennemi le verrouille : le joueur de PetBot le sait (c'est ce qui l'entoure de rouge)
+  const pet = world.heroes[0];
+  const foe = world.spawnNpc('obj_npc_human_pistol', pet.x + 500, pet.y, 0);
+  assert.ok(foe);
+  foe.hunt = 1; // il attend sans rien voir
+  foe.hp = 50;
+  const onFoe: Input = { ...idle, aimX: foe.x, aimY: foe.y, fire1: true };
+  for (let i = 0; i < 12; i++) step(onFoe, idle);
+  assert.equal(pet.lock, foe.id);
+  assert.equal(a.mirror.world.heroes[0].lock, foe.id, 'le verrou arrive chez le joueur de PetBot');
+  for (let i = 0; i < 40; i++) step(onFoe, idle);
+  assert.ok(foe.hp < 50, 'les drones verrouillés touchent leur cible');
+  for (let i = 0; i < 12; i++) step(idle, idle);
+  assert.equal(a.mirror.world.heroes[0].lock, -1, 'clic relâché : plus de verrou');
+  world.npcs = world.npcs.filter((n) => n !== foe);
+  for (let i = 0; i < 12; i++) step(idle, idle);
 
   // trafic : en régime calme, un client reçoit peu de choses
   a.bytes = 0;

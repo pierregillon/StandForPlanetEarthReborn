@@ -41,9 +41,9 @@ function array(name: 'npcs' | 'doors' | 'buttons' | 'windows' | 'outlets' | 'car
   };
 }
 
-function spawned(name: 'bullets' | 'drones' | 'explosions' | 'bats' | 'effects', blank: () => Entity, coast: string[] = []): ListDef {
+function spawned(name: 'bullets' | 'drones' | 'seekers' | 'explosions' | 'bats' | 'effects', blank: () => Entity, coast: string[] = [], skip: string[] = []): ListDef {
   return {
-    name, coast, blank,
+    name, coast, blank, skip,
     get: (w) => w[name] as unknown as Entity[],
     add: (w, e) => {
       (w[name] as unknown as Entity[]).push(e);
@@ -116,7 +116,7 @@ export const LISTS: ListDef[] = [
     name: 'heroes',
     get: (w) => w.heroes as unknown as Entity[],
     // walkDist (animation des jambes) est recalculé par le client à partir du déplacement affiché
-    skip: ['energyTimer', 'energyPause', 'fireTimer', 'chargeTimer', 'repairTimer', 'healPool', 'fire2Timer', 'fire2Was', 'overchargeHold', 'tanked', 'recallDone', 'walkDist', 'linkTimer'],
+    skip: ['energyTimer', 'energyPause', 'fireTimer', 'chargeTimer', 'repairTimer', 'healPool', 'fire2Timer', 'fire1Was', 'fire2Was', 'overchargeHold', 'tanked', 'recallDone', 'walkDist', 'linkTimer'],
     clock: ['sinceShot'],
   },
   {
@@ -133,6 +133,7 @@ export const LISTS: ListDef[] = [
   },
   spawned('bullets', () => ({}), ['x', 'y', 'speed', 'steps']),
   spawned('drones', () => ({})),
+  spawned('seekers', () => ({}), [], ['scout', 'destX', 'destY', 'travelled', 'pathIdx', 'replan']),
   spawned('explosions', () => ({ hit: new Set<number>() }), ['step']),
   spawned('bats', () => ({ hit: new Set<number>() })),
   // effets d'ultis : le client fait avancer leur durée, et la grenade en vol, lui-même

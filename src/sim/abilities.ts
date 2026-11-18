@@ -7,7 +7,7 @@ import {
   BLOCK_BULLET, BLOCK_MOVE, DEG, IS_WINDOW, angleDiff, boxNormal, distanceToRect, localToWorld, reflectAngle,
   rotateToward, segmentCircle,
 } from './geom.ts';
-import type { Bat, Drill, Drone, Explosion, Hero, Input, Npc, Turret, WindowPane } from './types.ts';
+import type { Bat, Drill, Drone, Explosion, Hero, Input, Npc, Seeker, Turret, WindowPane } from './types.ts';
 import { petSwarm } from './ulti.ts';
 import type { World } from './world.ts';
 
@@ -57,7 +57,7 @@ export function stepWeapons(world: World, h: Hero, input: Input): void {
   const busy = h.dashing || h.bump;
   switch (h.def.kind) {
     case 'PetBot':
-      standardFire1(world, h, input, busy);
+      petBotFire1(world, h, input, busy);
       petBotFire2(world, h, input, busy);
       break;
     case 'EngiBot':
@@ -95,7 +95,7 @@ function emptyClick(world: World, h: Hero): void {
   world.emit({ type: 'emptyClick', hero: h.id });
 }
 
-/** Tir principal de PetBot et d'EngiBot : une balle par intervalle tant que le clic est maintenu. */
+/** Tir principal d'EngiBot : une balle par intervalle tant que le clic est maintenu. */
 function standardFire1(world: World, h: Hero, input: Input, busy: boolean): void {
   const canFire = input.fire1 && !input.fire2 && !busy && h.reloadTimer === 0 && h.state !== 'firing2';
   if (canFire && h.ammo > 0) h.state = 'firing1';
@@ -107,6 +107,209 @@ function standardFire1(world: World, h: Hero, input: Input, busy: boolean): void
   } else if (h.fireTimer === 0) {
     h.state = 'standing';
   }
+}
+
+// ---------- PetBot : mini-drones à tête chercheuse (GD-093) ----------
+
+const S = A.petBot.seeker;
+
+/** Un drone peut-il prendre ce PNJ pour cible ? Les civils ne sont jamais visés. */
+function seekable(npc: Npc): boolean {
+  return npc.def.kind !== 'civil' && npc.hp > 0;
+}
+
+/**
+ * L'ennemi que désigne un point visé par PetBot : le plus proche du point, dans la marge de tolérance du clic,
+ * et que PetBot voit. Le jeu s'en sert au clic, l'affichage pour entourer l'ennemi survolé.
+ */
+export function seekerPick(world: World, h: Hero, x: number, y: number): Npc | null {
+  let best: Npc | null = null;
+  let bestD = Infinity;
+  for (const npc of world.npcs) {
+    if (!seekable(npc)) continue;
+    const d = Math.hypot(npc.x - x, npc.y - y);
+    if (d > npc.def.radius + S.pickMargin || d >= bestD) continue;
+    if (world.sightBlocked(h.x, h.y, npc.x, npc.y)) continue;
+    best = npc;
+    bestD = d;
+  }
+  return best;
+}
+
+/** L'ennemi le plus proche d'un point, dans un rayon, que le drone voit de là où il est. */
+function seekerScan(world: World, d: Seeker, x: number, y: number, radius: number): Npc | null {
+  let best: Npc | null = null;
+  let bestD = radius;
+  for (const npc of world.npcs) {
+    if (!seekable(npc)) continue;
+    const dist = Math.hypot(npc.x - x, npc.y - y);
+    if (dist > bestD || world.sightBlocked(d.x, d.y, npc.x, npc.y)) continue;
+    best = npc;
+    bestD = dist;
+  }
+  return best;
+}
+
+/**
+ * Tir principal de PetBot. Cliquer sur un ennemi le verrouille : tant que le clic est tenu, tous les drones le
+ * poursuivent, même si le curseur s'en va. Sans ennemi sous le clic, le drone part vers le point visé.
+ */
+function petBotFire1(world: World, h: Hero, input: Input, busy: boolean): void {
+  if (!input.fire1) h.lock = -1;
+  else if (!h.fire1Was) h.lock = seekerPick(world, h, input.aimX, input.aimY)?.id ?? -1;
+  else if (h.lock >= 0 && !world.npcs.some((n) => n.id === h.lock && seekable(n))) h.lock = -1;
+  h.fire1Was = input.fire1;
+
+  const canFire = input.fire1 && !input.fire2 && !busy && h.reloadTimer === 0 && h.state !== 'firing2';
+  if (canFire && h.ammo > 0) h.state = 'firing1';
+  else if (canFire && h.ammo === 0 && h.fireTimer === 0) emptyClick(world, h);
+  if (h.state !== 'firing1') return;
+  if (h.fireTimer === 0 && canFire && h.ammo > 0) {
+    launchSeeker(world, h, input);
+    h.fireTimer = Math.round(STEPS_PER_SECOND / h.def.shotsPerSecond);
+  } else if (h.fireTimer === 0) {
+    h.state = 'standing';
+  }
+}
+
+function launchSeeker(world: World, h: Hero, input: Input): void {
+  const m = muzzle(h);
+  playOneOf(world, h.def.sounds.fire1, h.x, h.y);
+  h.ammo--;
+  world.stats.ammoUsed++;
+  h.sinceShot = 0;
+  // un mur entre PetBot et son canon : le drone s'écrase dessus, comme une balle (GD-019)
+  const wall = world.collision.raycast(h.x, h.y, m.x, m.y, BLOCK_BULLET);
+  if (wall) {
+    world.emit({ type: 'impact', x: h.x + (m.x - h.x) * wall.t, y: h.y + (m.y - h.y) * wall.t, angle: h.angle, surface: 'wall' });
+    return;
+  }
+  // un drone est guidé : pas de dispersion, contrairement à la balle qu'il remplace
+  let angle = h.angle;
+  let scout = 0;
+  if (h.lock < 0) {
+    // sans cible : droit vers le point cliqué, sauf s'il est plus près de PetBot que son canon
+    const dist = Math.hypot(input.aimX - m.x, input.aimY - m.y);
+    if (Math.hypot(input.aimX - h.x, input.aimY - h.y) > Math.hypot(m.x - h.x, m.y - h.y) + S.speed) {
+      angle = Math.atan2(input.aimY - m.y, input.aimX - m.x);
+      scout = dist;
+    } else {
+      scout = S.speed;
+    }
+  }
+  world.seekers.push({
+    id: world.newId(), owner: h.id, x: m.x, y: m.y, angle, target: h.lock, scout, destX: input.aimX, destY: input.aimY,
+    travelled: 0, path: null, pathIdx: 0, replan: 0,
+  });
+}
+
+function stepSeekers(world: World): void {
+  for (let i = world.seekers.length - 1; i >= 0; i--) {
+    if (stepSeeker(world, world.seekers[i])) world.seekers.splice(i, 1);
+  }
+}
+
+/** Direction que le drone doit prendre pour rejoindre sa cible, ou null s'il ne peut pas l'atteindre. */
+function seekerHeading(world: World, d: Seeker, target: Npc): number | null {
+  if (!world.shotBlocked(d.x, d.y, target.x, target.y)) {
+    d.path = null;
+    d.replan = 0;
+    return Math.atan2(target.y - d.y, target.x - d.x);
+  }
+  // la cible est derrière un obstacle : chemin des PNJ, recalculé de temps en temps car elle bouge
+  if (!d.path || --d.replan <= 0) {
+    d.path = world.nav.findPath(d.x, d.y, target.x, target.y);
+    d.pathIdx = 0;
+    d.replan = S.replanSteps;
+  }
+  const path = d.path;
+  if (!path) return null;
+  // on vise le point du chemin le plus lointain qu'on peut rejoindre en ligne droite
+  while (d.pathIdx < path.length - 1) {
+    const next = path[d.pathIdx + 1];
+    const here = path[d.pathIdx];
+    const reached = Math.hypot(here.x - d.x, here.y - d.y) < S.speed * 1.5;
+    if (!reached && (world.shotBlocked(d.x, d.y, next.x, next.y) || !world.nav.lineFree(d.x, d.y, next.x, next.y))) break;
+    d.pathIdx++;
+  }
+  const p = path[d.pathIdx];
+  return Math.atan2(p.y - d.y, p.x - d.x);
+}
+
+/** Avance un drone d'un step. Retourne true quand il disparaît. */
+function stepSeeker(world: World, d: Seeker): boolean {
+  let target: Npc | null = null;
+  if (d.target >= 0) {
+    target = world.npcs.find((n) => n.id === d.target && seekable(n)) ?? null;
+    // sa cible est morte en vol : il se reporte une fois sur l'ennemi le plus proche de lui, sinon il file tout droit
+    if (!target) target = seekerScan(world, d, d.x, d.y, S.retargetRadius);
+    d.target = target ? target.id : -1;
+  }
+  let nx = d.x + Math.cos(d.angle) * S.speed;
+  let ny = d.y + Math.sin(d.angle) * S.speed;
+  if (target) {
+    const want = seekerHeading(world, d, target);
+    if (want === null) {
+      // inatteignable : la tête chercheuse décroche
+      d.target = -1;
+      target = null;
+    } else {
+      const near = Math.hypot(target.x - d.x, target.y - d.y) < S.snapRange;
+      d.angle = near ? want : rotateToward(d.angle, want, S.turnDeg * DEG);
+      nx = d.x + Math.cos(d.angle) * S.speed;
+      ny = d.y + Math.sin(d.angle) * S.speed;
+      // son virage le mènerait dans un mur alors que la route est libre : il tourne d'un coup
+      if (d.angle !== want && world.collision.raycast(d.x, d.y, nx, ny, BLOCK_BULLET)) {
+        d.angle = want;
+        nx = d.x + Math.cos(d.angle) * S.speed;
+        ny = d.y + Math.sin(d.angle) * S.speed;
+      }
+    }
+  }
+  breakWindows(world, d.x, d.y, nx, ny);
+  const wall = world.collision.raycast(d.x, d.y, nx, ny, BLOCK_BULLET);
+  let limit = wall ? wall.t : 2;
+  // un drone qui poursuit une cible passe au-dessus des autres ; sans cible, il touche le premier venu
+  let struck: Npc | null = null;
+  for (const npc of target ? [target] : world.npcs) {
+    const t = segmentCircle(d.x, d.y, nx, ny, npc.x, npc.y, npc.def.radius + S.radius);
+    if (t >= 0 && t < limit) {
+      limit = t;
+      struck = npc;
+    }
+  }
+  const end = Math.min(1, limit);
+  const fromX = d.x;
+  const fromY = d.y;
+  d.x += (nx - d.x) * end;
+  d.y += (ny - d.y) * end;
+  if (struck) {
+    const blocked = blockedByFrontShield(struck, fromX, fromY);
+    world.emit({ type: 'impact', x: d.x, y: d.y, angle: d.angle, surface: blocked ? 'shield' : 'npc' });
+    if (!blocked) struck.hp -= S.damage;
+    return true;
+  }
+  if (wall) {
+    const drill = wall.obstacle.owner as Drill | null;
+    if (drill && drill.tag === 'drill') world.damageDrill(drill, S.damage);
+    world.emit({ type: 'impact', x: d.x, y: d.y, angle: d.angle, surface: 'wall' });
+    return true;
+  }
+  d.travelled += S.speed;
+  if (d.travelled > S.maxTravel || d.x < 0 || d.y < 0 || d.x > world.width || d.y > world.height) {
+    world.emit({ type: 'impact', x: d.x, y: d.y, angle: d.angle, surface: 'wall' });
+    return true;
+  }
+  if (d.scout > 0) {
+    d.scout -= S.speed;
+    if (d.scout <= 0) {
+      // arrivé au point cliqué : il choisit une fois pour toutes, l'ennemi le plus proche de ce point ou tout droit
+      d.scout = 0;
+      const found = seekerScan(world, d, d.destX, d.destY, S.seekRadius);
+      if (found) d.target = found.id;
+    }
+  }
+  return false;
 }
 
 // ---------- PetBot : salve de drones ----------
@@ -605,6 +808,7 @@ export function shieldTank(world: World, h: Hero): void {
 // ---------- Boucle des objets créés par les héros ----------
 
 export function stepAbilityObjects(world: World): void {
+  stepSeekers(world);
   stepDrones(world);
   if (world.turret) stepTurret(world, world.turret);
   stepBats(world);

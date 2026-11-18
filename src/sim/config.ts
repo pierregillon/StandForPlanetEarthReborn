@@ -186,7 +186,7 @@ export const CONFIG = {
         legs: 'spr_PetBot_jambes2', dead: 'spr_PetBot_mort', portrait: 'spr_cadre_PetBot', select: 'spr_selectionPetBot',
       },
       sounds: { fire1: ['snd_petBot_fire1'], fire2: [] },
-      blurb: 'Healer. Right click: 3 drones that explode, hurt enemies and heal you.',
+      blurb: 'Healer. Click an enemy: homing drones chase it. Right click: 3 drones that explode, hurt enemies and heal you.',
     },
     EngiBot: {
       kind: 'EngiBot',
@@ -280,6 +280,30 @@ export const CONFIG = {
       /** Soin de zone : 4 PV par seconde d'exposition, à partir de l'image 7 de l'explosion. */
       healPerStep: 4 / STEPS_PER_SECOND,
       healFromFrame: 7,
+      /**
+       * Tir principal (GD-093) : un mini-drone à tête chercheuse à la place de la balle. La cadence, le chargeur et
+       * la dispersion restent ceux de `heroes.PetBot`.
+       */
+      seeker: {
+        /** Pixels par step : une balle en fait 40. */
+        speed: 22,
+        damage: 1,
+        radius: 10,
+        /** Virage maximal par step, en degrés : le drone décrit des courbes d'environ 60 px de rayon. */
+        turnDeg: 20,
+        /** Sous cette distance de sa cible, il se tourne d'un coup vers elle (sinon il lui tournerait autour). */
+        snapRange: 110,
+        /** Tolérance du clic : un ennemi est désigné si le curseur est à moins de son rayon + cette marge. */
+        pickMargin: 55,
+        /** Tir sans cible : rayon, autour du point cliqué, où le drone cherche un ennemi en y arrivant. */
+        seekRadius: 320,
+        /** Cible morte en vol : rayon, autour du drone, où il en cherche une autre. */
+        retargetRadius: 520,
+        /** Distance de vol maximale, détours compris. */
+        maxTravel: 2600,
+        /** Steps entre deux recherches de chemin quand la cible n'est pas en ligne droite. */
+        replanSteps: 10,
+      },
     },
     engiBot: {
       turretCost: 3,

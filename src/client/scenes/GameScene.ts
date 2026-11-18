@@ -12,6 +12,7 @@ import { Mirror } from '../../net/mirror.ts';
 import type { RoomStart } from '../../net/messages.ts';
 import { CONFIG, STEPS_PER_SECOND } from '../../sim/config.ts';
 import { clamp } from '../../sim/geom.ts';
+import { seekerPick } from '../../sim/abilities.ts';
 import { NO_INPUT } from '../../sim/types.ts';
 import type { Hero, Input, LevelData, SpriteManifest } from '../../sim/types.ts';
 import type { World } from '../../sim/world.ts';
@@ -397,6 +398,28 @@ export class GameScene extends Phaser.Scene {
     cam.setScroll(this.camX - hw, this.camY - hh);
   }
 
+  /**
+   * PetBot (GD-093) : entoure de rouge l'ennemi que son clic prendrait pour cible, puis celui qu'il a verrouillé
+   * tant que le clic est tenu. Seul le joueur de PetBot le voit.
+   */
+  private markSeekerTarget(): void {
+    const world = this.world;
+    const h = world.hero;
+    let id = -1;
+    let locked = false;
+    if (h.def.kind === 'PetBot' && !h.gone && h.state !== 'dead' && world.cast < 0 && !this.panel && !this.free) {
+      const pointer = this.input.activePointer;
+      if (h.lock >= 0) {
+        id = h.lock;
+        locked = true;
+      } else if (!pointer.leftButtonDown()) {
+        const aim = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+        id = seekerPick(world, h, aim.x, aim.y)?.id ?? -1;
+      }
+    }
+    this.view.setSeekerMark(id, locked);
+  }
+
   private readInput(first: boolean): Input {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
@@ -576,6 +599,7 @@ export class GameScene extends Phaser.Scene {
         if (mine(e)) this.view.handleEvent(e);
       } else this.view.handleEvent(e);
     }
+    this.markSeekerTarget();
     this.view.sync(delta / 1000);
     this.hud.update();
     this.intro.update(!this.conn || this.conn.isHost, delta);

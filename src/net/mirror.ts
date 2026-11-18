@@ -16,7 +16,7 @@ import { SnapshotDecoder } from './snapshot.ts';
 import type { Entity, Snapshot } from './snapshot.ts';
 
 /** Listes dont les entités glissent d'une position reçue à la suivante. */
-const GLIDING = new Set(['heroes', 'npcs', 'bats', 'drones', 'turret', 'chairs']);
+const GLIDING = new Set(['heroes', 'npcs', 'bats', 'drones', 'seekers', 'turret', 'chairs']);
 /** Durée du glissement : un peu plus que l'écart entre deux instantanés, pour absorber leur irrégularité. */
 const GLIDE_MS = (SNAPSHOT_EVERY * 1000 / 60) * 1.25;
 /** Au-delà de cet écart, l'entité est placée d'un coup (apparition, changement de salle). */
