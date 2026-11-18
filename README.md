@@ -8,7 +8,10 @@ Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du 
 
 | Document | Contenu |
 |---|---|
-| [AGENTS.md](AGENTS.md) | Guide pour un agent : règles de travail, quoi lire selon le travail, où se trouve quoi |
+| [AGENTS.md](AGENTS.md) | Guide pour un agent : comportement attendu dans le dépôt, et sommaire des points d'entrée |
+| [docs/README.md](docs/README.md) | Sommaire de toute la documentation |
+| [docs/architecture-code.md](docs/architecture-code.md) | Principe simulation / affichage, multijoueur, chaîne des assets, carte du code |
+| [docs/developpement.md](docs/developpement.md) | Lancer, tester, déboguer ; particularités de chaque machine |
 | [docs/narration/arc-narratif.md](docs/narration/arc-narratif.md) | L'histoire du jeu : les actes SFPE et SFHB, les personnages, le dénouement. Référence pour tout travail de scénario |
 | [docs/01-cadre-mvp.md](docs/01-cadre-mvp.md) | Ce que contient la première version jouable, et les points encore ouverts |
 | [docs/02-feuille-de-route.md](docs/02-feuille-de-route.md) | Les 4 étapes de livraison et l'avancement |
@@ -53,6 +56,8 @@ En jeu à plusieurs : **A** (Q sur un clavier QWERTY) en visant un coéquipier p
 | Caméra libre, pour parcourir la salle sans jouer (aussi au menu principal et au menu de pause) | V ; puis déplacement, Maj pour aller vite, molette pour le zoom, 1 pour l'échelle du jeu, L pour l'éclairage, V ou Échap pour revenir |
 
 ## Développer
+
+Détails (paramètres d'URL, console de débogage, essais à plusieurs, particularités de chaque machine) : [docs/developpement.md](docs/developpement.md).
 
 | Commande | Effet |
 |---|---|
