@@ -441,3 +441,58 @@ test('les bornes gardées ne dépendent pas de la porte par où l\'on entre dans
   assert.equal(outletsFrom(1).length, 4);
   assert.deepEqual(outletsFrom(2), outletsFrom(1));
 });
+
+test('l\'hôte choisit le point de départ : après l\'ultimatum, toute l\'équipe commence sur le plateau (GD-091)', () => {
+  const { server, clients: [a, b] } = setup(2);
+  a.say({ t: 'create' });
+  b.say({ t: 'join' });
+  a.say({ t: 'pick', hero: 'PetBot' });
+  b.say({ t: 'pick', hero: 'BatBot' });
+  // un point de départ inconnu est refusé, et seul l'hôte choisit
+  a.say({ t: 'start', at: 'nowhere' });
+  assert.match(a.errors.pop() ?? '', /Unknown starting point/);
+  assert.equal(server.playing, false);
+  b.say({ t: 'start', at: 'studio' });
+  assert.equal(server.playing, false, 'seul l\'hôte lance la partie');
+  a.say({ t: 'start', at: 'studio' });
+  assert.equal(server.playing, true);
+  const world = server.currentWorld;
+  assert.ok(world);
+  assert.equal(world.level.name, 'rm_world2');
+  assert.equal(world.objective, 'Leave by the south parking lot');
+  const r = TV_STUDIO.room;
+  for (const h of world.heroes) {
+    assert.ok(h.x > r.x0 && h.x < r.x1 && h.y > r.y0 && h.y < r.y1, 'sur le plateau');
+    assert.equal(h.arrivalSteps, 0, 'sans largage');
+  }
+  // les miroirs sont dans la même partie : même salle, même consigne, mêmes places, et le barrage de police
+  for (let i = 0; i < 12; i++) {
+    a.play(NO_INPUT);
+    b.play(NO_INPUT);
+    server.tick();
+  }
+  for (const client of [a, b]) {
+    const mirror = client.mirror;
+    assert.ok(mirror);
+    assert.equal(mirror.world.level.name, 'rm_world2');
+    assert.equal(mirror.world.session.objective, OBJ.dropPoint);
+    assert.ok(mirror.world.session.carried.has('purple'));
+    assert.equal(mirror.world.npcs.length, world.npcs.length);
+    assert.equal(mirror.world.decor.filter((d) => d.sprite === 'spr_pk_police_van').length, 3);
+  }
+  const seen = b.mirror?.world.heroes[0];
+  assert.ok(seen && Math.abs(seen.x - world.heroes[0].x) < 2 && Math.abs(seen.y - world.heroes[0].y) < 2);
+  // la zone de forage aussi
+  const other = setup(1);
+  other.clients[0].say({ t: 'create' });
+  other.clients[0].say({ t: 'pick', hero: 'EngiBot' });
+  other.clients[0].say({ t: 'start', at: 'boss' });
+  assert.equal(other.server.currentWorld?.level.name, 'rm_world2_2');
+  // sans choix, le début du niveau
+  const plain = setup(1);
+  plain.clients[0].say({ t: 'create' });
+  plain.clients[0].say({ t: 'pick', hero: 'EngiBot' });
+  plain.clients[0].say({ t: 'start' });
+  assert.equal(plain.server.currentWorld?.level.name, 'rm_world2');
+  assert.ok((plain.server.currentWorld?.heroes[0].arrivalSteps ?? 0) > 0, 'avec le largage');
+});

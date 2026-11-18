@@ -96,6 +96,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-088 | Le face-à-face avec le barrage de police | 2026-11-18 | Acceptée ; modifie GD-087 (changement de plan, disposition de la police) et GD-086 ; complétée par GD-089 (la sortie) |
 | GD-089 | Fin de TvTv², troisième partie : le portail nord, l'extraction, la fin du niveau | 2026-11-18 | Acceptée ; applique GD-083 (exfiltration par le nord) et le script de la fin (section 10.5 à 10.7 de la fiche du niveau) ; remplace la fin d'origine (zone de sortie vers la zone de forage, GD-077) |
 | GD-090 | Effectifs de la riposte : un groupe de onze, et plus à plusieurs | 2026-11-18 | Acceptée ; modifie GD-087 (tailles des groupes, renforts) |
+| GD-091 | Choix de la carte et du point de départ, aussi à plusieurs ; départ « après l'ultimatum » | 2026-11-18 | Acceptée ; étend GD-032 (choix du départ en solo) et GD-040 (salon multijoueur) |
 
 ---
 
@@ -2041,3 +2042,28 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** Aucun combat n'a été joué avec ces effectifs : ni la difficulté seul, ni la progression à plusieurs ne sont éprouvées. À deux et à trois joueurs, le nombre de robots est le même (2 de chaque).
 
 **Conséquences.** `CONFIG.wave` : `units`, `perExtraPlayer`, `reinforceEverySteps`, `maxAliveGroups`, `maxAlive` (à la place de `groups` et `reinforce`). `src/sim/wave.ts` : `waveGroup`, `waveGroupSize`, `waveCap`, `barricade` ; `TV_STUDIO.wave.rear`. Tests : `src/sim/wave.test.ts`.
+
+---
+
+## GD-091 — Choix de la carte et du point de départ, aussi à plusieurs ; départ « après l'ultimatum »
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; étend GD-032 (choix du départ en solo) et GD-040 (salon multijoueur)
+- **Décidée par** : l'utilisateur pour le besoin : l'hôte d'une partie à plusieurs choisit, après le choix des robots, la carte et le point de départ dans la carte, pour essayer facilement à plusieurs la suite de l'ultimatum. L'écran, la liste des points de départ et l'état du bâtiment au départ « après l'ultimatum » sont des choix par défaut
+
+**Contexte.** En solo, un écran proposait trois départs (rez-de-chaussée, étage, zone de forage). À plusieurs, la partie commençait toujours au largage : pour essayer la fin du niveau il fallait rejouer tout le niveau à chaque fois.
+
+**Décision.**
+
+- **Deux cartes et leurs points de départ** : « TvTv² STATION » avec « THE DROP » (le début du niveau), « UPPER FLOOR » et « AFTER THE BROADCAST » ; « DRILLING AREA » avec « BOSS CHECKPOINT ». La zone de forage est une carte à part, puisqu'elle ne fait plus partie de TvTv² (GD-077).
+- **Un même écran** en solo et à plusieurs : les cartes en onglets (gauche / droite), les points de départ en lignes (haut / bas).
+- **À plusieurs**, quand chacun a son robot, « START GAME » mène l'hôte à cet écran ; les autres attendent dans le salon. L'hôte choisit, et toute l'équipe commence là. Échap le ramène au salon. Le serveur n'accepte que les points de départ de sa liste, et seulement de l'hôte.
+- **Le nouveau départ « AFTER THE BROADCAST »** : l'équipe est sur le plateau, au point de sauvegarde de l'ultimatum, en pleine forme, avec les deux cartes ; la consigne est « Leave by the south parking lot » ; les portes franchies pour arriver là sont ouvertes, les portails nord fermés ; le présentateur et les cadreurs sont partis ; le barrage de police se met en place au sud. Pas de largage ni de message à relire.
+- **Le bâtiment y est plein de ses gardes** : on n'a pas joué le début du niveau, donc personne n'est tombé. C'est plus peuplé qu'une vraie partie arrivée là.
+- **Raccourci de développement** : `?play=PetBot&start=studio` (ou `drop`, `upstairs`, `boss`) ouvre une partie solo à ce point de départ.
+
+**Pourquoi.** Le besoin est de pouvoir essayer : la riposte, le face-à-face et l'extraction sont au bout du niveau, et c'est à plusieurs que leur difficulté dépend du nombre de joueurs (GD-090). Un seul écran pour le solo et l'hôte évite deux listes à tenir. Laisser tous les gardes est le choix le plus simple et le plus prudent pour un essai : mieux vaut un départ trop dur que trop facile.
+
+**Limites connues.** Les joueurs qui ne sont pas l'hôte ne voient pas l'écran de choix : leur salon dit seulement que l'hôte choisit. Ce choix reste un outil d'essai : il permet de sauter le début du niveau, et serait à réserver ou à retirer si le jeu était ouvert au public.
+
+**Conséquences.** `MAPS`, `STARTS`, `createSessionAt` (par identifiant ou par salle), `studioCheckpoint`, `studioDoors` dans `src/sim/session.ts` ; message `start` avec `at` (`src/net/messages.ts`), validé par `server/game.ts` ; `LevelSelectScene.ts` réécrit (solo et hôte), `LobbyScene.ts` (`chooseStart`), `MenuScene.ts` (`?start=`). Tests : deux dans `src/sim/session.test.ts`, un dans `src/net/net.test.ts`.

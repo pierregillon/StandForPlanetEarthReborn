@@ -16,7 +16,7 @@ import { deploySound, stepHero } from './hero.ts';
 import { createBoss } from './boss.ts';
 import type { BossState } from './boss.ts';
 import { createNpc, stepNpcs } from './npc.ts';
-import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession } from './session.ts';
+import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession, studioCheckpoint, studioDoors } from './session.ts';
 import { CONTROL_ROOM_TAKEN, castReader, vehicleVoice } from './broadcast.ts';
 import { HOLD_ON, SCENE, pickupPhases, sceneLines, sceneTotal, standoffSpeaker } from './scenes.ts';
 import { TV_STUDIO } from './additions.ts';
@@ -563,8 +563,8 @@ export class World {
     }
     s.objective = OBJ.dropPoint;
     this.lockNorthGates();
-    s.checkpoint = { room: this.level.name, x: TV_STUDIO.regroup.x - 110, y: TV_STUDIO.regroup.y - 40, objective: OBJ.dropPoint, save: this.saveRoom() };
-    s.preOpened[this.level.name] = { buttons: [1, CONFIG.broadcast.controlRoomButton], cards: ['green', 'purple'] };
+    s.checkpoint = { ...studioCheckpoint(), save: this.saveRoom() };
+    s.preOpened[this.level.name] = studioDoors();
     if (!this.castSirens) this.emit({ type: 'sirens' });
     this.castSirens = true;
     this.emit({ type: 'castEnd', skipped });

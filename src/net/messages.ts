@@ -59,7 +59,8 @@ export type ClientMessage =
   | { t: 'create' }
   | { t: 'join' }
   | { t: 'pick'; hero: string | null }
-  | { t: 'start' }
+  /** L'hôte lance la partie. `at` : le point de départ choisi (`STARTS`), le début du niveau par défaut (GD-091). */
+  | { t: 'start'; at?: string }
   | { t: 'ready'; epoch: number }
   /** Avancement du chargement de la salle, de 0 à 1. */
   | { t: 'loading'; epoch: number; p: number }

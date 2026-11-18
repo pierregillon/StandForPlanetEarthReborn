@@ -3,7 +3,7 @@
 // Ce fichier ne connaît pas les WebSockets : il parle à des « pairs » abstraits, ce qui le rend testable.
 import { CONFIG } from '../src/sim/config.ts';
 import { isFreshStart, openRoom, retrySession, startTeam } from '../src/sim/match.ts';
-import { createSession } from '../src/sim/session.ts';
+import { STARTS, createSessionAt } from '../src/sim/session.ts';
 import type { Session } from '../src/sim/session.ts';
 import { NO_INPUT } from '../src/sim/types.ts';
 import type { Hero, Input, LevelData, SimEvent, SpriteManifest } from '../src/sim/types.ts';
@@ -136,7 +136,9 @@ export class Lobby {
       case 'start':
         if (!me || this.phase !== 'lobby' || peer.id !== this.hostId) return;
         if (this.players.some((p) => p.hero === null)) return send(peer, { t: 'error', text: 'Every player must pick a robot first.' });
-        return this.startMatch();
+        // le point de départ vient d'un navigateur : on n'accepte que ceux de la liste
+        if (msg.at !== undefined && !STARTS.some((s) => s.id === msg.at)) return send(peer, { t: 'error', text: 'Unknown starting point.' });
+        return this.startMatch(msg.at ?? STARTS[0].id);
       case 'ready':
         if (me && msg.epoch === this.epoch && this.waiting.delete(peer.id)) this.sendWaiting();
         return;
@@ -199,12 +201,12 @@ export class Lobby {
 
   // ---------- Partie ----------
 
-  private startMatch(): void {
+  private startMatch(at: string): void {
     this.players.forEach((p, slot) => {
       p.slot = slot;
     });
     this.gone.clear();
-    this.session = createSession(this.players.map((p) => p.hero ?? 'PetBot'));
+    this.session = createSessionAt(this.players.map((p) => p.hero ?? 'PetBot'), at);
     this.phase = 'playing';
     this.broadcastLobby();
     this.enterRoom(null);

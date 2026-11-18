@@ -3,7 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { World } from './world.ts';
-import { DRILL_AREA, GROUND_FLOOR, UPPER_FLOOR, createSession, createSessionAt } from './session.ts';
+import { DRILL_AREA, GROUND_FLOOR, MAPS, OBJ, STARTS, UPPER_FLOOR, createSession, createSessionAt } from './session.ts';
+import { TV_STUDIO } from './additions.ts';
+import { BLOCK_MOVE } from './geom.ts';
+import { isFreshStart } from './match.ts';
 import { NO_INPUT } from './types.ts';
 import type { LevelData, SimEvent, SpriteManifest } from './types.ts';
 import { CONFIG } from './config.ts';
@@ -136,4 +139,53 @@ test('une salle garde son état quand on y revient', () => {
   g.enter(g.heroes, 2);
   assert.equal(g.npcs.length, soldiers - 1);
   assert.equal(door.phase, 'open');
+});
+
+test('les points de départ : chaque carte a les siens, le premier est le début du niveau (GD-091)', () => {
+  assert.deepEqual(MAPS.map((m) => m.id), ['tvtv2', 'drill']);
+  assert.deepEqual(STARTS.map((s) => [s.id, s.map, s.room]), [
+    ['drop', 'tvtv2', GROUND_FLOOR], ['upstairs', 'tvtv2', UPPER_FLOOR], ['studio', 'tvtv2', GROUND_FLOOR], ['boss', 'drill', DRILL_AREA],
+  ]);
+  for (const map of MAPS) assert.ok(STARTS.some((s) => s.map === map.id), `${map.id} a au moins un point de départ`);
+  assert.equal(new Set(STARTS.map((s) => s.id)).size, STARTS.length);
+  // par identifiant, ou par nom de salle comme avant
+  assert.equal(createSessionAt('PetBot', 'upstairs').room, UPPER_FLOOR);
+  assert.equal(createSessionAt('PetBot', DRILL_AREA).checkpoint?.room, DRILL_AREA);
+  const drop = createSessionAt(['PetBot', 'BatBot'], 'drop');
+  assert.deepEqual([drop.room, drop.objective, drop.checkpoint, drop.carried.size], [GROUND_FLOOR, 0, null, 0]);
+  assert.ok(isFreshStart(drop, null), 'le début du niveau commence par le largage');
+  assert.equal(createSessionAt('PetBot', 'nowhere').room, GROUND_FLOOR, 'inconnu : le début du niveau');
+});
+
+test('départ « après l\'ultimatum » : l\'équipe est sur le plateau, le message est diffusé, la police attend au sud', () => {
+  const names = ['PetBot', 'BatBot', 'EngiBot'];
+  const session = createSessionAt(names, 'studio');
+  assert.equal(session.room, GROUND_FLOOR);
+  assert.equal(session.objective, OBJ.dropPoint);
+  assert.ok(session.carried.has('green') && session.carried.has('purple'));
+  assert.equal(isFreshStart(session, null), false, 'pas de largage : on reprend à un point de sauvegarde');
+  const g = new World(ground, sprites, names, 3, session);
+  session.rooms.set(GROUND_FLOOR, g);
+  assert.equal(g.objective, 'Leave by the south parking lot');
+  const r = TV_STUDIO.room;
+  const onSet = (p: { x: number; y: number }): boolean => p.x > r.x0 && p.x < r.x1 && p.y > r.y0 && p.y < r.y1;
+  for (const h of g.heroes) {
+    assert.ok(onSet(h), 'sur le plateau');
+    assert.ok(g.collision.circleFree(h.x, h.y, h.def.radius, BLOCK_MOVE), 'à une place libre');
+    assert.deepEqual([h.arrivalSteps, h.hp], [0, h.def.maxHealth]);
+  }
+  for (let i = 0; i < g.heroes.length; i++) for (let j = i + 1; j < g.heroes.length; j++) assert.ok(Math.hypot(g.heroes[i].x - g.heroes[j].x, g.heroes[i].y - g.heroes[j].y) >= 90);
+  // le présentateur et les cadreurs sont partis ; le reste du bâtiment est plein de ses gardes
+  assert.equal(g.npcs.filter((n) => n.def.kind === 'civil' && onSet(n)).length, 0);
+  assert.ok(g.npcs.filter((n) => n.def.kind === 'soldier').length > 20);
+  // les portes franchies pour arriver là sont ouvertes, les portails nord fermés
+  assert.ok(g.doors.filter((d) => d.kind === 'button' && (d.doorId === 1 || d.doorId === CONFIG.broadcast.controlRoomButton)).every((d) => d.phase === 'open'));
+  assert.ok(g.doors.filter((d) => d.card !== null).every((d) => d.phase === 'open'));
+  assert.ok(g.doors.filter((d) => d.kind === 'button' && d.doorId === CONFIG.exit.gates).every((d) => d.phase === 'closed'));
+  // le message ne se rejoue pas, et la police se met en place au premier step : un groupe pour trois joueurs
+  g.step(names.map(() => NO_INPUT));
+  assert.equal(g.cast, -1);
+  assert.equal(g.waveSteps, 0);
+  assert.equal(g.npcs.filter((n) => n.hunt > 0).length, 22);
+  assert.equal(g.decor.filter((d) => d.sprite === 'spr_pk_police_van').length, 3);
 });

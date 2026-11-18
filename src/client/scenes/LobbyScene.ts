@@ -1,5 +1,5 @@
 // Salon multijoueur (GD-040) : on y crée ou rejoint la partie, chacun choisit son robot (un robot ne peut
-// être pris qu'une fois), puis l'hôte lance le jeu.
+// être pris qu'une fois), puis l'hôte choisit le point de départ (GD-091) et lance le jeu.
 import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import { Bind, Keys } from '../keys.ts';
@@ -60,7 +60,7 @@ export class LobbyScene extends Phaser.Scene {
     this.status = this.add.text(width / 2, height - 215, '', { ...TEXT, fontSize: '36px', color: '#ffe36b', align: 'center' }).setOrigin(0.5);
     this.startButton = this.add.text(width / 2, height - 130, 'START GAME', { ...TEXT, fontSize: '64px' }).setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
-    this.startButton.on('pointerdown', () => this.conn.send({ t: 'start' }));
+    this.startButton.on('pointerdown', () => this.chooseStart());
     const leave = this.add.text(width - 90, height - 130, 'Leave', { ...TEXT, fontSize: '44px' }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
     leave.on('pointerdown', () => this.leave());
     this.add.text(width / 2, height - 50, 'Click a robot to pick it   -   each robot can be taken only once   -   Esc to leave', {
@@ -76,6 +76,13 @@ export class LobbyScene extends Phaser.Scene {
     const mine = lobby.players.find((p) => p.id === lobby.you)?.hero;
     // un clic sur son propre robot le libère
     this.conn.send({ t: 'pick', hero: mine === hero ? null : hero });
+  }
+
+  /** L'hôte passe au choix de la carte et du point de départ, une fois que chacun a son robot (GD-091). */
+  private chooseStart(): void {
+    const lobby = this.conn.lobby;
+    if (!lobby?.joined || !this.conn.isHost || lobby.players.some((p) => p.hero === null)) return;
+    this.scene.start('LevelSelect', { host: true });
   }
 
   private leave(): void {
@@ -119,7 +126,7 @@ export class LobbyScene extends Phaser.Scene {
     else if (!joined) status = 'Joining...';
     else if (!me?.hero) status = 'Pick your robot';
     else if (!everyonePicked) status = 'Waiting for the other players to pick a robot';
-    else if (!conn.isHost) status = 'Waiting for the host to start the game';
+    else if (!conn.isHost) status = 'Waiting for the host to choose where to start';
     else if (players.length === 1) status = 'You can start alone, or wait for other players to join';
     this.status.setText(status);
   }

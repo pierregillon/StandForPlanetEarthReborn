@@ -1,5 +1,7 @@
 // État d'une partie qui dépasse une salle : cartes portées, consigne en cours, statistiques, salles visitées.
 // Les salles gardent leur état quand on y revient (obj_roomsMemory de l'original).
+import { TV_STUDIO } from './additions.ts';
+import { CONFIG } from './config.ts';
 import type { Stats } from './types.ts';
 import type { World } from './world.ts';
 
@@ -77,13 +79,58 @@ export interface Session {
   introSeen: boolean;
 }
 
+/** Une carte du jeu, et ses points de départ (GD-032, GD-091). */
+export interface StartPoint {
+  id: string;
+  /** Carte à laquelle il appartient (`MAPS`). */
+  map: string;
+  room: string;
+  title: string;
+  text: string;
+}
+
+export const MAPS = [
+  { id: 'tvtv2', title: 'TvTv² STATION' },
+  { id: 'drill', title: 'DRILLING AREA' },
+];
+
+/** Points de départ proposés, en solo comme à l'hôte d'une partie à plusieurs. Le premier est le début du niveau. */
+export const STARTS: StartPoint[] = [
+  { id: 'drop', map: 'tvtv2', room: GROUND_FLOOR, title: 'THE DROP', text: 'Start of the level. The full run.' },
+  { id: 'upstairs', map: 'tvtv2', room: UPPER_FLOOR, title: 'UPPER FLOOR', text: 'Start upstairs, with the green card. Find the studio pass.' },
+  { id: 'studio', map: 'tvtv2', room: GROUND_FLOOR, title: 'AFTER THE BROADCAST', text: 'On the set, message sent. The police are waiting to the south.' },
+  { id: 'boss', map: 'drill', room: DRILL_AREA, title: 'BOSS CHECKPOINT', text: 'Start at the checkpoint, fully restored, with both cards.' },
+];
+
 /**
- * Partie commencée ailleurs qu'au début du niveau (menu de choix du départ, GD-032) : le héros a déjà ce
- * qu'il aurait en arrivant là en jouant. Dans la zone de forage, il part du point de sauvegarde.
+ * Le point de sauvegarde posé sur le plateau à la fin de l'ultimatum (GD-085), et les portes que l'équipe a
+ * franchies pour y arriver : celles du bouton de l'escalier et du bouton de la régie, la verte et la violette.
  */
-export function createSessionAt(heroNames: string | string[], room: string): Session {
+export function studioCheckpoint(): { room: string; x: number; y: number; objective: number } {
+  return { room: GROUND_FLOOR, x: TV_STUDIO.regroup.x - 110, y: TV_STUDIO.regroup.y - 40, objective: OBJ.dropPoint };
+}
+
+export function studioDoors(): { buttons: number[]; cards: string[] } {
+  return { buttons: [1, CONFIG.broadcast.controlRoomButton], cards: ['green', 'purple'] };
+}
+
+/**
+ * Partie commencée ailleurs qu'au début du niveau (menu de choix du départ, GD-032, GD-091) : l'équipe a déjà
+ * ce qu'elle aurait en arrivant là en jouant. `where` : l'identifiant d'un point de départ (`STARTS`), ou le
+ * nom d'une salle (son premier point de départ). Dans la zone de forage, on part du point de sauvegarde ; après
+ * l'ultimatum, de celui du plateau, le bâtiment encore plein de ses gardes.
+ */
+export function createSessionAt(heroNames: string | string[], where: string): Session {
+  const start = STARTS.find((s) => s.id === where) ?? STARTS.find((s) => s.room === where) ?? STARTS[0];
+  const room = start.room;
   const session = createSession(heroNames, room);
-  if (room === UPPER_FLOOR) {
+  if (start.id === 'studio') {
+    session.carried.add('green').add('purple');
+    session.objective = OBJ.dropPoint;
+    session.checkpoint = studioCheckpoint();
+    session.preOpened[GROUND_FLOOR] = studioDoors();
+    session.introSeen = true;
+  } else if (room === UPPER_FLOOR) {
     session.carried.add('green');
     // pour monter, le héros a ouvert la porte verte et la porte à bouton de l'escalier : en redescendant,
     // il doit les retrouver ouvertes, sinon il resterait enfermé dans la cage d'escalier

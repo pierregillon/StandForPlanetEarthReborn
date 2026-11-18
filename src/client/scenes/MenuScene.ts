@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import { Bind, Keys } from '../keys.ts';
 import { CONFIG } from '../../sim/config.ts';
-import { createSessionAt } from '../../sim/session.ts';
+import { STARTS, createSessionAt } from '../../sim/session.ts';
 import { ButtonColumn } from '../view/ButtonColumn.ts';
 
 export class MenuScene extends Phaser.Scene {
@@ -52,9 +52,11 @@ export class MenuScene extends Phaser.Scene {
     if (play !== null && !MenuScene.shortcutUsed) {
       MenuScene.shortcutUsed = true;
       if (CONFIG.heroes[play]) this.registry.set('hero', play);
-      // ?play=PetBot&room=rm_world2_2 démarre directement dans une salle, consigne correspondante active
-      const room = new URLSearchParams(window.location.search).get('room');
-      if (room && ['rm_world2', 'rm_world2_1', 'rm_world2_2'].includes(room)) {
+      // ?play=PetBot&room=rm_world2_2 démarre directement dans une salle, consigne correspondante active ;
+      // ?play=PetBot&start=studio à un point de départ (drop, upstairs, studio, boss : GD-091)
+      const start = params.get('start');
+      const room = start && STARTS.some((s) => s.id === start) ? start : params.get('room');
+      if (room && (room === start || ['rm_world2', 'rm_world2_1', 'rm_world2_2'].includes(room))) {
         this.registry.set('session', createSessionAt((this.registry.get('hero') as string | undefined) ?? 'PetBot', room));
       } else {
         this.registry.set('session', null);
