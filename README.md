@@ -2,7 +2,7 @@
 
 Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du dessus développé sous GameMaker entre 2016 et 2019. Une équipe de robots traverse des niveaux remplis de soldats, de robots ennemis et de civils.
 
-**État : les 4 étapes du MVP sont livrées — le monde 2 se joue en entier avec les quatre héros (PetBot, EngiBot, BatBot, BadaBot) : rez-de-chaussée, étage, zone de forage et boss SallyBot, jusqu'à l'écran de score.** Voir la [feuille de route](docs/02-feuille-de-route.md).
+**État : le niveau TvTv² se joue du largage à l'extraction, seul ou jusqu'à 4, avec les quatre robots (PetBot, EngiBot, BatBot, BadaBot). En cours : la démo TvTv², première version à faire essayer à des joueurs.** Voir la [feuille de route](docs/02-feuille-de-route.md).
 
 ## Documentation
 
@@ -13,19 +13,43 @@ Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du 
 | [docs/architecture-code.md](docs/architecture-code.md) | Principe simulation / affichage, multijoueur, chaîne des assets, carte du code |
 | [docs/developpement.md](docs/developpement.md) | Lancer, tester, déboguer ; particularités de chaque machine |
 | [docs/narration/arc-narratif.md](docs/narration/arc-narratif.md) | L'histoire du jeu : les actes SFPE et SFHB, les personnages, le dénouement. Référence pour tout travail de scénario |
-| [docs/01-cadre-mvp.md](docs/01-cadre-mvp.md) | Ce que contient la première version jouable, et les points encore ouverts |
-| [docs/02-feuille-de-route.md](docs/02-feuille-de-route.md) | Les 4 étapes de livraison et l'avancement |
+| [docs/01-cadre-mvp.md](docs/01-cadre-mvp.md) | Le périmètre de départ (MVP, livré) et les écarts voulus avec le jeu d'origine |
+| [docs/02-feuille-de-route.md](docs/02-feuille-de-route.md) | Le guide pour livrer la démo TvTv² : objectif, décisions à trancher, étapes |
 | [docs/decisions/game-design.md](docs/decisions/game-design.md) | Journal des décisions de game design : quoi, et pourquoi |
 | [docs/decisions/architecture.md](docs/decisions/architecture.md) | Journal des décisions techniques |
 | [docs/formats-donnees.md](docs/formats-donnees.md) | Formats des niveaux et des manifestes d'assets produits par les outils |
 | [docs/reference/](docs/reference/README.md) | Le jeu d'origine : accès au code, analyses détaillées, documents de conception d'époque |
 
-## Lancer le jeu
+## Prérequis
 
-Il faut Node 22.18 ou plus récent : `node` exécute directement les fichiers TypeScript du projet, ce que les versions antérieures ne savent pas faire. Une fois, installer les dépendances avec `npm install` (environ 25 Mo à télécharger).
+- **Git**, pour récupérer le code.
+- **Node 22.18 ou plus récent**, qui fournit aussi `npm`. Les versions antérieures ne savent pas exécuter directement les fichiers TypeScript du projet. Pour l'installer : <https://nodejs.org> (version LTS), ou nvm, ou Homebrew sur macOS (`brew install node`). Vérifier avec `node --version`.
+- **Un navigateur récent** (Chrome, Firefox, Edge, Safari) sur ordinateur : le jeu se joue au clavier et à la souris.
 
-- **macOS, Linux** : `npm start`, puis ouvrir <http://localhost:3000>. N'importe quel Node assez récent fait l'affaire (paquet du système, Homebrew, nvm…).
-- **Windows** : double-cliquer sur `start.cmd` (ou le lancer dans un terminal), puis ouvrir <http://localhost:3000>. Ce script et `dev.cmd` placent en tête du PATH le Node portable de `.tools/node22` s'il existe (non versionné, ADR-009), pour une machine dont le Node du système est trop ancien. Sans ce dossier, ils utilisent le Node du PATH ; `npm start` fonctionne aussi.
+## Installer et lancer
+
+1. Récupérer le code, puis entrer dans le dossier :
+
+   ```bash
+   git clone https://github.com/pierregillon/StandForPlanetEarthReborn.git
+   cd StandForPlanetEarthReborn
+   ```
+
+2. Installer les dépendances, une seule fois (environ 25 Mo à télécharger) :
+
+   ```bash
+   npm install
+   ```
+
+   Les images, sons et niveaux sont déjà dans le dépôt (`public/`) : rien d'autre à télécharger.
+
+3. Lancer le jeu :
+   - **macOS, Linux** : `npm start`.
+   - **Windows** : double-cliquer sur `start.cmd`, ou `npm start` dans un terminal. Ce script et `dev.cmd` placent en tête du PATH le Node portable de `.tools/node22` s'il existe (non versionné, ADR-009), pour une machine dont le Node du système est trop ancien. Sans ce dossier, ils utilisent le Node du PATH.
+
+4. Ouvrir <http://localhost:3000> dans le navigateur. Pour arrêter le serveur : Ctrl+C dans le terminal.
+
+Pour récupérer plus tard les dernières modifications : `git pull`, puis `npm install` si `package.json` a changé.
 
 ### Jouer à plusieurs
 
