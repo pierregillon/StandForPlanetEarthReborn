@@ -6,7 +6,7 @@ import Phaser from 'phaser';
 import { frameKey } from '../assets.ts';
 import type { FloorManifest } from '../assets.ts';
 import { Keys } from '../keys.ts';
-import { DEPTH, LIGHTING } from '../view/WorldView.ts';
+import { DEPTH, DRAW_ORDER_STEP, LIGHTING } from '../view/WorldView.ts';
 import { EditorModel, EDITABLE, LIGHT_OBJECT, buildCatalog, isInstance, lightProps, lightRadius } from '../editor/model.ts';
 import type { Change, Ent, EntData } from '../editor/model.ts';
 import { EditorUi, HIDDEN_AT_START, colorToLamp, lampColor } from '../editor/EditorUi.ts';
@@ -73,6 +73,8 @@ export class EditorScene extends Phaser.Scene {
   private ui: EditorUi | null = null;
   private sprites!: SpriteManifest;
   private readonly visuals = new Map<number, Visual>();
+  /** Rang de chaque élément dans la salle : à profondeur égale, le plus grand est dessiné devant, comme en jeu (GD-095). */
+  private readonly ranks = new Map<number, number>();
   private wallImgs: Img[] = [];
   private floorImgs: Phaser.GameObjects.TileSprite[] = [];
   private readonly layers = new Map<LayerId, boolean>();
@@ -148,6 +150,7 @@ export class EditorScene extends Phaser.Scene {
     this.model.onChange = (changes) => this.changed(changes);
     for (const id of ['walls', 'floors', 'decor', 'light', 'decal', 'door', 'window', 'npc', 'fog', 'wall', 'marker'] as LayerId[]) this.layers.set(id, !HIDDEN_AT_START.has(id));
     this.buildStatic(level);
+    this.rank();
     for (const ent of this.model.ents) this.show(ent);
     this.overlay = this.add.graphics().setDepth(TOP.overlay);
 
@@ -169,6 +172,7 @@ export class EditorScene extends Phaser.Scene {
         if (name === 'delete') this.removeSelection();
         else if (name === 'duplicate') this.duplicateSelection();
         else if (name === 'fit') this.fit();
+        else if (name === 'front' || name === 'back') this.reorder(name);
         else this.flip(name === 'flipX');
       },
     });
@@ -254,8 +258,14 @@ export class EditorScene extends Phaser.Scene {
 
   // ---------- Éléments ----------
 
+  private rank(): void {
+    this.ranks.clear();
+    this.model.ents.forEach((ent, i) => this.ranks.set(ent.uid, i));
+  }
+
   private depthOf(ent: Ent): number {
-    if (ent.kind === 'decal') return DEPTH.decal + 1;
+    const order = (this.ranks.get(ent.uid) ?? this.model.ents.length) * DRAW_ORDER_STEP;
+    if (ent.kind === 'decal') return DEPTH.decal + order;
     const inst = ent.data as LevelInstance;
     switch (ent.category) {
       case 'light': return TOP.light;
@@ -263,7 +273,7 @@ export class EditorScene extends Phaser.Scene {
       case 'door': return DEPTH.door;
       case 'window': return DEPTH.window;
       case 'npc': return DEPTH.character;
-      default: return this.entSprite(ent) ? -inst.depth : TOP.marker;
+      default: return this.entSprite(ent) ? -inst.depth + order : TOP.marker;
     }
   }
 
@@ -353,10 +363,13 @@ export class EditorScene extends Phaser.Scene {
   // ---------- Modifications ----------
 
   private changed(changes: Change[]): void {
+    this.rank();
     for (const change of changes) {
       if (change.ent.data && this.model.ents.includes(change.ent)) this.show(change.ent);
       else this.hide(change.ent);
     }
+    // un élément ajouté, retiré ou passé devant décale le rang des autres
+    for (const visual of this.visuals.values()) visual.img?.setDepth(this.depthOf(visual.ent));
     this.selection = this.selection.filter((ent) => this.model.ents.includes(ent));
     if (this.hover && !this.model.ents.includes(this.hover)) this.hover = null;
     this.ui?.setSelection(this.selection);
@@ -400,6 +413,11 @@ export class EditorScene extends Phaser.Scene {
     const copies = this.selection.map((ent) => this.model.duplicate(ent, step, step));
     this.model.apply(copies.map((ent) => ({ ent, before: null, after: ent.data })));
     this.select(copies);
+  }
+
+  private reorder(where: 'front' | 'back'): void {
+    if (this.selection.length === 0) return;
+    if (!this.model.reorder(this.selection, where)) this.ui?.toast(where === 'front' ? 'Already in front' : 'Already at the back');
   }
 
   private flip(horizontal: boolean): void {
@@ -691,6 +709,10 @@ export class EditorScene extends Phaser.Scene {
       const deg = (e.altKey ? 1 : ANGLE_STEP) * (e.shiftKey ? 1 : -1);
       if (this.tool) this.ghostAngle = normAngle(this.ghostAngle + deg);
       else this.rotateSelection(deg);
+      return done();
+    }
+    if (k === 'f' || k === 'b') {
+      this.reorder(k === 'f' ? 'front' : 'back');
       return done();
     }
     if (k === 'g') {

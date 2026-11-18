@@ -128,6 +128,8 @@ export class World {
 
   /** Consigne affichée au joueur (GD-010). */
   private nextId = 1;
+  /** Nombre d'instances déjà ajoutées : le rang de celle en cours. */
+  private order = 0;
 
   readonly level: LevelData;
   readonly sprites: SpriteManifest;
@@ -805,11 +807,13 @@ export class World {
   private addDecor(inst: LevelInstance, sprite: string, frame = 0): void {
     this.decor.push({
       sprite, x: inst.x, y: inst.y, angle: gmAngleToRad(inst.angle), scaleX: inst.scaleX, scaleY: inst.scaleY,
-      tint: inst.tint, alpha: inst.alpha, depth: inst.depth, frame, shadow: Number(inst.props.shadow ?? 0),
+      tint: inst.tint, alpha: inst.alpha, depth: inst.depth, frame, shadow: Number(inst.props.shadow ?? 0), order: this.order,
     });
   }
 
   private addInstance(inst: LevelInstance): void {
+    // rang de l'instance dans la salle : l'ordre du fichier décide de ce qui est dessiné devant (GD-095)
+    this.order++;
     const level = this.level;
     const info = level.objects[inst.object];
     if (!info) return;
@@ -888,7 +892,7 @@ export class World {
       this.nav.mark(o, 1);
       this.chairs.push({
         id: this.nextId++, sprite: spriteName ?? '', x: inst.x, y: inst.y, angle, scaleX: inst.scaleX, scaleY: inst.scaleY, tint: inst.tint,
-        vx: 0, vy: 0, thrown: 0, offsetX: o.cx - inst.x, offsetY: o.cy - inst.y, obstacle: o,
+        vx: 0, vy: 0, thrown: 0, offsetX: o.cx - inst.x, offsetY: o.cy - inst.y, obstacle: o, depth: inst.depth, order: this.order,
       });
     } else if (isA(level, inst.object, 'obj_decor_base')) {
       // mobilier et autres obstacles fixes

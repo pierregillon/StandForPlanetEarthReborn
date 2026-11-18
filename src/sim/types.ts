@@ -478,6 +478,9 @@ export interface Chair {
   offsetX: number;
   offsetY: number;
   obstacle: Obstacle;
+  /** Profondeur de sa couche et rang dans la salle : elle est dessinée parmi les meubles, à son rang (GD-095). */
+  depth: number;
+  order: number;
 }
 
 /** Point de sauvegarde : s'y connecter régénère le héros et sert de point de reprise. */
@@ -576,6 +579,8 @@ export interface DecorItem {
   alpha: number;
   depth: number;
   frame: number;
+  /** Rang de l'instance dans la salle : à profondeur égale, le rang le plus grand est dessiné devant (GD-095). */
+  order: number;
 }
 
 export interface Stats {

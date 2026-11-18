@@ -46,6 +46,11 @@ export function describeChanges(before: LevelData, after: LevelData): string {
   if (added) parts.push(`${plural(added, 'objet ajouté', 'objets ajoutés')}`);
   if (changed) parts.push(`${plural(changed, 'objet modifié', 'objets modifiés')}`);
   if (old.size) parts.push(`${plural(old.size, 'objet retiré', 'objets retirés')}`);
+  // les objets présents des deux côtés ont-ils changé d'ordre ? (devant, derrière : l'ordre est celui du dessin)
+  const kept = new Set(after.instances.map((i) => i.id));
+  const was = before.instances.filter((i) => kept.has(i.id) && !old.has(i.id)).map((i) => i.id);
+  const now = after.instances.filter((i) => was.includes(i.id)).map((i) => i.id);
+  let reordered = was.length === now.length && was.some((id, i) => id !== now[i]);
   // les autres éléments n'ont pas d'identifiant : on compte ceux qui n'ont pas leur pareil dans l'autre version
   const lists: [keyof LevelData, string, string][] = [
     ['decals', 'décalque', 'décalques'], ['walls', 'pièce de mur', 'pièces de mur'], ['floors', 'sol', 'sols'],
@@ -67,7 +72,10 @@ export function describeChanges(before: LevelData, after: LevelData): string {
     for (const n of left.values()) gone += n;
     if (fresh) parts.push(`${plural(fresh, one, many)} en plus`);
     if (gone) parts.push(`${plural(gone, one, many)} en moins`);
+    // les mêmes éléments, rangés autrement
+    if (!fresh && !gone && JSON.stringify(before[key]) !== JSON.stringify(after[key])) reordered = true;
   }
+  if (reordered) parts.push('ordre d\'affichage modifié');
   return parts.join(', ');
 }
 

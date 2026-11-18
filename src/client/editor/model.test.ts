@@ -122,3 +122,35 @@ test('une lampe neuve a les réglages que le jeu lit ; un objet venu d\'une autr
   assert.notEqual((copy.data as LevelInstance).id, (table.data as LevelInstance).id);
   assert.equal(copy.data.x, 332);
 });
+
+test('passer devant ou derrière change l\'ordre de la salle, qui est l\'ordre de dessin, et s\'annule', () => {
+  const model = open();
+  const before = serializeLevel(model.toLevel());
+  const ids = (): string[] => model.toLevel().instances.map((i) => i.id);
+  const tables = model.ents.filter((e) => e.kind === 'instance' && (e.data as LevelInstance).object === 'obj_table0');
+  const [a, b] = tables;
+  const idA = (a.data as LevelInstance).id;
+  const idB = (b.data as LevelInstance).id;
+
+  assert.ok(model.reorder([a], 'front'));
+  assert.equal(ids().at(-1), idA, 'devant : dernier de la liste, donc dessiné par-dessus');
+  assert.equal(model.reorder([a], 'front'), false, 'déjà devant : rien à faire, rien dans l\'historique');
+  assert.ok(model.reorder([a, b], 'back'));
+  // a venait de passer devant b : derrière, ils gardent cet ordre entre eux
+  assert.deepEqual(ids().slice(0, 2), [idB, idA], 'derrière : en tête, dans leur ordre relatif');
+  assert.equal(model.toLevel().instances.length, model.base.instances.length);
+  assert.equal(levelProblem(model.toLevel()), null);
+  assert.equal(model.dirty, true);
+
+  // un élément posé après coup, puis tout est annulé dans l'ordre
+  const chair = model.makeInstance('obj_chaise_bleu', 100, 100, 0)!;
+  model.apply([{ ent: chair, before: null, after: chair.data }]);
+  assert.ok(model.undo() && model.undo());
+  assert.equal(ids().at(-1), idA);
+  assert.ok(model.undo());
+  assert.equal(serializeLevel(model.toLevel()), before);
+  assert.equal(model.dirty, false);
+  assert.ok(model.redo() && model.redo() && model.redo());
+  assert.deepEqual(ids().slice(0, 2), [idB, idA]);
+  assert.equal(ids().at(-1), (chair.data as LevelInstance).id);
+});

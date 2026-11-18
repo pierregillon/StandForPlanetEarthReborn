@@ -65,6 +65,8 @@ export interface Change {
 }
 
 interface Step {
+  /** Changement d'ordre (devant, derrière) : la liste des éléments avant et après. */
+  order?: { before: Ent[]; after: Ent[] };
   changes: Change[];
   /** Position de chaque élément retiré, pour le remettre à sa place. */
   indexes: Map<number, number>;
@@ -245,9 +247,32 @@ export class EditorModel {
     return removed;
   }
 
+  /**
+   * Passe des éléments devant tous les autres, ou derrière. L'ordre de la salle est l'ordre de dessin : à
+   * profondeur égale, le dernier de la liste est dessiné par-dessus (GD-095). Renvoie faux si rien ne bouge.
+   */
+  reorder(ents: Ent[], where: 'front' | 'back'): boolean {
+    const moved = this.ents.filter((e) => ents.includes(e));
+    const rest = this.ents.filter((e) => !ents.includes(e));
+    const after = where === 'front' ? [...rest, ...moved] : [...moved, ...rest];
+    if (moved.length === 0 || after.every((e, i) => e === this.ents[i])) return false;
+    if (this.savedAt > this.done.length) this.savedAt = -1;
+    this.done.push({ order: { before: [...this.ents], after: [...after] }, changes: moved.map((ent) => ({ ent, before: ent.data, after: ent.data })), indexes: new Map(), mergeKey: null, at: Date.now() });
+    this.ents = after;
+    this.undone = [];
+    this.onChange(this.done[this.done.length - 1].changes);
+    return true;
+  }
+
   undo(): boolean {
     const step = this.done.pop();
     if (!step) return false;
+    if (step.order) {
+      this.ents = [...step.order.before];
+      this.undone.push(step);
+      this.onChange(step.changes);
+      return true;
+    }
     // dans l'ordre inverse : les éléments retirés reprennent leur place un par un
     const reversed = [...step.changes].reverse();
     const indexes = this.perform(reversed, 'before', step.indexes);
@@ -259,6 +284,12 @@ export class EditorModel {
   redo(): boolean {
     const step = this.undone.pop();
     if (!step) return false;
+    if (step.order) {
+      this.ents = [...step.order.after];
+      this.done.push(step);
+      this.onChange(step.changes);
+      return true;
+    }
     const indexes = this.perform(step.changes, 'after', step.indexes);
     this.done.push({ ...step, indexes, mergeKey: null });
     this.onChange(step.changes);

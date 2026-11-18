@@ -237,3 +237,22 @@ test('une balle ennemie blesse le héros, qui meurt à 0 PV', () => {
   for (let i = 0; i < CONFIG.hero.deathMenuDelaySteps; i++) w.step(NO_INPUT);
   assert.ok(w.gameOver);
 });
+
+test("meubles et chaises à roulettes portent le rang de leur instance : l'ordre de la salle est l'ordre de dessin (GD-095)", () => {
+  // une chaise placée avant une table dans la salle est dessinée dessous ; inversées, elle passe dessus
+  const table = level.instances.find((i) => i.object === 'obj_table0')!;
+  const chair = level.instances.find((i) => i.object === 'obj_siege_accueil')!;
+  const others = level.instances.filter((i) => i !== table && i !== chair);
+  const build = (instances: LevelData['instances']): World => new World({ ...level, instances }, sprites, 'PetBot', 42);
+  const rank = (w: World): { chair: number; table: number } => ({
+    chair: w.chairs.find((c) => c.x === chair.x && c.y === chair.y)!.order,
+    table: w.decor.find((d) => d.sprite === 'spr_table0' && d.x === table.x && d.y === table.y)!.order,
+  });
+  const under = rank(build([chair, table, ...others]));
+  assert.ok(under.chair < under.table);
+  const over = rank(build([table, chair, ...others]));
+  assert.ok(over.chair > over.table);
+  const w = makeWorld();
+  assert.ok(w.chairs.every((c) => c.depth === 200 && c.order > 0));
+  assert.equal(new Set(w.decor.map((d) => d.order)).size, w.decor.length, 'un rang par meuble');
+});

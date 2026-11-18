@@ -22,6 +22,11 @@ export const DEPTH = {
   background: -800, floor: -700, decal: -600, zone: -400, window: -300, outlet: -150,
   remains: -50, chair: -20, legs: -1, character: 0, laser: 4, bullet: 5, fog: 100, wallThin: 200, wallThick: 300, door: 500, fx: 600, worldText: 700, darkness: 5000,
 };
+/**
+ * À profondeur égale, les meubles sont dessinés dans l'ordre de la salle : chaque rang avance d'un cran, bien
+ * plus petit que l'écart entre deux couches. L'éditeur de niveaux règle cet ordre (GD-095).
+ */
+export const DRAW_ORDER_STEP = 0.0001;
 const POLICE_VAN = 'spr_pk_police_van';
 /** Brouillard de guerre : gris foncé de l'original ($313131). */
 const FOG_COLOR = 0x313131;
@@ -748,7 +753,7 @@ export class WorldView {
   private drawDecor(d: DecorItem): void {
     const scene = this.scene;
     if (!scene.textures.exists(frameKey(d.sprite, 0))) return;
-    const img = this.image(d.sprite, d.frame, d.x, d.y, -d.depth)
+    const img = this.image(d.sprite, d.frame, d.x, d.y, -d.depth + d.order * DRAW_ORDER_STEP)
       .setRotation(d.angle).setScale(d.scaleX, d.scaleY).setTint(tintOf(d.tint)).setAlpha(d.alpha);
     if (d.sprite === 'spr_tv_onair') this.onAirImgs.push(img);
     if (d.sprite === POLICE_VAN) {
@@ -2754,7 +2759,8 @@ export class WorldView {
   /** Chaises à roulettes et boutons de porte : dessinés ici car ils bougent (GD-031). */
   private syncFurniture(): void {
     this.syncPool<Chair>(this.chairImgs, this.world.chairs,
-      (c) => this.image(c.sprite, 0, c.x, c.y, DEPTH.chair).setScale(c.scaleX, c.scaleY).setTint(tintOf(c.tint)),
+      // une chaise à roulettes est un meuble comme les autres : à son rang, donc sous la table qui la suit (GD-095)
+      (c) => this.image(c.sprite, 0, c.x, c.y, -c.depth + c.order * DRAW_ORDER_STEP).setScale(c.scaleX, c.scaleY).setTint(tintOf(c.tint)),
       (img, c) => img.setPosition(c.x, c.y).setRotation(c.angle));
     this.syncPool<Button>(this.buttonImgs, this.world.buttons,
       (b) => this.image(b.sprite, 0, b.x, b.y, DEPTH.chair).setRotation(b.angle).setScale(b.scaleX, b.scaleY),

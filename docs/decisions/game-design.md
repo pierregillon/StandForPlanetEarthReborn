@@ -100,6 +100,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-092 | Retours d'essai sur la fin de TvTv² : déclencheur du face-à-face, zone d'extraction, véhicule, passages dégagés | 2026-11-18 | Acceptée ; modifie GD-088 (déclencheur du face-à-face), GD-089 (portail nord, zone de sortie, sens du véhicule), GD-084 (mobilier de l'aile est) |
 | GD-093 | Tir principal de PetBot : des mini-drones à tête chercheuse | 2026-11-18 | Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas ; modifiée par GD-094 (plus de ciblage au clic ni de contour rouge : points 1, 2 et 6 abandonnés ; rayons de recherche à 500 px) |
 | GD-094 | Drone de PetBot : plus de ciblage au clic ni de contour rouge, recherche à 500 px | 2026-11-18 | Acceptée — réglages à ajuster après essai ; modifie GD-093 |
+| GD-095 | L'ordre de la salle est l'ordre de dessin, chaises à roulettes comprises ; l'éditeur le règle (devant, derrière) | 2026-11-18 | Acceptée — effet sur les chaises existantes à confirmer par l'utilisateur ; précise GD-031 (chaises à roulettes) |
 
 ---
 
@@ -2149,3 +2150,23 @@ Le reste de GD-093 ne change pas : une fois sa cible prise, le drone la poursuit
 **Conséquence à connaître.** Cliquer sur un ennemi placé derrière un autre ne permet plus de le choisir : le drone, sans cible pendant son trajet, touche le premier qu'il rencontre.
 
 **Conséquences.** `CONFIG.abilities.petBot.seeker` (`seekRadius`, `retargetRadius` à 500 ; `pickMargin` supprimé) ; `src/sim/abilities.ts` : `seekerPick` supprimé, `petBotFire1` et `launchSeeker` simplifiés ; `Hero.lock` supprimé ; `WorldView.ts` et `GameScene.ts` : contour retiré. Tests : `src/sim/seeker.test.ts` réécrit.
+
+## GD-095 — L'ordre de la salle est l'ordre de dessin, chaises à roulettes comprises ; l'éditeur le règle
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée — effet sur les chaises existantes à confirmer par l'utilisateur ; précise GD-031 (chaises à roulettes)
+- **Décidée par** : l'utilisateur pour la commande (« je veux une chaise partiellement sous une table et pas "sur" la table », en réponse à la proposition d'ajouter « Bring to front » et « Send to back ») ; Claude pour la règle de dessin qui la rend possible, à signaler à l'utilisateur
+
+**Contexte.** Deux meubles qui se chevauchent étaient dessinés dans l'ordre de la salle (le dernier par-dessus), sans qu'on puisse le changer. Les chaises à roulettes (`obj_siege_accueil`) faisaient exception : comme elles bougent, le jeu les dessinait à part, au-dessus de tout le mobilier. Or presque toutes sont rangées contre un bureau : sur 58 chaises à roulettes, 56 ont leur boîte englobante qui recoupe celle d'un meuble (table, écran, plante), et toutes paraissaient posées dessus.
+
+**Décision.**
+
+1. **À profondeur de couche égale, l'ordre de la salle est l'ordre de dessin** : le dernier de la liste est dessiné devant. Le jeu le respecte par un rang donné à chaque instance (`order`), et non plus par l'ordre de création des images.
+2. **Les chaises à roulettes suivent la même règle** que les autres meubles : une chaise placée avant sa table dans la salle est dessinée dessous.
+3. **L'éditeur de niveaux règle cet ordre** : « To front » (F) passe la sélection devant tout ce qu'elle chevauche, « To back » (B) derrière. L'éditeur montre toujours l'ordre du jeu, y compris pendant un déplacement.
+
+**Pourquoi.** Glisser une chaise sous un bureau est le cas d'usage de l'utilisateur, et c'est avec les chaises à roulettes qu'il se présente le plus. Une commande qui aurait marché pour toutes les chaises sauf celles-là aurait été incompréhensible. Piste écartée : garder les chaises à roulettes au-dessus et ne régler l'ordre que des meubles fixes.
+
+**Conséquence à connaître.** Sans retouche de la carte, l'aspect du niveau change : les chaises à roulettes qui précèdent dans la salle d'origine le meuble qu'elles chevauchent passent dessous. D'après les boîtes englobantes, c'est le cas de 36 chaises au plus (25 au rez-de-chaussée, 11 à l'étage) ; les autres restent dessus. Chacune se corrige dans l'éditeur. Une chaise poussée en cours de partie garde son rang : elle peut passer sous le bord d'un meuble dessiné après elle. Les flaques et les débris, dessinés au-dessus du mobilier, le sont maintenant aussi au-dessus des chaises.
+
+**Conséquences.** `order` dans `DecorItem` et `Chair`, `depth` dans `Chair` (`src/sim/types.ts`, `world.ts`) ; `DRAW_ORDER_STEP` dans `WorldView.ts` ; `EditorModel.reorder` et son annulation ; le message de commit d'une sauvegarde dit « ordre d'affichage modifié ». Tests : `world.test.ts`, `model.test.ts`, `levels.test.ts`.

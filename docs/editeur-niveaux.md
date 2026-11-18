@@ -29,6 +29,7 @@ La palette propose tous les types d'objets et de décalques déjà présents dan
 | R, Maj + R | Tourne de 15° (avec Alt : 1°) ; un groupe tourne autour de son centre |
 | Poignée ronde | Tourne l'élément à la souris |
 | Flèches | Décalent la sélection d'un pixel (Maj : dix) |
+| F, B (boutons « To front », « To back ») | Passe la sélection devant ou derrière ce qu'elle chevauche |
 | Suppr | Retire la sélection |
 | Ctrl + D | Duplique |
 | Ctrl + Z, Ctrl + Maj + Z | Annule, rétablit |
@@ -38,6 +39,8 @@ La palette propose tous les types d'objets et de décalques déjà présents dan
 | L | Aperçu de l'éclairage |
 | Échap | Lâche l'outil de pose, puis la sélection, puis propose de quitter |
 | Ctrl + S | Sauvegarde |
+
+**Devant, derrière (GD-095).** Quand deux éléments de la même famille se chevauchent, celui qui vient en dernier dans la salle est dessiné par-dessus : un objet que l'on pose arrive donc devant. « To back » le glisse dessous (une chaise sous sa table), « To front » le remet dessus. Le jeu dessine exactement cet ordre, chaises à roulettes comprises. Les décalques restent toujours sous le mobilier.
 
 **Aperçu de l'éclairage.** Il montre la pénombre du jeu et la zone éclairée de chaque lampe, avec les ombres des murs, des portes fermées et du mobilier, calculées comme en jeu. Il manque la lueur que chaque robot porte sur lui : une pièce paraît donc un peu plus sombre qu'en partie.
 

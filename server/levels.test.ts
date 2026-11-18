@@ -21,6 +21,10 @@ test('describeChanges compte ce qui est ajouté, modifié et retiré', () => {
   after.decals.push({ sprite: 'spr_tapis', x: 0, y: 0, angle: 0, scaleX: 1, scaleY: 1, tint: '#ffffff', alpha: 1, frame: 0, depth: 600 });
   assert.equal(describeChanges(before, after), '1 objet ajouté, 1 objet modifié, 1 objet retiré, 1 décalque en plus');
   assert.equal(describeChanges(before, before), '');
+  // passer un objet devant ou derrière ne change que l'ordre du fichier
+  const swapped = original();
+  swapped.instances.push(swapped.instances.shift()!);
+  assert.equal(describeChanges(before, swapped), 'ordre d\'affichage modifié');
 });
 
 test('saveLevel écrit le fichier et fait un commit limité à ce fichier', async () => {

@@ -22,7 +22,7 @@ export interface UiHandlers {
   tool(item: PaletteItem | null): void;
   layer(id: LayerId, visible: boolean): void;
   edit(field: Field, value: number | string | boolean): void;
-  action(name: 'delete' | 'duplicate' | 'flipX' | 'flipY' | 'fit'): void;
+  action(name: 'delete' | 'duplicate' | 'flipX' | 'flipY' | 'fit' | 'front' | 'back'): void;
 }
 
 export interface UiStatus {
@@ -353,6 +353,7 @@ export class EditorUi {
     node.innerHTML = [
       '<b>Click</b> select · <b>Shift+click</b> add · <b>drag</b> move or box-select',
       '<b>R</b> / <b>Shift+R</b> rotate 15° (<b>Alt</b>: 1°) · drag the round handle',
+      '<b>F</b> to front · <b>B</b> to back (overlapping elements)',
       '<b>Del</b> delete · <b>Ctrl+D</b> duplicate · <b>arrows</b> nudge',
       '<b>WASD / ZQSD</b> or <b>right-drag</b> pan · <b>wheel</b> zoom',
       '<b>Esc</b> drop the tool or the selection · <b>G</b> snap · <b>L</b> lighting',
@@ -365,6 +366,8 @@ export class EditorUi {
     this.fields.clear();
     const h = this.handlers;
     const actions = el('div', { class: 'actions' }, [
+      el('button', { textContent: 'To front', title: 'F — drawn over the elements it overlaps', onclick: () => h.action('front') }),
+      el('button', { textContent: 'To back', title: 'B — drawn under the elements it overlaps (a chair under its table)', onclick: () => h.action('back') }),
       el('button', { textContent: 'Duplicate', onclick: () => h.action('duplicate') }),
       el('button', { textContent: 'Delete', onclick: () => h.action('delete') }),
     ]);
