@@ -118,6 +118,7 @@
   "spr_casier_porteGauche": { "w": 185, "h": 96, "ox": 3, "oy": 84, "frames": 1, "bbox": [2, 82, 92, 89], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 15, "speedType": 0 },
   "spr_chaise_bleu": { "w": 71, "h": 90, "ox": 35, "oy": 45, "frames": 1, "bbox": [0, 0, 70, 89], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
   "spr_chaise_marron": { "w": 71, "h": 91, "ox": 35, "oy": 45, "frames": 1, "bbox": [0, 0, 70, 90], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 1, "speedType": 1 },
+  "spr_checkpoint": { "w": 128, "h": 128, "ox": 64, "oy": 64, "frames": 1, "bbox": [0, 0, 127, 127], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 0, "speedType": 0 },
   "spr_cine_bande": { "w": 1920, "h": 1080, "ox": 960, "oy": 540, "frames": 1, "bbox": [0, 0, 1919, 1079], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 15, "speedType": 0 },
   "spr_coinHautDroite": { "w": 16, "h": 15, "ox": 0, "oy": 14, "frames": 1, "bbox": [0, 0, 15, 14], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 15, "speedType": 0 },
   "spr_coinHautGauche": { "w": 16, "h": 15, "ox": 15, "oy": 14, "frames": 1, "bbox": [0, 0, 15, 14], "bboxmode": 0, "colkind": 1, "sepmasks": false, "speed": 15, "speedType": 0 },

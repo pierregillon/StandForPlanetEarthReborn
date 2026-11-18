@@ -275,3 +275,14 @@ test('chaque borne de la carte est une borne en jeu, là où elle est posée : r
     assert.deepEqual(w.cards.map((c) => c.sprite), w.cards.map((c) => `spr_card_${c.color}`));
   }
 });
+
+test('la borne de sauvegarde est un objet de la carte, avec son sprite (GD-098)', () => {
+  const drill = JSON.parse(readFileSync(new URL('../../public/levels/rm_world2_2.json', import.meta.url), 'utf8')) as LevelData;
+  const placed = drill.instances.filter((i) => i.object === 'obj_checkpoint');
+  assert.equal(placed.length, 1);
+  assert.ok(sprites[drill.objects.obj_checkpoint.sprite ?? '']);
+  const w = new World(drill, sprites, 'PetBot', 1);
+  assert.deepEqual([w.checkpoint?.x, w.checkpoint?.y, w.checkpoint?.active], [placed[0].x, placed[0].y, false]);
+  // une salle sans cet objet n'a pas de borne de sauvegarde : le code n'en ajoute pas
+  assert.equal(makeWorld().checkpoint, null);
+});

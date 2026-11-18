@@ -1,6 +1,7 @@
-// Fabrique les sprites de la borne de recharge et des cartes d'accès (GD-097, ADR-015). Le jeu les dessinait
-// par le code au lancement : ce sont maintenant des images comme les autres, que l'éditeur de niveaux et le
-// jeu montrent à l'identique. Le dessin est celui d'avant, repris trait pour trait.
+// Fabrique les sprites de la borne de recharge, des cartes d'accès et de la borne de sauvegarde (GD-097,
+// GD-098, ADR-015). Le jeu les dessinait par le code au lancement : ce sont maintenant des images comme les
+// autres, que l'éditeur de niveaux et le jeu montrent à l'identique. Le dessin est celui d'avant, repris trait
+// pour trait.
 // Usage : npm run make-pickups
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -62,6 +63,22 @@ function card(color: string, base: number): Made {
   return { name: `spr_card_${color}`, frames: [img], ox: 48, oy: 34 };
 }
 
+/** Borne de sauvegarde (GD-031) : un disque au sol, quatre plots et un cœur blanc que le jeu teinte selon son état. */
+function checkpoint(): Made {
+  const img = canvas(128, 128);
+  polygon(img, disc(64, 68, 56), [0, 0, 0], 0.4);
+  polygon(img, disc(64, 64, 52), rgb(0x2a3140));
+  line(img, disc(64, 64, 52), 5, rgb(0x8b96ad), 1, true);
+  polygon(img, disc(64, 64, 38), rgb(0x151a24));
+  line(img, disc(64, 64, 22), 4, rgb(0x8b96ad), 1, true);
+  for (let k = 0; k < 4; k++) {
+    const a = (k * Math.PI) / 2 + Math.PI / 4;
+    polygon(img, disc(64 + Math.cos(a) * 45, 64 + Math.sin(a) * 45, 5), rgb(0x8b96ad));
+  }
+  polygon(img, disc(64, 64, 12), [255, 255, 255]);
+  return { name: 'spr_checkpoint', frames: [img], ox: 64, oy: 64 };
+}
+
 function write(made: Made[]): void {
   const file = path.join(ASSETS, 'sprites.json');
   const manifest = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
@@ -87,4 +104,4 @@ function write(made: Made[]): void {
   console.log(`${made.length} sprites fabriqués, ${Math.round(bytes / 1024)} ko.`);
 }
 
-write([outlet(), card('green', 0x35d05a), card('purple', 0xb04cff)]);
+write([outlet(), card('green', 0x35d05a), card('purple', 0xb04cff), checkpoint()]);

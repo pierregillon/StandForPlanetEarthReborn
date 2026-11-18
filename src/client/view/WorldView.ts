@@ -2959,23 +2959,9 @@ export class WorldView {
     if (!cp) return;
     const scene = this.scene;
     if (!this.checkpointImg) {
-      if (!scene.textures.exists('checkpoint')) {
-        const g = scene.make.graphics({ x: 0, y: 0 }, false);
-        g.fillStyle(0x000000, 0.4).fillCircle(64, 68, 56);
-        g.fillStyle(0x2a3140, 1).fillCircle(64, 64, 52);
-        g.lineStyle(5, 0x8b96ad, 1).strokeCircle(64, 64, 52);
-        g.fillStyle(0x151a24, 1).fillCircle(64, 64, 38);
-        g.lineStyle(4, 0x8b96ad, 1).strokeCircle(64, 64, 22);
-        for (let k = 0; k < 4; k++) {
-          const a = (k * Math.PI) / 2 + Math.PI / 4;
-          g.fillStyle(0x8b96ad, 1).fillCircle(64 + Math.cos(a) * 45, 64 + Math.sin(a) * 45, 5);
-        }
-        g.fillStyle(0xffffff, 1).fillCircle(64, 64, 12);
-        g.generateTexture('checkpoint', 128, 128);
-        g.destroy();
-      }
       this.ensureHalo();
-      this.checkpointImg = scene.add.image(cp.x, cp.y, 'checkpoint').setDepth(DEPTH.outlet);
+      // la borne est un sprite (GD-098) ; sa teinte, son halo et son anneau qui pulse sont des effets
+      this.checkpointImg = this.image('spr_checkpoint', 0, cp.x, cp.y, DEPTH.outlet);
       scene.add.text(cp.x, cp.y + 78, 'CHECKPOINT', { fontFamily: 'Aldo', fontSize: '26px', color: '#ffffff', stroke: '#000000', strokeThickness: 5 })
         .setOrigin(0.5, 0).setDepth(DEPTH.outlet);
     }

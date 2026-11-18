@@ -43,7 +43,7 @@ const MODE_PICKS: Record<Mode, Category[]> = {
 };
 /** Noms plus parlants que ceux des objets d'origine, sur la carte. */
 const MARKER_LABELS: Record<string, string> = {
-  obj_outlet: 'recharge outlet', obj_spawnHeros: 'hero spawn', obj_spawnVehicle: 'drop vehicle', obj_nextRoom: 'stairs (next room)',
+  obj_outlet: 'recharge outlet', obj_checkpoint: 'checkpoint', obj_spawnHeros: 'hero spawn', obj_spawnVehicle: 'drop vehicle', obj_nextRoom: 'stairs (next room)',
   obj_previousRoom: 'stairs (previous room)', obj_endLevel: 'level exit zone', obj_card_green: 'green card', obj_card_purple: 'purple card',
 };
 

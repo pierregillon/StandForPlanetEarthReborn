@@ -23,7 +23,8 @@
     "obj_spawn1": { "sprite": null, "mask": null, "parents": [], "visible": true },
     "obj_spawn2": { "sprite": null, "mask": null, "parents": [], "visible": true },
     "obj_spawn3": { "sprite": null, "mask": null, "parents": [], "visible": true },
-    "obj_spawn4": { "sprite": null, "mask": null, "parents": [], "visible": true }
+    "obj_spawn4": { "sprite": null, "mask": null, "parents": [], "visible": true },
+    "obj_checkpoint": { "sprite": "spr_checkpoint", "mask": null, "parents": [], "visible": true }
   },
   "instances": [
     { "id": "inst_46690401", "object": "obj_spawn1", "layer": "layer_code", "depth": 200, "x": 6161.887, "y": 7276.131, "angle": 76.62383, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "spawnNumber": 1 } },
@@ -33,7 +34,8 @@
     { "id": "inst_7985D11", "object": "obj_foreuse", "layer": "layer_deco", "depth": 300, "x": 10304, "y": 2656, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
     { "id": "inst_3CD5C6A0", "object": "obj_foreuse", "layer": "layer_deco", "depth": 300, "x": 4224, "y": 2656, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
     { "id": "inst_45556D69", "object": "obj_foreuse", "layer": "layer_deco", "depth": 300, "x": 7936, "y": 2688, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
-    { "id": "inst_7CB3A9CC", "object": "obj_sallyBot", "layer": "layer_npc", "depth": 0, "x": 6560, "y": 6208, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "normalSpd": 10, "maxHealth": 100, "hearRange": 1000, "viewRange": 800, "genre": "robot", "patrolRange": 1500, "patrolPauseTime": 2, "patrolSpeed": 5, "patrolType": "random", "spdChase": 10, "attack_range_min": 1, "attack_range_max": 20, "shot1_bullet_count": 1, "shot1PerSecMax": 2, "shot1_bullet_type": "obj_bulletNPC", "amoQuantity": 10, "precision": 3, "canReload": false, "reloadingTime": 2, "fire1Sound": "snd_pistolBot_fire1", "reactionTime": "1/room_speed" } }
+    { "id": "inst_7CB3A9CC", "object": "obj_sallyBot", "layer": "layer_npc", "depth": 0, "x": 6560, "y": 6208, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "normalSpd": 10, "maxHealth": 100, "hearRange": 1000, "viewRange": 800, "genre": "robot", "patrolRange": 1500, "patrolPauseTime": 2, "patrolSpeed": 5, "patrolType": "random", "spdChase": 10, "attack_range_min": 1, "attack_range_max": 20, "shot1_bullet_count": 1, "shot1PerSecMax": 2, "shot1_bullet_type": "obj_bulletNPC", "amoQuantity": 10, "precision": 3, "canReload": false, "reloadingTime": 2, "fire1Sound": "snd_pistolBot_fire1", "reactionTime": "1/room_speed" } },
+    { "id": "ed_checkpoint", "object": "obj_checkpoint", "layer": "layer_code", "depth": 100, "x": 5931.887, "y": 7216.131, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": {} }
   ],
   "walls": [],
   "wallRects": [],

@@ -27,7 +27,7 @@ Remake web (TypeScript, Phaser 3, serveur Node) du jeu GameMaker « Stand For Pl
 - **Narration** : dès qu'un texte montré au joueur, le thème d'un lieu ou le sens d'une mission est en jeu, lire d'abord en entier [docs/narration/arc-narratif.md](docs/narration/arc-narratif.md). Ne la modifier qu'à la demande de l'utilisateur.
 - **Décisions** : un choix de gameplay que l'original ne dicte pas reçoit une entrée `GD`, un choix technique structurant une entrée `ADR`. L'entrée va dans le même commit que le changement et dit qui a décidé ([mode d'emploi](docs/decisions/README.md)).
 - **Code** : `src/sim`, `src/net` et `server` restent sans Phaser, sans navigateur et sans syntaxe TypeScript non effaçable (`enum`, propriétés-paramètres). Les valeurs d'équilibrage vont dans `src/sim/config.ts` seulement.
-- **Sprites manquants** : en fabriquer est autorisé, fidèlement au style d'origine ; le consigner en `GD`.
+- **Visuels** : un objet du monde est un sprite (fichier image ; s'il manque, le fabriquer par un outil, fidèlement au style d'origine, et le consigner en `GD`), la lumière et le mouvement sont des effets faits par le code, l'information au joueur est de l'interface ; la carte contient ce que le jeu montre ([règle](docs/developpement.md#sprite-effet-ou-interface)).
 - **Vérifier** : `npm test` et `npm run typecheck`. Dans le navigateur, garder le panneau affiché, sinon la page tourne au ralenti.
 - **Feuille de route** : cocher ce qui est fait et tenir « État actuel » à jour. L'historique des modifications est dans git (`git log`).
 - **Git** : commits intermédiaires sur `main` ; pas de `git push` sans l'accord de l'utilisateur.
@@ -54,7 +54,7 @@ Toute la documentation : [docs/README.md](docs/README.md).
 | Narration, dialogues, consignes de mission | [arc-narratif.md](docs/narration/arc-narratif.md), puis [niveau-tvtv2.md](docs/narration/niveau-tvtv2.md) ; consignes dans `src/sim/session.ts` (`OBJECTIVES`) ; textes d'origine dans [03-niveaux-et-interface.md](docs/reference/jeu-original/03-niveaux-et-interface.md) §6 |
 | Gameplay, équilibrage | `src/sim/config.ts`, [analyses du jeu d'origine](docs/reference/jeu-original/) |
 | Construction des niveaux | [docs/editeur-niveaux.md](docs/editeur-niveaux.md), [docs/formats-donnees.md](docs/formats-donnees.md), `public/levels/`, repères du scénario dans `src/sim/landmarks.ts` (valeurs par défaut) |
-| Sprites, effets visuels | [docs/developpement.md § Sprites](docs/developpement.md#sprites-et-animations), `tools/make-sprites.ts`, `src/client/view/WorldView.ts` |
+| Sprites, effets visuels | [docs/developpement.md § Sprite, effet ou interface](docs/developpement.md#sprite-effet-ou-interface) et [§ Sprites](docs/developpement.md#sprites-et-animations), `tools/make-sprites.ts`, `src/client/view/WorldView.ts` |
 | Le jeu d'origine | [docs/reference/README.md](docs/reference/README.md) |
 
 | Code | Rôle | Entrée |

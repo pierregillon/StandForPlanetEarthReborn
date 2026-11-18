@@ -32,9 +32,24 @@ Mode d'emploi technique du dépôt, pour un agent comme pour un humain. Les comm
 
 Ouvrir deux onglets, `http://localhost:3000/?name=Alice` et `?name=Bob` (le paramètre évite la demande de nom). `sfpeDebug.teleport` n'agit en réseau que si le serveur est lancé avec `SFPE_DEBUG=1`. À ne jamais activer sur un serveur ouvert. Sans navigateur, `src/net/net.test.ts` fait jouer un salon et deux clients. Fonctionnement : [architecture-code.md](architecture-code.md#multijoueur).
 
+## Sprite, effet ou interface
+
+Avant de créer un visuel, se poser ces trois questions, dans l'ordre (GD-098) :
+
+| Question | Alors c'est | Exemples |
+|---|---|---|
+| Est-ce une chose qui existe dans le monde, que l'on pourrait poser dans l'éditeur de niveaux ? | Un **sprite** : un fichier image de `public/assets/sprites/` | Meubles, personnages, portes, bornes, cartes d'accès, véhicules. Ses états (ouvert, vidé) et ses animations dessinées (marche, rechargement) sont des images du même sprite |
+| Est-ce de la lumière, du mouvement ou quelque chose de passager ? | Un **effet**, fait par le code | Éclairage, ombres, halos, fumée, étincelles, traînées de tir, arcs du link et des bornes, flashs ; flottement, rotation, pulsation ou teinte appliqués à un sprite |
+| Est-ce une information donnée au joueur ? | De l'**interface**, faite par le code | Barres de vie, cercles de portée, jauge des bornes, zone d'extraction et son compteur, marque de l'ultimatum, « ! » d'alerte. Les icônes et les portraits restent des sprites |
+
+- **Aucune image représentant un objet n'est dessinée au lancement du jeu.** Un sprite que l'original n'a pas est fabriqué par un outil du dépôt (ADR-015) et commité en fichier image, pour que l'éditeur de niveaux et le jeu montrent le même.
+- **Ce dont la forme dépend de la situation reste du code** : un faisceau coupé par un mur, une ombre, le brouillard, un arc entre deux robots qui bougent.
+- **La carte contient ce que le jeu montre (GD-097).** Un objet posé dans une salle existe en jeu, à cet endroit, avec le sprite que l'éditeur affiche. Le code ne trie, ne remplace ni n'ajoute d'éléments au chargement d'une salle ; il ne le fait que lorsque l'histoire le demande en cours de partie (renforts, fourgons, reprise à un point de sauvegarde).
+- En cas de doute entre deux cases, demander à l'utilisateur plutôt que trancher seul.
+
 ## Sprites et animations
 
-- Les sprites absents de l'original (ultis, rechargements, plateau de TvTv², borne de recharge et cartes d'accès) sont fabriqués par `npm run make-sprites`, `npm run make-studio` et `npm run make-pickups` (ADR-015).
+- Les sprites absents de l'original sont fabriqués par `npm run make-sprites` (ultis, rechargements), `npm run make-studio` (plateau de TvTv²) et `npm run make-pickups` (borne de recharge, cartes d'accès, borne de sauvegarde) (ADR-015). Après un `npm run extract-assets`, qui réécrit les manifestes, relancer les deux derniers.
 - Pour juger une animation : composer une planche-contact de ses images et la regarder avant de l'essayer en jeu.
 - Effets et dessin du monde : `src/client/view/WorldView.ts`. Style à respecter : le [cahier des charges graphique d'époque](reference/documents-origine/cahier-des-charges-graphismes.pdf).
 

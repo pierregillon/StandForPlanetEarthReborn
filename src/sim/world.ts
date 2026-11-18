@@ -140,11 +140,6 @@ export class World {
       this.addInstance(inst);
     }
     const start = this.spawnPoint(session.spawnNumber);
-    // point de sauvegarde devant le boss (GD-031) : s'il est déjà activé, on y reprend en pleine forme
-    if (level.name === DRILL_AREA) {
-      const first = this.spawnPoint(1);
-      this.checkpoint = { x: first.x - 230, y: first.y - 60, active: session.checkpoint?.room === level.name };
-    }
     // reprise à un point de sauvegarde : la borne de la zone de forage, ou le plateau après l'ultimatum (GD-085)
     const saved = session.checkpoint?.room === level.name ? this.checkpoint ?? session.checkpoint : null;
     const resumed = saved !== null;
@@ -827,6 +822,9 @@ export class World {
         id: this.nextId++, x: inst.x, y: inst.y, inUse: false,
         energyLeft: this.outletCapacity, repairLeft: CONFIG.outlet.repairCapacity,
       });
+    } else if (inst.object === 'obj_checkpoint') {
+      // borne de sauvegarde (GD-031), posée dans la carte (GD-098) : déjà activée, on y reprend en pleine forme
+      this.checkpoint = { x: inst.x, y: inst.y, active: this.session.checkpoint?.room === level.name };
     } else if (inst.object === 'obj_card_green' || inst.object === 'obj_card_purple') {
       this.cards.push({
         id: this.nextId++, color: inst.object === 'obj_card_green' ? 'green' : 'purple', sprite: spriteName ?? `spr_card_${inst.object === 'obj_card_green' ? 'green' : 'purple'}`,

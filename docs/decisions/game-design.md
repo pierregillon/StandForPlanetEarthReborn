@@ -103,6 +103,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-095 | L'ordre de la salle est l'ordre de dessin, chaises à roulettes comprises ; l'éditeur le règle (devant, derrière) | 2026-11-18 | Acceptée ; précise GD-031 (chaises à roulettes) |
 | GD-096 | La première version à montrer est une démo : TvTv² seul, en entier, jouable seul et à plusieurs, par un lien | 2026-11-18 | Acceptée ; prend la suite du MVP de GD-015, livré |
 | GD-097 | La carte contient ce que le jeu montre : bornes et cartes d'accès en vrais sprites, bonus retirés, plus de tri des bornes au chargement | 2026-11-18 | Acceptée ; modifie GD-029 (choix des bornes gardées) et GD-006 (borne dessinée par le code) ; achève GD-027 (boîtes bonus) |
+| GD-098 | Règle des visuels : un objet du monde est un sprite, la lumière et le mouvement sont des effets, l'information au joueur est de l'interface | 2026-11-18 | Acceptée ; généralise GD-097 |
 
 ---
 
@@ -2219,5 +2220,35 @@ Ce qui reste à faire avant la démo, d'après l'utilisateur, et les décisions 
 
 **Pourquoi.** L'utilisateur retouche les cartes lui-même : tout écart entre l'éditeur et le jeu le trompe. Un tri fait par le code lui retirait aussi le choix de l'emplacement des bornes.
 
-**Conséquences.** `tools/make-pickups.ts` (à relancer après un `npm run extract-assets`, qui réécrit les manifestes, comme `make-studio`) ; `CONFIG.outlet.object` ; `WorldView.ts` n'a plus `makeOutletTexture` ni `cardTexture`, `Hud.ts` prend le sprite de la carte ; les trois sprites sont chargés dans toutes les salles (`UI_SPRITES`), la carte portée s'affichant dans l'interface. Test : `world.test.ts`. La règle générale « sprite ou effet » qui en découle reste à écrire avec l'utilisateur.
+**Conséquences.** `tools/make-pickups.ts` (à relancer après un `npm run extract-assets`, qui réécrit les manifestes, comme `make-studio`) ; `CONFIG.outlet.object` ; `WorldView.ts` n'a plus `makeOutletTexture` ni `cardTexture`, `Hud.ts` prend le sprite de la carte ; les trois sprites sont chargés dans toutes les salles (`UI_SPRITES`), la carte portée s'affichant dans l'interface. Test : `world.test.ts`. La règle générale « sprite ou effet » qui en découle est GD-098.
+
+## GD-098 — Règle des visuels : un objet du monde est un sprite, la lumière et le mouvement sont des effets, l'information au joueur est de l'interface
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; généralise GD-097
+- **Décidée par** : l'utilisateur pour le principe (« l'idéal, ça serait que les éléments visuels soient tous sous la forme de sprite pour les objets, les décors, les NPC […] et ce qui est fait ensuite dans le code, ce sont les effets spéciaux […] qu'on établisse une guideline ») ; Claude pour la formulation en trois cas et ses précisions, validées par l'utilisateur (« Oui vas-y »)
+
+**Contexte.** Au fil des étapes, quelques objets avaient été dessinés par le code faute de sprite d'origine (borne de recharge, cartes d'accès, borne de sauvegarde). L'éditeur de niveaux a rendu l'écart visible : il montrait un autre dessin que le jeu. L'utilisateur veut une règle écrite, pour que les prochains visuels restent cohérents.
+
+**Décision.** Devant un visuel à créer, trois questions, dans l'ordre :
+
+1. **Une chose qui existe dans le monde**, que l'on pourrait poser dans l'éditeur de niveaux, est un **sprite** : un fichier image. Ses états et ses animations dessinées sont des images du même sprite.
+2. **De la lumière, du mouvement ou quelque chose de passager** est un **effet**, fait par le code : éclairage, ombres, halos, fumée, traînées, arcs d'énergie, et le flottement, la pulsation ou la teinte appliqués à un sprite.
+3. **Une information donnée au joueur** est de l'**interface**, faite par le code : barres, cercles de portée, zone d'extraction et son compteur, marque de l'ultimatum. Les icônes et les portraits restent des sprites.
+
+Précisions :
+
+- aucune image représentant un objet n'est dessinée au lancement du jeu ; un sprite manquant est fabriqué par un outil du dépôt (ADR-015) et commité ;
+- ce dont la forme dépend de la situation reste du code (faisceau coupé par un mur, ombre, brouillard, arc entre deux robots) ;
+- la carte contient ce que le jeu montre (GD-097) : le code ne trie, ne remplace ni n'ajoute d'éléments au chargement d'une salle.
+
+**Cas tranchés avec la règle.**
+
+- La **borne de sauvegarde** de la zone de forage était dessinée par le code, et placée par lui à côté du point d'apparition. C'est un objet : elle a son sprite (`spr_checkpoint`, même dessin) et son instance dans la carte (`obj_checkpoint`), au même endroit. Sa teinte, son halo et son anneau qui pulse restent des effets ; le mot « CHECKPOINT » est de l'interface.
+- La **zone d'extraction** et la **marque de l'ultimatum** restent dessinées par le code : elles n'apparaissent que lorsque la mission les demande, pour guider le joueur. C'est de l'interface.
+- Les **balles** sont des traits de lumière faits par le code (GD-064, GD-065) : un effet. Les drones et les battes, qui sont des objets, ont leurs sprites.
+
+**Pourquoi.** Une seule représentation par objet : l'éditeur et le jeu ne peuvent plus diverger, et un visuel se retouche en remplaçant un fichier. Garder les effets et l'interface dans le code leur laisse ce que des images n'ont pas : suivre la situation.
+
+**Conséquences.** Règle écrite dans [docs/developpement.md](../developpement.md#sprite-effet-ou-interface), rappelée en une ligne dans `AGENTS.md`. `tools/make-pickups.ts` fabrique `spr_checkpoint` ; `World.addInstance` lit `obj_checkpoint` ; `WorldView.ts` n'a plus de texture « checkpoint » fabriquée. À la connaissance de ce relevé, plus aucun objet du monde n'est dessiné par le code ; les textures encore fabriquées au lancement sont toutes des effets (halos, zones éclairées, fumée, traces de pas).
 
