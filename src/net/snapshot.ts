@@ -116,7 +116,7 @@ export const LISTS: ListDef[] = [
     name: 'heroes',
     get: (w) => w.heroes as unknown as Entity[],
     // walkDist (animation des jambes) est recalculé par le client à partir du déplacement affiché
-    skip: ['energyTimer', 'energyPause', 'fireTimer', 'chargeTimer', 'repairTimer', 'healPool', 'fire2Timer', 'fire1Was', 'fire2Was', 'overchargeHold', 'tanked', 'recallDone', 'walkDist', 'linkTimer'],
+    skip: ['energyTimer', 'energyPause', 'fireTimer', 'chargeTimer', 'repairTimer', 'healPool', 'fire2Timer', 'fire2Was', 'overchargeHold', 'tanked', 'recallDone', 'walkDist', 'linkTimer'],
     clock: ['sinceShot'],
   },
   {

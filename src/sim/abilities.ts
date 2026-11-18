@@ -109,31 +109,13 @@ function standardFire1(world: World, h: Hero, input: Input, busy: boolean): void
   }
 }
 
-// ---------- PetBot : mini-drones à tête chercheuse (GD-093) ----------
+// ---------- PetBot : mini-drones à tête chercheuse (GD-093, GD-094) ----------
 
 const S = A.petBot.seeker;
 
 /** Un drone peut-il prendre ce PNJ pour cible ? Les civils ne sont jamais visés. */
 function seekable(npc: Npc): boolean {
   return npc.def.kind !== 'civil' && npc.hp > 0;
-}
-
-/**
- * L'ennemi que désigne un point visé par PetBot : le plus proche du point, dans la marge de tolérance du clic,
- * et que PetBot voit. Le jeu s'en sert au clic, l'affichage pour entourer l'ennemi survolé.
- */
-export function seekerPick(world: World, h: Hero, x: number, y: number): Npc | null {
-  let best: Npc | null = null;
-  let bestD = Infinity;
-  for (const npc of world.npcs) {
-    if (!seekable(npc)) continue;
-    const d = Math.hypot(npc.x - x, npc.y - y);
-    if (d > npc.def.radius + S.pickMargin || d >= bestD) continue;
-    if (world.sightBlocked(h.x, h.y, npc.x, npc.y)) continue;
-    best = npc;
-    bestD = d;
-  }
-  return best;
 }
 
 /** L'ennemi le plus proche d'un point, dans un rayon, que le drone voit de là où il est. */
@@ -151,15 +133,11 @@ function seekerScan(world: World, d: Seeker, x: number, y: number, radius: numbe
 }
 
 /**
- * Tir principal de PetBot. Cliquer sur un ennemi le verrouille : tant que le clic est tenu, tous les drones le
- * poursuivent, même si le curseur s'en va. Sans ennemi sous le clic, le drone part vers le point visé.
+ * Tir principal de PetBot : un drone par intervalle tant que le clic est maintenu. Chaque drone part vers le
+ * point visé à cet instant ; c'est là qu'il choisira sa cible. On ne désigne pas un ennemi en cliquant dessus :
+ * les ennemis bougent trop vite, on clique devant eux (GD-094).
  */
 function petBotFire1(world: World, h: Hero, input: Input, busy: boolean): void {
-  if (!input.fire1) h.lock = -1;
-  else if (!h.fire1Was) h.lock = seekerPick(world, h, input.aimX, input.aimY)?.id ?? -1;
-  else if (h.lock >= 0 && !world.npcs.some((n) => n.id === h.lock && seekable(n))) h.lock = -1;
-  h.fire1Was = input.fire1;
-
   const canFire = input.fire1 && !input.fire2 && !busy && h.reloadTimer === 0 && h.state !== 'firing2';
   if (canFire && h.ammo > 0) h.state = 'firing1';
   else if (canFire && h.ammo === 0 && h.fireTimer === 0) emptyClick(world, h);
@@ -184,21 +162,16 @@ function launchSeeker(world: World, h: Hero, input: Input): void {
     world.emit({ type: 'impact', x: h.x + (m.x - h.x) * wall.t, y: h.y + (m.y - h.y) * wall.t, angle: h.angle, surface: 'wall' });
     return;
   }
-  // un drone est guidé : pas de dispersion, contrairement à la balle qu'il remplace
+  // droit vers le point cliqué, sans dispersion ; si ce point est plus près de PetBot que son canon, le drone
+  // part devant lui et choisit sa cible aussitôt
   let angle = h.angle;
-  let scout = 0;
-  if (h.lock < 0) {
-    // sans cible : droit vers le point cliqué, sauf s'il est plus près de PetBot que son canon
-    const dist = Math.hypot(input.aimX - m.x, input.aimY - m.y);
-    if (Math.hypot(input.aimX - h.x, input.aimY - h.y) > Math.hypot(m.x - h.x, m.y - h.y) + S.speed) {
-      angle = Math.atan2(input.aimY - m.y, input.aimX - m.x);
-      scout = dist;
-    } else {
-      scout = S.speed;
-    }
+  let scout = S.speed;
+  if (Math.hypot(input.aimX - h.x, input.aimY - h.y) > Math.hypot(m.x - h.x, m.y - h.y) + S.speed) {
+    angle = Math.atan2(input.aimY - m.y, input.aimX - m.x);
+    scout = Math.hypot(input.aimX - m.x, input.aimY - m.y);
   }
   world.seekers.push({
-    id: world.newId(), owner: h.id, x: m.x, y: m.y, angle, target: h.lock, scout, destX: input.aimX, destY: input.aimY,
+    id: world.newId(), owner: h.id, x: m.x, y: m.y, angle, target: -1, scout, destX: input.aimX, destY: input.aimY,
     travelled: 0, path: null, pathIdx: 0, replan: 0,
   });
 }

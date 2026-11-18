@@ -186,7 +186,7 @@ export const CONFIG = {
         legs: 'spr_PetBot_jambes2', dead: 'spr_PetBot_mort', portrait: 'spr_cadre_PetBot', select: 'spr_selectionPetBot',
       },
       sounds: { fire1: ['snd_petBot_fire1'], fire2: [] },
-      blurb: 'Healer. Click an enemy: homing drones chase it. Right click: 3 drones that explode, hurt enemies and heal you.',
+      blurb: 'Healer. Left click: drones fly to the cursor, then chase the nearest enemy. Right click: 3 drones that explode, hurt enemies and heal you.',
     },
     EngiBot: {
       kind: 'EngiBot',
@@ -281,8 +281,8 @@ export const CONFIG = {
       healPerStep: 4 / STEPS_PER_SECOND,
       healFromFrame: 7,
       /**
-       * Tir principal (GD-093) : un mini-drone à tête chercheuse à la place de la balle. La cadence, le chargeur et
-       * la dispersion restent ceux de `heroes.PetBot`.
+       * Tir principal (GD-093, GD-094) : un mini-drone à tête chercheuse à la place de la balle. Il va au point
+       * cliqué, puis prend l'ennemi le plus proche. La cadence et le chargeur restent ceux de `heroes.PetBot`.
        */
       seeker: {
         /** Pixels par step : une balle en fait 40. */
@@ -293,12 +293,10 @@ export const CONFIG = {
         turnDeg: 20,
         /** Sous cette distance de sa cible, il se tourne d'un coup vers elle (sinon il lui tournerait autour). */
         snapRange: 110,
-        /** Tolérance du clic : un ennemi est désigné si le curseur est à moins de son rayon + cette marge. */
-        pickMargin: 55,
-        /** Tir sans cible : rayon, autour du point cliqué, où le drone cherche un ennemi en y arrivant. */
-        seekRadius: 320,
-        /** Cible morte en vol : rayon, autour du drone, où il en cherche une autre. */
-        retargetRadius: 520,
+        /** Rayon, autour du point cliqué, où le drone cherche un ennemi en y arrivant (GD-094). */
+        seekRadius: 500,
+        /** Cible morte en vol : rayon, autour du drone, où il en cherche une autre (GD-094). */
+        retargetRadius: 500,
         /** Distance de vol maximale, détours compris. */
         maxTravel: 2600,
         /** Steps entre deux recherches de chemin quand la cible n'est pas en ligne droite. */

@@ -941,7 +941,6 @@ export class World {
       dashCharges: def.dashCharges, dashRechargeTimer: 0, dashing: false, bump: false, targetX: x, targetY: y,
       deploySteps: 0, deployTotal: 0, arrivalSteps: 0, arrivalTotal: 0,
       invuln: 0, walkDist: 0, deadSteps: 0, charging: false, chargeTimer: 0, repairTimer: 0, linkedOutlet: -1, overchargeHold: 0, healPool: 0,
-      lock: -1, fire1Was: false,
       fire2Timer: 0, fire2Was: false, fire2Hold: 0, fire2Anim: -1, speedFactor: 1,
       shieldUp: false, tanked: 0,
       bats: 2, swingRight: true, swing: 'd', swingSteps: 0, swingHit: new Set(), recallDone: false,

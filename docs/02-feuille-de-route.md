@@ -10,7 +10,7 @@ Le MVP est livré en **4 étapes jouables** `[GD-015]`. À la fin de chaque éta
 
 **Les 4 étapes du MVP sont livrées (2026-11-16) — l'étape 4 attend les essais de l'utilisateur.**
 **Depuis, TvTv² a été réécrit pour l'acte II de l'arc narratif (GD-076 à GD-089) et se joue du largage à l'écran de fin (2026-11-18)** : introduction, régie, ultimatum, barrage de police au sud, repli par le garage nord, extraction. La zone de forage et SallyBot ne font plus partie de ce niveau (jouables depuis le menu).
-Prochaine action : recueillir les retours de l'utilisateur sur le nouveau tir de PetBot (GD-093 : vitesse du drone, tolérance du clic, puissance) et sur la fin du niveau (face-à-face du parking, dernier combat devant le portail nord, extraction), en premier lieu la difficulté ; puis décider de la suite (voir « Après le MVP »).
+Prochaine action : recueillir les retours de l'utilisateur sur le nouveau tir de PetBot (GD-093, GD-094 : vitesse du drone, rayon de recherche, puissance) et sur la fin du niveau (face-à-face du parking, dernier combat devant le portail nord, extraction), en premier lieu la difficulté ; puis décider de la suite (voir « Après le MVP »).
 
 ## Prérequis (début de l'étape 1)
 
@@ -230,3 +230,4 @@ Livrée le 2026-11-16, en attente des essais de l'utilisateur. Décisions : GD-0
 | 2026-11-18 | Choix de la carte et du point de départ (GD-091, demande de l'utilisateur) : même écran en solo et pour l'hôte d'une partie à plusieurs, après le choix des robots ; nouveau départ « AFTER THE BROADCAST », sur le plateau, police au sud. Raccourci `?play&start=studio`. 138 tests. |
 | 2026-11-18 | Retours d'essai sur la fin de TvTv² (GD-092) : face-à-face seulement à la porte du parking ; portail nord normal ; zone d'extraction au nord du bâtiment, toute l'équipe requise ; véhicule de gauche à droite, avec de la poussière près du sol (au largage aussi) ; local technique dégagé, potelets des parkings sans collision, deux chaises retirées du salon d'attente. 137 tests. |
 | 2026-11-18 | Tir principal de PetBot (GD-093, demande de l'utilisateur) : des mini-drones à tête chercheuse à la place des balles. Cliquer sur un ennemi le verrouille tant que le clic est tenu ; le drone le poursuit en contournant les obstacles et ne touche que lui ; sans cible, il va au point cliqué puis prend l'ennemi le plus proche ; contour rouge au survol. 145 tests. |
+| 2026-11-18 | Drone de PetBot, retour d'essai (GD-094) : plus de ciblage au clic ni de contour rouge, on clique devant les ennemis ; le drone va au point cliqué puis prend l'ennemi le plus proche dans 500 px ; report de cible à 500 px aussi. 146 tests. |

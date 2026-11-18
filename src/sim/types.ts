@@ -190,9 +190,6 @@ export interface Hero {
   reviveSteps: number;
   /** Soin fractionnaire accumulé (percentOfOneHp d'origine) : +1 PV quand il atteint 1. */
   healPool: number;
-  /** PetBot (GD-093) : PNJ verrouillé par le clic en cours, que visent tous ses drones ; -1 si aucun. */
-  lock: number;
-  fire1Was: boolean;
   // --- tir secondaire ---
   fire2Timer: number;
   fire2Was: boolean;
@@ -261,7 +258,7 @@ export interface Seeker {
   angle: number;
   /** PNJ poursuivi, -1 quand il vole tout droit. */
   target: number;
-  /** Tir sans cible : distance qui le sépare encore du point cliqué, où il cherchera un ennemi ; 0 sinon. */
+  /** Distance qui le sépare encore du point cliqué, où il cherchera un ennemi ; 0 une fois qu'il y est passé. */
   scout: number;
   /** Le point cliqué. */
   destX: number;

@@ -569,13 +569,11 @@ const LINK_BEAM: BeamStrand[] = [
 
 /**
  * Tir principal de PetBot (GD-093). Le mini-drone est plus petit que ceux qui l'entourent (`PETS.scale`) et
- * laisse une traînée froide, pour ne pas le confondre avec une balle. `mark` : le contour rouge de l'ennemi
- * que le clic prendrait pour cible (`hover`) ou qui est verrouillé (`locked`), épaisseurs en pixels.
+ * laisse une traînée froide, pour ne pas le confondre avec une balle.
  */
 const SEEKER = {
   scale: 1.05,
   trail: { length: 58, width: 5, core: 0xc8f6ff, glow: 0x2fc4ff },
-  mark: { color: 0xff2a2a, hover: 4.5, locked: 6.5, hoverAlpha: 0.85, lockedAlpha: 1 },
 };
 
 /** Éclairage du face-à-face : part de la pénombre levée, et temps pour y arriver ou en revenir, en secondes. */
@@ -595,10 +593,6 @@ export class WorldView {
   private readonly droneImgs = new Map<number, Img>();
   private readonly seekerImgs = new Map<number, Img>();
   private readonly seekerShadowImgs = new Map<number, Img>();
-  /** Ennemi entouré de rouge pour le joueur de PetBot, -1 si aucun ; `markLocked` : il est verrouillé (GD-093). */
-  private mark = -1;
-  private markLocked = false;
-  private readonly markImgs: Img[] = [];
   private readonly droneShadowImgs = new Map<number, Img>();
   private readonly explosionImgs = new Map<number, Img>();
   private readonly batImgs = new Map<number, Img>();
@@ -852,7 +846,6 @@ export class WorldView {
     this.frameDt = dt;
     this.syncHeroes(dt);
     this.syncNpcs();
-    this.syncMark();
     this.syncBullets();
     this.syncAbilityObjects();
     this.syncDrills();
@@ -1408,38 +1401,6 @@ export class WorldView {
         img.destroy();
         this.npcImgs.delete(id);
       }
-    }
-  }
-
-  /** L'ennemi à entourer de rouge : celui que le clic de PetBot prendrait pour cible, ou celui qu'il a verrouillé. */
-  setSeekerMark(npcId: number, locked: boolean): void {
-    this.mark = npcId;
-    this.markLocked = locked;
-  }
-
-  /**
-   * Contour rouge de l'ennemi désigné (GD-093) : huit copies de son image, en rouge uni, décalées tout autour
-   * et glissées sous lui. Il suit donc exactement sa silhouette, quelle que soit sa pose.
-   */
-  private syncMark(): void {
-    const img = this.mark >= 0 ? this.npcImgs.get(this.mark) : undefined;
-    if (!img) {
-      for (const m of this.markImgs) m.setVisible(false);
-      return;
-    }
-    const style = SEEKER.mark;
-    const width = this.markLocked ? style.locked : style.hover;
-    for (let i = 0; i < 8; i++) {
-      let m = this.markImgs[i];
-      if (!m) {
-        m = this.scene.add.image(img.x, img.y, img.texture.key).setDepth(DEPTH.character - 0.2);
-        this.markImgs.push(m);
-      }
-      const a = (i * Math.PI) / 4;
-      if (m.texture.key !== img.texture.key) m.setTexture(img.texture.key);
-      m.setOrigin(img.originX, img.originY).setRotation(img.rotation).setScale(img.scaleX, img.scaleY)
-        .setPosition(img.x + Math.cos(a) * width, img.y + Math.sin(a) * width)
-        .setTintFill(style.color).setAlpha(this.markLocked ? style.lockedAlpha : style.hoverAlpha).setVisible(true);
     }
   }
 

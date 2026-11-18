@@ -98,7 +98,8 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-090 | Effectifs de la riposte : un groupe de onze, et plus à plusieurs | 2026-11-18 | Acceptée ; modifie GD-087 (tailles des groupes, renforts) |
 | GD-091 | Choix de la carte et du point de départ, aussi à plusieurs ; départ « après l'ultimatum » | 2026-11-18 | Acceptée ; étend GD-032 (choix du départ en solo) et GD-040 (salon multijoueur) |
 | GD-092 | Retours d'essai sur la fin de TvTv² : déclencheur du face-à-face, zone d'extraction, véhicule, passages dégagés | 2026-11-18 | Acceptée ; modifie GD-088 (déclencheur du face-à-face), GD-089 (portail nord, zone de sortie, sens du véhicule), GD-084 (mobilier de l'aile est) |
-| GD-093 | Tir principal de PetBot : des mini-drones à tête chercheuse | 2026-11-18 | Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas |
+| GD-093 | Tir principal de PetBot : des mini-drones à tête chercheuse | 2026-11-18 | Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas ; modifiée par GD-094 (plus de ciblage au clic ni de contour rouge : points 1, 2 et 6 abandonnés ; rayons de recherche à 500 px) |
+| GD-094 | Drone de PetBot : plus de ciblage au clic ni de contour rouge, recherche à 500 px | 2026-11-18 | Acceptée — réglages à ajuster après essai ; modifie GD-093 |
 
 ---
 
@@ -2100,7 +2101,7 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 ## GD-093 — Tir principal de PetBot : des mini-drones à tête chercheuse
 
 - **Date** : 2026-11-18
-- **Statut** : Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas
+- **Statut** : Acceptée — réglages à ajuster après essai ; remplace la balle de PetBot (GD-021, GD-062 pour ce robot) ; le chargeur de GD-057 et la salve du clic droit (GD-045) ne changent pas ; modifiée par GD-094 (plus de ciblage au clic ni de contour rouge : points 1, 2 et 6 abandonnés ; rayons de recherche à 500 px)
 - **Décidée par** : l'utilisateur pour la mécanique (drone guidé, clic sur un ennemi, contour rouge, tolérance du clic, tir droit sans cible) et pour quatre points tranchés par ses réponses : verrouillage tant que le clic est tenu, tir sans cible qui va au point cliqué puis choisit une fois, report sur une autre cible si la sienne meurt, drone qui ne touche que sa cible, puissance inchangée. Sont des choix par défaut : toutes les valeurs chiffrées, et les règles signalées « par défaut » ci-dessous
 
 **Décision.** PetBot ne tire plus de balle. Son clic gauche lance un mini-drone, pour que son jeu soit cohérent avec le personnage (il commande des petits robots) et différent de celui des trois autres : il faut cliquer sur les ennemis.
@@ -2126,3 +2127,25 @@ Relever un coéquipier et lancer un ulti restent des moments où le robot ne peu
 **Limites connues.** Mesuré sur le vrai niveau, portes ouvertes : 127 cibles cachées sur 127 atteintes en contournant les murs. Non essayé en combat réel : l'équilibrage (un tir qui ne rate presque pas, à la même cadence qu'avant) est à juger en jouant. Le contour rouge a été vu au survol et verrouillé, en solo ; pas vu à plusieurs à l'écran (le test réseau vérifie que le verrou arrive chez le joueur).
 
 **Conséquences.** `CONFIG.abilities.petBot.seeker` (tous les réglages) ; `src/sim/abilities.ts` : `petBotFire1`, `seekerPick`, `stepSeeker` ; `Seeker`, `Hero.lock` (`src/sim/types.ts`) ; `World.seekers` ; liste `seekers` des instantanés réseau ; `WorldView.ts` : `SEEKER`, `syncMark` ; `GameScene.markSeekerTarget`. Tests : `src/sim/seeker.test.ts`, et le tir de PetBot dans `src/net/net.test.ts`. La balle `heroes.PetBot.bullet` n'est plus tirée.
+
+---
+
+## GD-094 — Drone de PetBot : plus de ciblage au clic ni de contour rouge, recherche à 500 px
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée — réglages à ajuster après essai ; modifie GD-093
+- **Décidée par** : l'utilisateur, après essai (les deux rayons à 500 px ; retirer le contour et le ciblage). Est une lecture de sa demande, à confirmer : le verrouillage au clic est retiré avec le contour, et pas seulement le contour
+
+**Décision.**
+
+1. **On ne désigne plus un ennemi en cliquant dessus.** Le contour rouge au survol, la tolérance du clic et le verrouillage tant que le clic est tenu (GD-093, points 1, 2 et 6) sont retirés.
+2. **Tout drone va d'abord au point cliqué**, en ligne droite. Arrivé là, il cherche une seule fois un ennemi et prend le plus proche de ce point ; s'il n'y en a pas, il continue tout droit. Clic tenu, chaque drone part vers le point visé à cet instant.
+3. **Les deux rayons de recherche passent à 500 px** : autour du point cliqué (320 auparavant), et autour du drone quand sa cible meurt en vol (520 auparavant).
+
+Le reste de GD-093 ne change pas : une fois sa cible prise, le drone la poursuit, contourne les obstacles et ne touche qu'elle ; en route vers le point cliqué, il touche le premier personnage rencontré ; puissance, vitesse et chargeur inchangés.
+
+**Pourquoi.** Retour d'essai de l'utilisateur : les ennemis bougent vite et viennent vers le joueur, on ne parvient pas à cliquer dessus. On clique devant eux en anticipant leur déplacement, et c'est le drone qui choisit. Le ciblage au clic ne servait donc pas, et son contour non plus.
+
+**Conséquence à connaître.** Cliquer sur un ennemi placé derrière un autre ne permet plus de le choisir : le drone, sans cible pendant son trajet, touche le premier qu'il rencontre.
+
+**Conséquences.** `CONFIG.abilities.petBot.seeker` (`seekRadius`, `retargetRadius` à 500 ; `pickMargin` supprimé) ; `src/sim/abilities.ts` : `seekerPick` supprimé, `petBotFire1` et `launchSeeker` simplifiés ; `Hero.lock` supprimé ; `WorldView.ts` et `GameScene.ts` : contour retiré. Tests : `src/sim/seeker.test.ts` réécrit.

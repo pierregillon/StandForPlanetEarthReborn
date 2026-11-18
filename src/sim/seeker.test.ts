@@ -1,13 +1,12 @@
-// Tir principal de PetBot : le mini-drone à tête chercheuse (GD-093), sur le vrai niveau. Les PNJ utiles sont
-// amenés dehors, près du point de départ, là où rien ne gêne, et figés.
+// Tir principal de PetBot : le mini-drone à tête chercheuse (GD-093, GD-094), sur le vrai niveau. Les PNJ utiles
+// sont amenés dehors, près du point de départ, là où rien ne gêne, et figés.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { World } from './world.ts';
-import { seekerPick } from './abilities.ts';
 import { HOLDING } from './npc.ts';
 import { NO_INPUT } from './types.ts';
-import type { Input, LevelData, Npc, SimEvent, SpriteManifest } from './types.ts';
+import type { Input, LevelData, Npc, Seeker, SimEvent, SpriteManifest } from './types.ts';
 import { CONFIG } from './config.ts';
 
 const level = JSON.parse(readFileSync(new URL('../../public/levels/rm_world2.json', import.meta.url), 'utf8')) as LevelData;
@@ -50,73 +49,22 @@ function run(w: World, steps: number, input: Input): void {
   for (let i = 0; i < steps; i++) w.step(input);
 }
 
-test('PetBot : cliquer sur un ennemi lance un drone qui le poursuit et ne touche que lui', () => {
-  // un soldat sur la ligne de tir, la cible derrière lui : le drone passe au-dessus du premier
-  const { w, npcs: [front, target] } = arena([['obj_npc_human_pistol', 400, 0], ['obj_npc_human_pistol', 800, 30]]);
-  w.step(at(w, 800, 30, { fire1: true }));
-  assert.equal(w.hero.lock, target.id, 'la cible est verrouillée');
-  assert.equal(w.seekers.length, 1);
-  assert.equal(w.seekers[0].target, target.id);
-  assert.equal(w.bullets.length, 0, 'plus de balle');
-  assert.equal(w.hero.ammo, w.hero.def.magazine - 1);
-  // le clic relâché, le drone continue seul
-  run(w, 60, at(w, 800, 30));
-  assert.equal(w.seekers.length, 0);
-  assert.equal(target.hp, 10 - S.damage);
-  assert.equal(front.hp, 10, 'le soldat sur le trajet n\'est pas touché');
-});
+/** Tire un drone vers (dx, dy) et le laisse voler jusqu'à ce qu'il ait pris cette cible. */
+function lockOn(w: World, dx: number, dy: number, target: Npc): Seeker {
+  w.step(at(w, dx, dy, { fire1: true }));
+  const d = w.seekers[0];
+  assert.ok(d);
+  for (let i = 0; i < 60 && d.target !== target.id; i++) w.step(at(w, dx, dy));
+  assert.equal(d.target, target.id, 'le drone a pris sa cible au point cliqué');
+  return d;
+}
 
-test('PetBot : la tolérance du clic, et ce qui ne se vise pas', () => {
-  const { w, npcs: [soldier, civil] } = arena([['obj_npc_human_pistol', 600, 0], ['obj_npc_civil_femme', 600, 400]]);
-  const h = w.hero;
-  const edge = soldier.def.radius + S.pickMargin;
-  assert.equal(seekerPick(w, h, soldier.x + edge - 2, soldier.y), soldier, 'dans la marge');
-  assert.equal(seekerPick(w, h, soldier.x + edge + 2, soldier.y), null, 'juste hors de la marge');
-  assert.equal(seekerPick(w, h, civil.x, civil.y), null, 'un civil ne se vise pas');
-  // un ennemi que PetBot ne voit pas ne se vise pas non plus
-  const hidden = hiddenSpot(w);
-  soldier.x = hidden.x;
-  soldier.y = hidden.y;
-  assert.equal(seekerPick(w, h, soldier.x, soldier.y), null, 'caché derrière un mur');
-});
-
-test('PetBot : tant que le clic est tenu, tous les drones suivent la cible verrouillée', () => {
-  const { w, npcs: [target, other] } = arena([['obj_npc_human_pistol', 600, -200], ['obj_npc_human_pistol', 600, 300]]);
-  const h = w.hero;
-  w.step(at(w, 600, -200, { fire1: true }));
-  // le curseur s'en va sur l'autre soldat sans relâcher : la cible ne change pas
-  run(w, 70, at(w, 600, 300, { fire1: true }));
-  assert.equal(h.lock, target.id);
-  assert.ok(target.hp <= 10 - 3 * S.damage, `la cible a pris plusieurs drones : ${target.hp}`);
-  assert.equal(other.hp, 10, 'l\'autre soldat n\'a rien reçu');
-  // relâcher puis recliquer change de cible
-  w.step(at(w, 600, 300));
-  assert.equal(h.lock, -1);
-  w.step(at(w, 600, 300, { fire1: true }));
-  assert.equal(h.lock, other.id);
-});
-
-test('PetBot : la cible morte, le verrou tombe et le drone en vol se reporte sur l\'ennemi le plus proche', () => {
-  const { w, npcs: [target, other] } = arena([['obj_npc_human_pistol', 700, 0], ['obj_npc_human_pistol', 700, 260]]);
-  const h = w.hero;
-  w.step(at(w, 700, 0, { fire1: true }));
-  run(w, 8, at(w, 700, 0, { fire1: true }));
-  assert.equal(w.seekers.length, 1);
-  target.hp = 0;
-  run(w, 3, at(w, 700, 0, { fire1: true }));
-  assert.ok(!w.npcs.includes(target));
-  assert.equal(h.lock, -1, 'le verrou tombe avec la cible');
-  assert.equal(w.seekers[0].target, other.id, 'le drone en vol change de cible');
-  run(w, 60, at(w, 2500, -900));
-  assert.equal(other.hp, 10 - S.damage);
-});
-
-test('PetBot : sans ennemi sous le clic, le drone va au point cliqué puis prend l\'ennemi le plus proche de ce point', () => {
+test('PetBot : le drone va au point cliqué, puis prend l\'ennemi le plus proche de ce point', () => {
   const { w, npcs: [near, far] } = arena([['obj_npc_human_pistol', 700, 220], ['obj_npc_human_pistol', 700, -290]]);
   const h = w.hero;
-  // le point cliqué est hors de la tolérance des deux soldats
   w.step(at(w, 700, 0, { fire1: true }));
-  assert.equal(h.lock, -1);
+  assert.equal(w.bullets.length, 0, 'plus de balle');
+  assert.equal(h.ammo, h.def.magazine - 1);
   const d = w.seekers[0];
   assert.equal(d.target, -1);
   assert.ok(d.scout > 0);
@@ -126,19 +74,85 @@ test('PetBot : sans ennemi sous le clic, le drone va au point cliqué puis prend
   assert.equal(d.angle, heading);
   assert.equal(d.target, -1);
   run(w, 60, at(w, 700, 0));
+  assert.equal(w.seekers.length, 0);
   assert.equal(near.hp, 10 - S.damage, 'le plus proche du point cliqué');
   assert.equal(far.hp, 10);
 });
 
-test('PetBot : personne autour du point cliqué, le drone file tout droit et touche ce qu\'il rencontre', () => {
-  // un soldat loin du point cliqué mais plus loin sur la même ligne : il est touché au passage, comme par une balle
-  const { w, npcs: [inLine, aside], events } = arena([['obj_npc_human_pistol', 1100, 0], ['obj_npc_human_pistol', 500, 600]]);
+test('PetBot : les deux rayons de recherche font 500 px, et un civil n\'est jamais pris pour cible', () => {
+  assert.equal(S.seekRadius, 500);
+  assert.equal(S.retargetRadius, 500);
+  // un soldat à 480 px du point cliqué est pris ; le civil, bien plus près du point, est ignoré
+  const { w, npcs: [soldier, civil] } = arena([['obj_npc_human_pistol', 600, -480], ['obj_npc_civil_femme', 600, 130]]);
+  w.step(at(w, 600, 0, { fire1: true }));
+  run(w, 90, at(w, 600, 0));
+  assert.equal(soldier.hp, 10 - S.damage);
+  assert.equal(civil.hp, 10);
+  // à 520 px du point, il est hors de portée : le drone file tout droit
+  const out = arena([['obj_npc_human_pistol', 600, -520]]);
+  out.w.step(at(out.w, 600, 0, { fire1: true }));
+  run(out.w, 200, at(out.w, 600, 0));
+  assert.equal(out.w.seekers.length, 0);
+  assert.equal(out.npcs[0].hp, 10);
+});
+
+test('PetBot : cliquer sur un ennemi ne le désigne pas, le drone touche ce qu\'il rencontre en route (GD-094)', () => {
+  // un soldat sur la ligne de tir, un autre derrière lui sous le clic : c'est le premier qui prend le drone
+  const { w, npcs: [front, clicked], events } = arena([['obj_npc_human_pistol', 400, 0], ['obj_npc_human_pistol', 800, 30]]);
+  w.step(at(w, 800, 30, { fire1: true }));
+  assert.equal(w.seekers[0].target, -1, 'pas de cible au départ, même en cliquant sur un ennemi');
+  run(w, 60, at(w, 800, 30));
+  assert.equal(w.seekers.length, 0);
+  assert.equal(front.hp, 10 - S.damage);
+  assert.equal(clicked.hp, 10);
+  assert.ok(events.some((e) => e.type === 'impact' && e.surface === 'npc'));
+});
+
+test('PetBot : clic tenu, chaque drone part vers le point visé à cet instant', () => {
+  const { w } = arena([]);
+  const h = w.hero;
+  w.step(at(w, 600, -300, { fire1: true }));
+  run(w, 22, at(w, 600, 300, { fire1: true }));
+  assert.equal(w.seekers.length, 2);
+  assert.equal(w.seekers[0].destY, h.y - 300);
+  assert.equal(w.seekers[1].destY, h.y + 300);
+  // clic tenu jusqu'au bout : un drone par intervalle, le chargeur se vide comme avant
+  run(w, 300, at(w, 600, 300, { fire1: true }));
+  assert.equal(h.ammo, 0);
+  assert.equal(w.stats.ammoUsed, h.def.magazine);
+});
+
+test('PetBot : la cible morte en vol, le drone se reporte sur l\'ennemi le plus proche de lui', () => {
+  const { w, npcs: [target, other] } = arena([['obj_npc_human_pistol', 600, 200], ['obj_npc_human_pistol', 600, -350]]);
+  const d = lockOn(w, 600, 0, target);
+  target.hp = 0;
+  run(w, 3, at(w, 600, 0));
+  assert.ok(!w.npcs.includes(target));
+  assert.equal(d.target, other.id);
+  run(w, 60, at(w, 600, 0));
+  assert.equal(other.hp, 10 - S.damage);
+});
+
+test('PetBot : un drone qui poursuit une cible ne touche qu\'elle', () => {
+  const { w, npcs: [target, other] } = arena([['obj_npc_human_pistol', 500, -450], ['obj_npc_human_pistol', -600, 0]]);
+  const d = lockOn(w, 500, 0, target);
+  // un autre soldat vient se mettre entre le drone et sa cible : le drone passe au-dessus
+  other.x = (d.x + target.x) / 2;
+  other.y = (d.y + target.y) / 2;
+  run(w, 60, at(w, 500, 0));
+  assert.equal(w.seekers.length, 0);
+  assert.equal(target.hp, 10 - S.damage);
+  assert.equal(other.hp, 10);
+});
+
+test('PetBot : personne autour du point cliqué, le drone file tout droit et finit dans le décor', () => {
+  // un soldat hors du rayon de recherche mais plus loin sur la même ligne : il est touché au passage
+  const { w, npcs: [inLine, aside] } = arena([['obj_npc_human_pistol', 1100, 0], ['obj_npc_human_pistol', 500, 600]]);
   w.step(at(w, 500, 0, { fire1: true }));
   run(w, 80, at(w, 500, 0));
   assert.equal(w.seekers.length, 0);
   assert.equal(inLine.hp, 10 - S.damage);
   assert.equal(aside.hp, 10, 'hors du rayon de recherche, hors de la ligne');
-  assert.ok(events.some((e) => e.type === 'impact' && e.surface === 'npc'));
 
   // personne nulle part : il finit dans un mur, ou s'éteint au bout de sa course
   const empty = arena([['obj_npc_human_pistol', 300, 900]]);
@@ -149,20 +163,19 @@ test('PetBot : personne autour du point cliqué, le drone file tout droit et tou
   assert.ok(empty.events.some((e) => e.type === 'impact' && e.surface === 'wall'));
 });
 
-/** Un endroit libre que PetBot ne voit pas, mais qu'un chemin court permet de rejoindre. */
-function hiddenSpot(w: World): { x: number; y: number } {
-  const h = w.hero;
+/** Un endroit libre qu'on ne voit pas depuis (x0, y0), mais qu'un chemin court permet de rejoindre. */
+function hiddenSpot(w: World, x0: number, y0: number): { x: number; y: number } {
   for (let dx = -1200; dx <= 1200; dx += 100) {
     for (let dy = -1200; dy <= 1200; dy += 100) {
-      const x = h.x + dx;
-      const y = h.y + dy;
+      const x = x0 + dx;
+      const y = y0 + dy;
       if (x < 50 || y < 50 || x > w.width - 50 || y > w.height - 50) continue;
-      if (w.nav.isBlockedAt(x, y) || !w.shotBlocked(h.x, h.y, x, y) || !w.sightBlocked(h.x, h.y, x, y)) continue;
-      const path = w.nav.findPath(h.x, h.y, x, y);
+      if (w.nav.isBlockedAt(x, y) || !w.shotBlocked(x0, y0, x, y)) continue;
+      const path = w.nav.findPath(x0, y0, x, y);
       if (!path) continue;
       let length = 0;
-      let px = h.x;
-      let py = h.y;
+      let px = x0;
+      let py = y0;
       for (const p of path) {
         length += Math.hypot(p.x - px, p.y - py);
         px = p.x;
@@ -174,8 +187,7 @@ function hiddenSpot(w: World): { x: number; y: number } {
   throw new Error('aucun endroit caché près du point de départ');
 }
 
-test('PetBot : la cible passée derrière un mur, le drone contourne l\'obstacle ; sans chemin, il s\'écrase', () => {
-  const { w, npcs: [target] } = arena([['obj_npc_human_pistol', 500, 0]]);
+function openDoors(w: World): void {
   // les portes automatiques ne s'ouvrent pas pour un drone : on les ouvre, seul le contournement est jugé ici
   for (const door of w.doors) {
     door.progress = 1;
@@ -183,10 +195,14 @@ test('PetBot : la cible passée derrière un mur, le drone contourne l\'obstacle
     door.blockedOpen = true;
     w.updateDoorObstacle(door);
   }
-  const spot = hiddenSpot(w);
-  w.step(at(w, 500, 0, { fire1: true }));
-  assert.equal(w.hero.lock, target.id);
+}
+
+test('PetBot : la cible passée derrière un mur, le drone contourne l\'obstacle ; sans chemin, il s\'écrase', () => {
+  const { w, npcs: [target] } = arena([['obj_npc_human_pistol', 500, 150]]);
+  openDoors(w);
+  const d = lockOn(w, 500, 0, target);
   // la cible disparaît derrière un mur pendant que le drone est en vol
+  const spot = hiddenSpot(w, d.x, d.y);
   target.x = spot.x;
   target.y = spot.y;
   run(w, 150, at(w, 500, 0));
@@ -194,22 +210,23 @@ test('PetBot : la cible passée derrière un mur, le drone contourne l\'obstacle
   assert.equal(target.hp, 10 - S.damage, 'le drone a trouvé son chemin');
 
   // même situation, mais aucun chemin : la tête chercheuse décroche et le drone finit dans le décor
-  const lost = arena([['obj_npc_human_pistol', 500, 0]]);
+  const lost = arena([['obj_npc_human_pistol', 500, 150]]);
+  openDoors(lost.w);
+  const stray = lockOn(lost.w, 500, 0, lost.npcs[0]);
+  const hide = hiddenSpot(lost.w, stray.x, stray.y);
   lost.w.nav.findPath = () => null;
-  lost.w.step(at(lost.w, 500, 0, { fire1: true }));
-  lost.npcs[0].x = spot.x;
-  lost.npcs[0].y = spot.y;
+  lost.npcs[0].x = hide.x;
+  lost.npcs[0].y = hide.y;
   run(lost.w, 3, at(lost.w, 500, 0));
-  assert.equal(lost.w.seekers[0].target, -1);
+  assert.equal(stray.target, -1);
   run(lost.w, 200, at(lost.w, 500, 0));
   assert.equal(lost.w.seekers.length, 0);
   assert.equal(lost.npcs[0].hp, 10);
   assert.ok(lost.events.some((e) => e.type === 'impact' && e.surface === 'wall'));
 });
 
-test('PetBot : le robot bouclier arrête le drone de face, et le chargeur se vide comme avant', () => {
+test('PetBot : le robot bouclier arrête le drone de face', () => {
   const { w, npcs: [shield] } = arena([['obj_npc_robot_shield', 500, 0]]);
-  const h = w.hero;
   shield.angle = Math.PI; // il fait face à PetBot
   const before = shield.shieldHp;
   assert.ok(before > 0);
@@ -217,8 +234,4 @@ test('PetBot : le robot bouclier arrête le drone de face, et le chargeur se vid
   run(w, 40, at(w, 500, 0));
   assert.equal(shield.hp, 10);
   assert.equal(shield.shieldHp, before - 1);
-  // clic tenu : un drone par intervalle, jusqu'au chargeur vide
-  run(w, 300, at(w, 500, 0, { fire1: true }));
-  assert.equal(h.ammo, 0);
-  assert.equal(w.stats.ammoUsed, h.def.magazine);
 });
