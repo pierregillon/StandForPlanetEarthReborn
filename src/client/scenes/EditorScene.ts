@@ -43,7 +43,9 @@ const MODE_PICKS: Record<Mode, Category[]> = {
 };
 /** Noms plus parlants que ceux des objets d'origine, sur la carte. */
 const MARKER_LABELS: Record<string, string> = {
-  obj_bonus_box: 'recharge outlet', obj_spawnHeros: 'hero spawn', obj_spawnVehicle: 'drop vehicle', obj_nextRoom: 'stairs (next room)',
+  // les bornes de recharge prennent la place des `obj_bonus_ammo`, et le jeu n'en garde que quelques-unes par
+  // salle (`CONFIG.outlet.keepPerRoom`) ; les boîtes bonus ne sont plus dans le jeu (GD-027)
+  obj_bonus_ammo: 'recharge outlet spot', obj_bonus_box: 'bonus box (not in game)', obj_spawnHeros: 'hero spawn', obj_spawnVehicle: 'drop vehicle', obj_nextRoom: 'stairs (next room)',
   obj_previousRoom: 'stairs (previous room)', obj_endLevel: 'level exit zone', obj_card_green: 'green card', obj_card_purple: 'purple card',
 };
 
