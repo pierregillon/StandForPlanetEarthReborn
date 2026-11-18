@@ -168,6 +168,8 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 
 **Conséquences.** Sur une autre machine, il faut Node 22.18 ou plus récent dans le PATH, ou refaire cette copie. Dans un terminal, `node` reste le Node 14 du système : passer par `start.cmd` / `dev.cmd`, ou préfixer le PATH.
 
+**Mise à jour du 2026-11-18.** Le projet tourne aussi sur macOS, sans `.tools/` : le Node 24 de nvm suffit, et `npm start` / `npm run dev` remplacent les scripts `.cmd`. La copie portable reste propre à la machine Windows. Consignes par plateforme : README (« Lancer le jeu ») et AGENTS.md (« Selon la machine »).
+
 ---
 
 ## ADR-010 — Outils minimaux : esbuild, TypeScript exécuté par Node, serveur sans dépendance

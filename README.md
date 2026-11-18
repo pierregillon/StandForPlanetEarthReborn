@@ -19,15 +19,16 @@ Remake pour navigateur de « Stand For Planet Earth », un jeu de tir en vue du 
 
 ## Lancer le jeu
 
-Double-cliquer sur `start.cmd` (ou le lancer dans un terminal), puis ouvrir <http://localhost:3000> dans un navigateur.
+Il faut Node 22.18 ou plus récent : `node` exécute directement les fichiers TypeScript du projet, ce que les versions antérieures ne savent pas faire. Une fois, installer les dépendances avec `npm install` (environ 25 Mo à télécharger).
 
-Il faut Node 22.18 ou plus récent. Sur la machine de développement, une copie portable se trouve dans `.tools/node22` (non versionnée) et `start.cmd` l'utilise automatiquement. Ailleurs : installer Node 22, puis `npm install` (33 Mo) et `npm start`.
+- **macOS, Linux** : `npm start`, puis ouvrir <http://localhost:3000>. N'importe quel Node assez récent fait l'affaire (paquet du système, Homebrew, nvm…).
+- **Windows** : double-cliquer sur `start.cmd` (ou le lancer dans un terminal), puis ouvrir <http://localhost:3000>. Ce script et `dev.cmd` placent en tête du PATH le Node portable de `.tools/node22` s'il existe (non versionné, ADR-009), pour une machine dont le Node du système est trop ancien. Sans ce dossier, ils utilisent le Node du PATH ; `npm start` fonctionne aussi.
 
 ### Jouer à plusieurs
 
-Le serveur lancé par `start.cmd` héberge aussi la partie multijoueur (une seule à la fois pour l'instant, 4 joueurs au plus).
+Le serveur du jeu héberge aussi la partie multijoueur (une seule à la fois pour l'instant, 4 joueurs au plus).
 
-1. L'hôte lance `start.cmd`, ouvre <http://localhost:3000> et choisit **Create game**.
+1. L'hôte lance le jeu (voir ci-dessus), ouvre <http://localhost:3000> et choisit **Create game**.
 2. Les autres ouvrent la même adresse depuis leur machine et choisissent **Join game** :
    - sur le même réseau : `http://adresse-de-l'hôte:3000` ;
    - à distance : l'adresse fournie par un tunnel, par exemple `ngrok http 3000`.
@@ -55,13 +56,15 @@ En jeu à plusieurs : **A** (Q sur un clavier QWERTY) en visant un coéquipier p
 
 | Commande | Effet |
 |---|---|
-| `dev.cmd` ou `npm run dev` | Reconstruit le code à chaque modification et sert le jeu ; `http://localhost:3000/?play` saute le menu, `?play=EngiBot` choisit le héros, `?view` ouvre la partie en caméra libre |
+| `npm run dev` (ou `dev.cmd` sous Windows) | Reconstruit le code à chaque modification et sert le jeu ; `http://localhost:3000/?play` saute le menu, `?play=EngiBot` choisit le héros, `?view` ouvre la partie en caméra libre |
 | `npm test` | Tests de la simulation, sans navigateur |
 | `npm run typecheck` | Vérification des types |
 | `npm run convert-rooms` | Reconvertit les salles GameMaker en `public/levels/*.json` |
 | `npm run make-sprites`, `npm run make-studio` | Refabriquent les sprites que l'original n'avait pas (ultis et rechargements des robots ; plateau de TvTv²) |
 | `npm run level-map` | Redessine les plans annotés des salles dans `docs/narration/plans/` |
 | `npm run extract-assets` | Recopie sprites, sols et sons depuis le projet GameMaker (réglages : `tools/assets.config.json`) |
+
+`convert-rooms` et `extract-assets` lisent le projet GameMaker d'origine. Ils l'extraient au besoin dans `.cache/reference` depuis un clone du dépôt d'origine, cherché à côté de celui-ci (`../Stand-For-Planet-Earth`) ou à l'emplacement donné par la variable `SFPE_REFERENCE_REPO`. Ce clone doit contenir l'étiquette `remake-reference-2019` (voir [docs/reference/](docs/reference/README.md)). Les autres commandes n'en ont pas besoin : les assets et les niveaux convertis sont déjà dans `public/`.
 
 Organisation du code : `src/sim` (logique du jeu, sans Phaser ni navigateur ; réglages dans `src/sim/config.ts`), `src/client` (affichage Phaser), `server` (serveur Node), `tools` (build et conversion), `public` (assets et niveaux).
 

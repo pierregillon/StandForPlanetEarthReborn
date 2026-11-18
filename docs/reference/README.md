@@ -7,7 +7,7 @@ Dernière mise à jour : 2026-11-15.
 | | |
 |---|---|
 | Dépôt GitHub | `https://github.com/Leuyck/Stand-For-Planet-Earth` (dépôt d'un autre contributeur : lecture seule, ne jamais y pousser) |
-| Copie locale | `C:\Users\gillo\Code\Stand-For-Planet-Earth` |
+| Copie locale | À côté de ce dépôt, `../Stand-For-Planet-Earth`, ou au chemin donné par la variable `SFPE_REFERENCE_REPO` (lu par `convert-rooms` et `extract-assets`). Sur la machine Windows : `C:\Users\gillo\Code\Stand-For-Planet-Earth`. Une copie neuve n'a pas l'étiquette ci-dessous : la recréer sur le commit de référence |
 | **Commit de référence** | **`d438c5482ca1419af8ad39faae5326b9b2667d88`** (branche `develop` distante, 17 janvier 2019) |
 | Étiquette locale | `remake-reference-2019` (créée le 2026-11-15 pour retrouver ce commit et empêcher git de le purger) |
 | Format | GameMaker Studio 2, dans le sous-dossier `Stand-For-Planet-Earth/` du commit |
@@ -21,7 +21,7 @@ Dernière mise à jour : 2026-11-15.
 
 ### Lire ou extraire le code de référence
 
-Depuis `C:\Users\gillo\Code\Stand-For-Planet-Earth`, sans rien modifier :
+Depuis la copie locale du dépôt d'origine, sans rien modifier :
 
 ```bash
 # Lister un dossier
@@ -71,6 +71,6 @@ Ils décrivent une vision plus large et parfois différente du code (7 héros, f
 | Source | Emplacement | Usage |
 |---|---|---|
 | Projet GameMaker de 2019 | `sprites/`, `sounds/`, `tilesets/`, `fonts/` du commit de référence | **Source principale** : images à la bonne taille, avec origines et masques dans les `.yy` |
-| Dossier `Resources` | `C:\Users\gillo\Code\Stand-For-Planet-Earth\Resources` (1,3 Go, hors git) | Complément : sources PNG et PSD, variantes, musiques WAV (« forage », « usine »), polices |
+| Dossier `Resources` | `Resources/` de la copie locale (1,3 Go, hors git : présent seulement sur la machine Windows) | Complément : sources PNG et PSD, variantes, musiques WAV (« forage », « usine »), polices |
 
 Ne copier dans ce dépôt que ce qui est utilisé. Sprites manquants : régénération autorisée, fidèle au style d'origine (voir ADR-007).
