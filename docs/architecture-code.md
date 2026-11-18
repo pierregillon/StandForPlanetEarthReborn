@@ -36,6 +36,7 @@ dépôt d'origine (étiquette remake-reference-2019)
                                   puis relance make-sprites
 npm run make-sprites ─▶ ultis et rechargements des robots, recomposés des sprites d'origine (ADR-015)
 npm run make-studio  ─▶ sprites et sols de l'aile est de TvTv², dessinés avec tools/lib/draw.ts
+npm run make-pickups ─▶ borne de recharge et cartes d'accès, dessinées de même (GD-097)
 npm run level-map    ─▶ plans annotés en SVG dans docs/narration/plans/
 ```
 

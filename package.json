@@ -17,7 +17,8 @@
     "extract-assets": "node tools/extract-assets.ts",
     "make-sprites": "node tools/make-sprites.ts",
     "level-map": "node tools/level-map.ts rm_world2 rm_world2_1",
-    "make-studio": "node tools/make-studio.ts"
+    "make-studio": "node tools/make-studio.ts",
+    "make-pickups": "node tools/make-pickups.ts"
   },
   "dependencies": {
     "phaser": "3.90.0",

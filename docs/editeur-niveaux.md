@@ -94,7 +94,7 @@ Après un retour en arrière, rouvrir l'éditeur ou relancer une partie : la sal
 - **Partie à plusieurs.** Le serveur prend la salle sauvegardée pour la partie suivante ; les autres joueurs doivent recharger la page pour la voir.
 - **`npm run convert-rooms`** ne réécrit plus une salle retouchée, sauf avec `--force` (qui efface les retouches).
 
-- **Bornes de recharge et cartes d'accès : pas le même dessin qu'en jeu.** Le jeu les dessine par le code (elles n'ont pas de sprite), alors que l'éditeur montre le sprite de l'objet d'origine qu'elles remplacent. Pour les bornes, l'écart va plus loin : chaque « recharge outlet spot » est un emplacement possible, et le jeu n'en garde que 4 au rez-de-chaussée et 2 à l'étage, les plus éloignés les uns des autres (`CONFIG.outlet.keepPerRoom`). Les « bonus box » ne sont plus dans le jeu (GD-027).
+- **Ce que la carte contient est ce que le jeu montre (GD-097).** Une borne posée (« recharge outlet ») est une borne en jeu, une carte d'accès posée s'y ramasse, avec le même dessin. Si tu constates un écart entre l'éditeur et le jeu, c'est une anomalie : signale-la.
 
 ## La suite
 

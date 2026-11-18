@@ -28,6 +28,8 @@ export const DEPTH = {
  */
 export const DRAW_ORDER_STEP = 0.0001;
 const POLICE_VAN = 'spr_pk_police_van';
+/** Borne de recharge : image 0 en service, image 1 vidée (sprite fabriqué, GD-097). */
+const OUTLET_SPRITE = 'spr_outlet';
 /** Brouillard de guerre : gris foncé de l'original ($313131). */
 const FOG_COLOR = 0x313131;
 /** Éclairage simplifié. L'original assombrit à 60 % ; 50 % ici pour garder les combats lisibles (GD-028). */
@@ -789,15 +791,14 @@ export class WorldView {
     for (const pane of world.windows) {
       this.windowImgs.set(pane.id, this.image(pane.sprite, 0, pane.x, pane.y, DEPTH.window).setRotation(pane.angle).setScale(pane.scaleX, pane.scaleY));
     }
-    this.makeOutletTexture();
     for (const outlet of world.outlets) {
-      this.outletImgs.set(outlet.id, scene.add.image(outlet.x, outlet.y, 'outlet').setDepth(DEPTH.outlet));
+      this.outletImgs.set(outlet.id, this.image(OUTLET_SPRITE, 0, outlet.x, outlet.y, DEPTH.outlet));
     }
     for (const card of world.cards) {
-      // carte redessinée (GD-029) : une vraie carte d'accès, avec un halo de sa couleur
+      // la carte est un sprite (GD-097) ; le halo de sa couleur, qui pulse, est un effet
       this.ensureHalo();
       this.cardGlows.set(card.id, scene.add.image(card.x, card.y, 'lightHalo').setTint(CARD_COLORS[card.color]).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.outlet));
-      this.cardImgs.set(card.id, scene.add.image(card.x, card.y, this.cardTexture(card.color)).setDepth(DEPTH.outlet + 1));
+      this.cardImgs.set(card.id, this.image(card.sprite, 0, card.x, card.y, DEPTH.outlet + 1));
     }
     for (const zone of world.zones) {
       this.zoneImgs.push(this.image(zone.sprite, 0, zone.x, zone.y, DEPTH.zone));
@@ -818,29 +819,6 @@ export class WorldView {
       this.drillParts.set(drill.id, { contours: part('spr_foreuse_contours'), beam: part('spr_foreuse_faisceau') });
     }
     this.buildLights();
-  }
-
-  /** Remake (GD-006) : borne de recharge dessinée par le code, faute de sprite d'origine. */
-  private makeOutletTexture(): void {
-    if (this.scene.textures.exists('outlet')) return;
-    const g = this.scene.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x10141c, 0.55).fillCircle(48, 50, 44);
-    g.fillStyle(0x2a3140, 1).fillRoundedRect(14, 14, 68, 68, 12);
-    g.lineStyle(4, 0x8b96ad, 1).strokeRoundedRect(14, 14, 68, 68, 12);
-    g.fillStyle(0x151a24, 1).fillRoundedRect(24, 24, 48, 48, 8);
-    g.fillStyle(0xffd23c, 1);
-    g.fillPoints([
-      new Phaser.Geom.Point(52, 28), new Phaser.Geom.Point(36, 52), new Phaser.Geom.Point(47, 52),
-      new Phaser.Geom.Point(43, 70), new Phaser.Geom.Point(61, 44), new Phaser.Geom.Point(50, 44),
-    ], true);
-    // voyant : vert tant que la borne a de la réserve, rouge une fois vidée (GD-031)
-    for (const [key, led, halo] of [['outlet', 0x4dff88, 0x1f8a45], ['outlet_empty', 0xff3030, 0x7a1010]] as const) {
-      g.fillStyle(halo, 1).fillCircle(72, 22, 10);
-      g.fillStyle(led, 1).fillCircle(72, 22, 7);
-      g.fillStyle(0xffffff, 0.7).fillCircle(70, 20, 2.5);
-      g.generateTexture(key, 96, 96);
-    }
-    g.destroy();
   }
 
   /** Met l'affichage à jour d'après l'état du monde. `dt` en secondes. */
@@ -873,8 +851,8 @@ export class WorldView {
       if (!img) continue;
       const empty = outlet.energyLeft === 0 && outlet.repairLeft === 0;
       img.setScale(outlet.inUse ? 1.08 + Math.sin(this.scene.time.now / 80) * 0.04 : 1);
-      // borne vidée : seul son voyant change, il passe au rouge
-      if (empty && img.texture.key !== 'outlet_empty') img.setTexture('outlet_empty');
+      // borne vidée : seul son voyant change, il passe au rouge (seconde image du sprite)
+      this.setFrame(img, OUTLET_SPRITE, empty ? 1 : 0);
     }
     this.syncNpcFx();
     this.syncDecor();
@@ -2607,24 +2585,6 @@ export class WorldView {
   }
 
   /** Texture d'une carte d'accès, dessinée par le code (GD-029). */
-  private cardTexture(color: string): string {
-    const key = `card:${color}`;
-    if (this.scene.textures.exists(key)) return key;
-    const base = CARD_COLORS[color] ?? 0xffffff;
-    const g = this.scene.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x000000, 0.35).fillRoundedRect(6, 8, 88, 58, 10);
-    g.fillStyle(base, 1).fillRoundedRect(2, 2, 88, 58, 10);
-    g.fillStyle(0xffffff, 0.28).fillRoundedRect(2, 2, 88, 22, { tl: 10, tr: 10, bl: 0, br: 0 });
-    g.fillStyle(0x10141c, 0.85).fillRect(2, 30, 88, 10);
-    g.fillStyle(0xffd23c, 1).fillRoundedRect(12, 10, 22, 16, 4);
-    g.lineStyle(2, 0x8a6a00, 1).strokeRoundedRect(12, 10, 22, 16, 4).lineBetween(23, 10, 23, 26).lineBetween(12, 18, 34, 18);
-    g.fillStyle(0xffffff, 0.9).fillCircle(60, 50, 4).fillCircle(72, 50, 4).fillCircle(48, 50, 4);
-    g.lineStyle(4, 0xffffff, 0.95).strokeRoundedRect(2, 2, 88, 58, 10);
-    g.generateTexture(key, 96, 68);
-    g.destroy();
-    return key;
-  }
-
   /** Effets dessinés sur le héros (GD-029) : anneau de rechargement, jauge de munitions, énergie en surcharge. */
   private drawHeroFx(h: Hero, p: HeroParts, local: boolean): void {
     if (h.deploySteps > 0) {

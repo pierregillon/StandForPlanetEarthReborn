@@ -401,10 +401,8 @@ export const CONFIG = {
     energyCapacity: 12,
     repairCapacity: 5,
     stepsPerRepair: s(3) / 5,
-    /** Nombre de bornes gardées par salle, choisies les plus éloignées les unes des autres. */
-    keepPerRoom: { rm_world2: 4, rm_world2_1: 2 } as Record<string, number>,
-    /** Les prises remplacent ces objets du niveau d'origine. */
-    replacesObject: 'obj_bonus_ammo',
+    /** L'objet de la carte qui est une borne : chacune de ses instances en est une, là où elle est posée (GD-097). */
+    object: 'obj_outlet',
   },
 
   npc: {

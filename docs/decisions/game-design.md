@@ -102,6 +102,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | GD-094 | Drone de PetBot : plus de ciblage au clic ni de contour rouge, recherche à 500 px | 2026-11-18 | Acceptée — réglages à ajuster après essai ; modifie GD-093 |
 | GD-095 | L'ordre de la salle est l'ordre de dessin, chaises à roulettes comprises ; l'éditeur le règle (devant, derrière) | 2026-11-18 | Acceptée ; précise GD-031 (chaises à roulettes) |
 | GD-096 | La première version à montrer est une démo : TvTv² seul, en entier, jouable seul et à plusieurs, par un lien | 2026-11-18 | Acceptée ; prend la suite du MVP de GD-015, livré |
+| GD-097 | La carte contient ce que le jeu montre : bornes et cartes d'accès en vrais sprites, bonus retirés, plus de tri des bornes au chargement | 2026-11-18 | Acceptée ; modifie GD-029 (choix des bornes gardées) et GD-006 (borne dessinée par le code) ; achève GD-027 (boîtes bonus) |
 
 ---
 
@@ -2196,3 +2197,27 @@ Ce qui reste à faire avant la démo, d'après l'utilisateur, et les décisions 
 **Pourquoi.** Un seul niveau terminé et soigné apprend plus aux premiers joueurs qu'un contenu plus large et inégal. Le jeu doit tenir seul, parce qu'un joueur qui reçoit un lien n'a pas toujours d'équipe sous la main.
 
 **Conséquences.** `docs/02-feuille-de-route.md` devient le guide pour livrer cette version. `docs/01-cadre-mvp.md` garde la description du MVP d'origine, à lire comme un état des lieux de départ.
+
+## GD-097 — La carte contient ce que le jeu montre : bornes et cartes d'accès en vrais sprites, bonus retirés, plus de tri des bornes au chargement
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; modifie GD-029 (choix des bornes gardées) et GD-006 (borne dessinée par le code) ; achève GD-027 (boîtes bonus)
+- **Décidée par** : l'utilisateur (« ce qu'il y a dans la map doit vraiment être ce qu'il y a dans le jeu. Il faut qu'il y ait très peu de manipulation des éléments du niveau par script […] que tous les éléments qu'on positionne aient leur sprite […] et surtout que tu retires les bonus »)
+
+**Contexte.** Dans l'éditeur de niveaux, les bornes de recharge et les cartes d'accès n'avaient pas le même dessin qu'en jeu, et certaines n'apparaissaient pas en jeu du tout. Trois raisons, héritées des premières étapes :
+
+- la borne (GD-006) et la carte (GD-029) étaient dessinées par le code au lancement, alors que la carte gardait le sprite de l'objet d'origine qu'elles remplaçaient ;
+- les bornes prenaient la place des `obj_bonus_ammo` de l'original, et le jeu n'en gardait que 4 sur 10 au rez-de-chaussée et 2 sur 4 à l'étage, les plus éloignées les unes des autres (GD-029) ;
+- les `obj_bonus_box`, retirées du jeu par GD-027, étaient toujours dans les cartes : le jeu les ignorait.
+
+**Décision.**
+
+1. **Principe.** Ce que la carte contient est ce que le jeu montre : un objet posé existe en jeu, à cet endroit, avec le sprite que l'éditeur affiche. Le code ne filtre ni ne remplace des éléments de la carte au chargement. Reste permis ce que l'histoire fait en cours de partie (les fourgons et les renforts de la riposte, un point de sauvegarde qui rend la salle dans l'état où on l'a laissée).
+2. **Vrais sprites.** `spr_outlet` (deux images : en service, vidée) et `spr_card_green`, `spr_card_purple` sont fabriqués par `npm run make-pickups`, au trait près d'après le dessin que le code faisait. Le jeu et l'éditeur dessinent ces sprites. Le halo de la carte, son flottement et la pulsation de la borne en service restent des effets, faits par le code.
+3. **Bornes.** Une borne est un objet `obj_outlet` de la carte ; chacune de ses instances est une borne en jeu. Les cartes gardent exactement les 4 + 2 bornes que le jeu retenait : rien ne change pour le joueur. Le tri (`keepPerRoom`, `keepSpreadOutlets`) est supprimé.
+4. **Bonus.** Les `obj_bonus_box` et les `obj_bonus_ammo` restants sont retirés des cartes (15 et 8 instances).
+
+**Pourquoi.** L'utilisateur retouche les cartes lui-même : tout écart entre l'éditeur et le jeu le trompe. Un tri fait par le code lui retirait aussi le choix de l'emplacement des bornes.
+
+**Conséquences.** `tools/make-pickups.ts` (à relancer après un `npm run extract-assets`, qui réécrit les manifestes, comme `make-studio`) ; `CONFIG.outlet.object` ; `WorldView.ts` n'a plus `makeOutletTexture` ni `cardTexture`, `Hud.ts` prend le sprite de la carte ; les trois sprites sont chargés dans toutes les salles (`UI_SPRITES`), la carte portée s'affichant dans l'interface. Test : `world.test.ts`. La règle générale « sprite ou effet » qui en découle reste à écrire avec l'utilisateur.
+

@@ -68,7 +68,7 @@ export class Hud {
     // rougit montre la vie, la jauge sur l'arme montre les munitions.
     this.nameLabel = scene.add.text(x - 6, y + 78, def.name.toUpperCase(), { fontFamily: 'Aldo', fontSize: '28px', color: '#ffffff', ...OUTLINE }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH + 3);
     for (const color of ['green', 'purple']) {
-      const key = `card:${color}`;
+      const key = frameKey(`spr_card_${color}`, 0);
       if (scene.textures.exists(key)) {
         this.cardIcons.set(color, scene.add.image(0, y + 56, key).setScale(0.6).setScrollFactor(0).setDepth(DEPTH + 3).setVisible(false));
       }

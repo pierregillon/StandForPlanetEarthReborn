@@ -256,3 +256,22 @@ test("meubles et chaises à roulettes portent le rang de leur instance : l'ordre
   assert.ok(w.chairs.every((c) => c.depth === 200 && c.order > 0));
   assert.equal(new Set(w.decor.map((d) => d.order)).size, w.decor.length, 'un rang par meuble');
 });
+
+test('chaque borne de la carte est une borne en jeu, là où elle est posée : rien n\'est trié au chargement (GD-097)', () => {
+  for (const room of ['rm_world2', 'rm_world2_1']) {
+    const data = JSON.parse(readFileSync(new URL(`../../public/levels/${room}.json`, import.meta.url), 'utf8')) as LevelData;
+    const placed = data.instances.filter((i) => i.object === CONFIG.outlet.object);
+    const w = new World(data, sprites, 'PetBot', 1);
+    assert.deepEqual(w.outlets.map((o) => [o.x, o.y]), placed.map((i) => [i.x, i.y]), room);
+    assert.ok(placed.length > 0);
+    // les bonus de l'original, que le jeu ignorait ou triait, ne sont plus dans les cartes
+    assert.ok(!data.instances.some((i) => i.object.startsWith('obj_bonus')), room);
+    // bornes et cartes d'accès ont un vrai sprite, celui que l'éditeur montre
+    for (const inst of data.instances.filter((i) => i.object === CONFIG.outlet.object || i.object.startsWith('obj_card_'))) {
+      const sprite = data.objects[inst.object].sprite ?? '';
+      assert.ok(sprites[sprite], `${inst.object} : ${sprite}`);
+      assert.match(sprite, /^spr_(outlet|card_(green|purple))$/);
+    }
+    assert.deepEqual(w.cards.map((c) => c.sprite), w.cards.map((c) => `spr_card_${c.color}`));
+  }
+});

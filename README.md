@@ -66,7 +66,7 @@ Détails (paramètres d'URL, console de débogage, essais à plusieurs, particul
 | `npm test` | Tests de la simulation, sans navigateur |
 | `npm run typecheck` | Vérification des types |
 | `npm run convert-rooms` | Convertit les salles GameMaker en `public/levels/*.json` ; ne réécrit une salle retouchée qu'avec `-- --force` |
-| `npm run make-sprites`, `npm run make-studio` | Refabriquent les sprites que l'original n'avait pas (ultis et rechargements des robots ; plateau de TvTv²) |
+| `npm run make-sprites`, `npm run make-studio`, `npm run make-pickups` | Refabriquent les sprites que l'original n'avait pas (ultis et rechargements des robots ; plateau de TvTv² ; borne de recharge et cartes d'accès) |
 | `npm run level-map` | Redessine les plans annotés des salles dans `docs/narration/plans/` |
 | `npm run extract-assets` | Recopie sprites, sols et sons depuis le projet GameMaker (réglages : `tools/assets.config.json`) |
 

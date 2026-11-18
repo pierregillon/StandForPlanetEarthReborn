@@ -34,7 +34,7 @@ Ouvrir deux onglets, `http://localhost:3000/?name=Alice` et `?name=Bob` (le para
 
 ## Sprites et animations
 
-- Les sprites absents de l'original (ultis, rechargements, plateau de TvTv²) sont fabriqués par `npm run make-sprites` et `npm run make-studio` (ADR-015).
+- Les sprites absents de l'original (ultis, rechargements, plateau de TvTv², borne de recharge et cartes d'accès) sont fabriqués par `npm run make-sprites`, `npm run make-studio` et `npm run make-pickups` (ADR-015).
 - Pour juger une animation : composer une planche-contact de ses images et la regarder avant de l'essayer en jeu.
 - Effets et dessin du monde : `src/client/view/WorldView.ts`. Style à respecter : le [cahier des charges graphique d'époque](reference/documents-origine/cahier-des-charges-graphismes.pdf).
 

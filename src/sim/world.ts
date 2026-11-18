@@ -101,31 +101,6 @@ export class World {
     this.session.rooms.delete(this.level.name);
   }
 
-  /**
-   * Ne garde que `count` bornes, les mieux réparties : la plus proche du départ, puis à chaque fois
-   * la plus éloignée de celles déjà gardées (GD-029).
-   */
-  private keepSpreadOutlets(count: number, from: { x: number; y: number }): void {
-    if (this.outlets.length <= count) return;
-    const dist = (a: { x: number; y: number }, b: { x: number; y: number }): number => Math.hypot(a.x - b.x, a.y - b.y);
-    const pool = this.outlets.slice();
-    const kept = [pool.reduce((best, o) => (dist(o, from) < dist(best, from) ? o : best))];
-    while (kept.length < count) {
-      let best = pool[0];
-      let bestD = -1;
-      for (const o of pool) {
-        if (kept.includes(o)) continue;
-        const d = Math.min(...kept.map((k) => dist(o, k)));
-        if (d > bestD) {
-          bestD = d;
-          best = o;
-        }
-      }
-      kept.push(best);
-    }
-    this.outlets = this.outlets.filter((o) => kept.includes(o));
-  }
-
   /** Consigne affichée au joueur (GD-010). */
   private nextId = 1;
   /** Nombre d'instances déjà ajoutées : le rang de celle en cours. */
@@ -185,10 +160,6 @@ export class World {
       this.counted.civil -= gone.length;
     }
     const spawn = saved ? { x: saved.x + 110, y: saved.y + 40 } : start;
-    // Les bornes gardées sont choisies depuis l'entrée principale de la salle, jamais depuis l'endroit par où
-    // l'on arrive : le monde miroir d'un client, reconstruit à chaque entrée, doit garder les mêmes que le
-    // serveur. Sinon, au retour de l'étage, le joueur voyait des bornes que le serveur n'avait pas.
-    this.keepSpreadOutlets(CONFIG.outlet.keepPerRoom[level.name] ?? this.outlets.length, this.spawnPoint(1));
     session.heroNames.forEach((name, slot) => {
       // au point de sauvegarde, l'équipe reprend groupée ; sinon chacun a son point d'apparition
       const at = resumed ? { x: spawn.x + (slot % 2) * 100, y: spawn.y + Math.floor(slot / 2) * 100 } : this.spawnPoint(session.spawnNumber, slot);
@@ -851,14 +822,14 @@ export class World {
         this.stats.totalSoldier++;
         this.counted.soldier++;
       }
-    } else if (inst.object === CONFIG.outlet.replacesObject) {
+    } else if (inst.object === CONFIG.outlet.object) {
       this.outlets.push({
         id: this.nextId++, x: inst.x, y: inst.y, inUse: false,
         energyLeft: this.outletCapacity, repairLeft: CONFIG.outlet.repairCapacity,
       });
     } else if (inst.object === 'obj_card_green' || inst.object === 'obj_card_purple') {
       this.cards.push({
-        id: this.nextId++, color: inst.object === 'obj_card_green' ? 'green' : 'purple', sprite: spriteName ?? 'spr_doorKey_green',
+        id: this.nextId++, color: inst.object === 'obj_card_green' ? 'green' : 'purple', sprite: spriteName ?? `spr_card_${inst.object === 'obj_card_green' ? 'green' : 'purple'}`,
         x: inst.x, y: inst.y, carried: false,
       });
     } else if (inst.object === 'obj_nextRoom' || inst.object === 'obj_previousRoom') {
