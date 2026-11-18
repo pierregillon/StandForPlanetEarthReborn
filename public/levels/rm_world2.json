@@ -101,6 +101,7 @@
     "obj_serveur": { "sprite": "spr_serveur", "mask": null, "parents": ["obj_mobilier_parent", "obj_decor_base"], "visible": true }
   },
   "instances": [
+    { "id": "inst_76FFF9B6", "object": "obj_chaise_bleu", "layer": "layer_deco", "depth": 200, "x": 5472.277, "y": 3551.864, "angle": 8.993069, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": true } },
     { "id": "inst_6526CC68", "object": "obj_spawn1", "layer": "layer_code", "depth": 100, "x": 5179, "y": 7616, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "spawnNumber": 1 } },
     { "id": "inst_61D12AC1", "object": "obj_spawn2", "layer": "layer_code", "depth": 100, "x": 5339, "y": 7616, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "spawnNumber": 1 } },
     { "id": "inst_78B6145E", "object": "obj_spawn3", "layer": "layer_code", "depth": 100, "x": 5435, "y": 7616, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "spawnNumber": 1 } },
@@ -297,7 +298,6 @@
     { "id": "inst_1C4E3306", "object": "obj_chaise_marron", "layer": "layer_deco", "depth": 200, "x": 6208.277, "y": 3583.864, "angle": 23.5115, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": true } },
     { "id": "inst_10AB8647", "object": "obj_chaise_marron", "layer": "layer_deco", "depth": 200, "x": 6180.277, "y": 3731.864, "angle": 166.2668, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": true } },
     { "id": "inst_C8BD99", "object": "obj_chaise_marron", "layer": "layer_deco", "depth": 200, "x": 6300.277, "y": 3739.864, "angle": 176.1104, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": true } },
-    { "id": "inst_76FFF9B6", "object": "obj_chaise_bleu", "layer": "layer_deco", "depth": 200, "x": 5472.277, "y": 3551.864, "angle": 8.993069, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": true } },
     { "id": "inst_6568624D", "object": "obj_chaise_bleu", "layer": "layer_deco", "depth": 200, "x": 6088.277, "y": 3562.864, "angle": -9.903176, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": true } },
     { "id": "inst_2D90BFCB", "object": "obj_chaise_bleu", "layer": "layer_deco", "depth": 200, "x": 6240.277, "y": 3263.864, "angle": -182.3966, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": true } },
     { "id": "inst_6FA5B85B", "object": "obj_chaise_marron", "layer": "layer_deco", "depth": 200, "x": 6080.277, "y": 3263.864, "angle": -165.0279, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": true } },
@@ -374,7 +374,7 @@
     { "id": "inst_67238585", "object": "obj_lampeBureau", "layer": "layer_deco", "depth": 200, "x": 5175.277, "y": 4435.864, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
     { "id": "inst_6C58E885", "object": "obj_lampeBureau", "layer": "layer_deco", "depth": 200, "x": 5825.277, "y": 4235.864, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
     { "id": "inst_5DE4DAB7", "object": "obj_lampeBureau", "layer": "layer_deco", "depth": 200, "x": 4231.278, "y": 4003.864, "angle": 0, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
-    { "id": "inst_10944429", "object": "obj_ecran", "layer": "layer_deco", "depth": 200, "x": 4256.278, "y": 4575.864, "angle": 155.1575, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
+    { "id": "inst_10944429", "object": "obj_ecran", "layer": "layer_deco", "depth": 200, "x": 4240, "y": 4576, "angle": 155.1575, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
     { "id": "inst_D4A64F3", "object": "obj_ecran", "layer": "layer_deco", "depth": 200, "x": 4263.278, "y": 4704.864, "angle": -148.2456, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
     { "id": "inst_53497984", "object": "obj_ecran", "layer": "layer_deco", "depth": 200, "x": 4385.278, "y": 3989.864, "angle": 90.57722, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
     { "id": "inst_721C74B2", "object": "obj_ecran", "layer": "layer_deco", "depth": 200, "x": 4613.278, "y": 4000.864, "angle": 100.3196, "scaleX": 1, "scaleY": 1, "tint": "#ffffff", "alpha": 1, "props": { "bulletCrossed": false } },
