@@ -8,9 +8,9 @@ L'éditeur permet de retoucher une salle directement dans le jeu, sans passer pa
 - Ou directement `http://localhost:3000/?edit=rm_world2` (`rm_world2_1` pour l'étage, `rm_world2_2` pour la zone de forage).
 - Le bouton n'apparaît que sur la machine qui fait tourner le serveur (`localhost`) : l'éditeur écrit sur le disque.
 
-## Ce qui se retouche (étapes 1 et 2)
+## Ce qui se retouche
 
-En haut à gauche, trois modes disent ce que la souris attrape : **Objects**, **Walls**, **Floors**. Un sol couvre toute une pièce : sans cette séparation, chaque clic sur la carte l'attraperait.
+En haut à gauche, les modes disent ce que la souris attrape : **Objects**, **Walls**, **Floors**, **Zones**, **Script**. Un sol ou une zone couvre toute une pièce : sans cette séparation, chaque clic sur la carte l'attraperait.
 
 | Mode | Famille | Ce qu'on fait |
 |---|---|---|
@@ -18,9 +18,12 @@ En haut à gauche, trois modes disent ce que la souris attrape : **Objects**, **
 | Objects | Lumières (onglet Lights) | Lampe ou projecteur ; rayon, intensité, couleur, faisceau (direction et largeur) |
 | Objects | Décalques au sol (onglet Decals) | Comme le mobilier |
 | Objects | Portes, boutons, fenêtres (onglet Doors) | Poser, déplacer, tourner par quarts de tour, retirer ; numéro de porte, « reste ouverte » |
+| Objects | Personnages (onglet People) | Poser, déplacer, tourner, retirer ; patrouille : aucune, au hasard, ou de point en point |
+| Objects | Points d'apparition, cartes, bornes, escaliers (onglet Markers) | Poser, déplacer, retirer |
 | Walls | Murs épais (64 px) et fins (32 px) | Glisser pour tracer un mur droit ; gomme en rectangle |
 | Floors | Sols | Choisir une texture puis tracer un rectangle ; déplacer, redimensionner par les poignées, changer de texture, devant ou derrière |
-| — | Personnages, brouillard, points d'apparition | Affichés (cadenas dans la liste « Show »), pas encore retouchables |
+| Zones | Brouillard, zone de sortie du niveau | Tracer une zone de brouillard ; déplacer, redimensionner, numéroter |
+| Script | Repères du scénario (rez-de-chaussée seulement) | Déplacer ; redimensionner les rectangles ; tourner fourgons et caméras |
 
 La palette propose tous les types d'objets et de décalques déjà présents dans une salle du jeu, et toutes les textures de sol extraites. Un objet posé reprend la couche, l'échelle et les réglages d'un objet existant du même type.
 
@@ -29,6 +32,14 @@ La palette propose tous les types d'objets et de décalques déjà présents dan
 **Portes et fenêtres.** En poser une retire du même geste les pièces de mur qu'elle recouvre (un seul Ctrl + Z annule les deux). La déplacer ensuite ne répare pas le mur : le refermer avec l'outil mur. Une porte à bouton (`door`) reçoit un numéro libre ; le bouton (`button`) posé ensuite prend ce numéro et l'ouvrira. Les portes à carte s'ouvrent avec la carte de leur couleur.
 
 **Sols.** Le sol posé en dernier recouvre les autres ; « To back » le glisse dessous. « Pattern X / Y » décale le motif, pour le raccorder à celui d'un sol voisin.
+
+**Personnages.** Les caractéristiques d'un type de personnage (vie, vitesse, arme) sont dans `src/sim/config.ts`, pas dans la carte : l'éditeur règle sa place, son orientation et sa patrouille. « Add points… » puis des clics sur la carte tracent une ronde, dans l'ordre de marche ; le personnage va de sa place au dernier point, puis revient. Chaque point se déplace par son rond ; déplacer le personnage déplace sa ronde avec lui.
+
+**Brouillard.** Une zone cache ce qu'elle recouvre jusqu'à ce qu'un robot y entre. « Zone n° » lui donne un numéro ; une zone dont « Lifts with n° » porte ce numéro se lève en même temps qu'elle (une pièce et son recoin). La couche est masquée d'ordinaire et s'affiche en mode Zones.
+
+**Repères du scénario (ADR-020).** Ce sont les endroits que le code de l'histoire vise : marque de l'ultimatum, ligne de police et fourgons, portes qui déclenchent le face-à-face, zone d'extraction, plans des cinématiques. Ils se déplacent quand le décor autour d'eux bouge ; on ne peut ni en ajouter ni en retirer. Un rectangle s'attrape par son bord. Tant qu'aucun n'a bougé, rien n'est écrit dans le fichier ; ensuite la salle porte ses repères (clé `landmarks`).
+
+**« All settings ».** Sous les réglages d'un objet, cette section liste tout ce que le fichier contient pour lui (salle visée par un escalier, portée d'une porte…), modifiable en texte. C'est un filet de sécurité pour ce que le panneau ne propose pas.
 
 ## Commandes
 
@@ -78,15 +89,14 @@ Après un retour en arrière, rouvrir l'éditeur ou relancer une partie : la sal
 
 ## Limites à connaître
 
-- **Repères du scénario.** La marque de l'ultimatum, la ligne de police, les fourgons, la zone d'extraction et les plans de caméra sont des coordonnées dans `src/sim/landmarks.ts`. Si le pupitre, un mur ou les portes du local technique bougent, ces repères ne suivent pas : le signaler pour qu'ils soient corrigés dans le code, en attendant l'étape 3.
+- **Repères du scénario.** Ils ne suivent pas le décor tout seuls : si le pupitre, un mur ou les portes du local technique bougent, les déplacer aussi (mode Script). Le pupitre et le présentateur sont des objets ordinaires ; leur repère (« anchor's place », « desk ») sert aux tests et aux cinématiques.
 - **Tests.** Des tests vérifient le niveau TvTv² (présentateur derrière son pupitre, passages libres, nombre de lampes). Une retouche qui déplace ces éléments peut les faire échouer : `npm test` le dit, et le test est alors à mettre à jour avec la carte.
 - **Partie à plusieurs.** Le serveur prend la salle sauvegardée pour la partie suivante ; les autres joueurs doivent recharger la page pour la voir.
 - **`npm run convert-rooms`** ne réécrit plus une salle retouchée, sauf avec `--force` (qui efface les retouches).
 
 ## La suite
 
-1. **Étape 3** : personnages et leurs patrouilles, zones de brouillard, points d'apparition, repères du scénario déplaçables.
-2. Plus tard : créer une salle vide, essayer la salle depuis l'éditeur.
+Les trois étapes prévues sont livrées. Restent, non planifiés : créer une salle vide depuis l'éditeur, essayer la salle sans repasser par le menu, modifier les blocs de mur posés en instances (rares).
 
 ## Dans le code
 
@@ -99,5 +109,6 @@ Après un retour en arrière, rouvrir l'éditeur ou relancer une partie : la sal
 | `src/client/scenes/EditorSelectScene.ts` | Choix de la salle (`MAPS` de `src/sim/session.ts`) |
 | `server/levels.ts` | `PUT /api/levels/<salle>` : contrôle et écriture du fichier, sans commit ; testé par `levels.test.ts` |
 | `src/sim/levelFile.ts` | Mise en forme et contrôle d'un fichier de niveau, partagés avec `convert-rooms` |
+| `src/sim/landmarks.ts` | Repères du scénario : valeurs par défaut, lecture de ceux de la salle (`useLandmarks`), mise à plat pour l'éditeur |
 
 Depuis la console du navigateur, `sfpeEditor` donne la scène de l'éditeur (`sfpeEditor.model.ents`, `sfpeEditor.model.toLevel()`).

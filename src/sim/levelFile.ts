@@ -38,7 +38,8 @@ export function serializeLevel(level: LevelData): string {
     `  "walls": ${linesArray(level.walls, '  ')},`,
     `  "wallRects": ${linesArray(level.wallRects, '  ')},`,
     `  "floors": ${linesArray(level.floors, '  ')},`,
-    `  "decals": ${linesArray(level.decals, '  ')}`,
+    `  "decals": ${linesArray(level.decals, '  ')}${level.landmarks ? ',' : ''}`,
+    ...(level.landmarks ? [`  "landmarks": ${linesObject(level.landmarks, '  ')}`] : []),
     '}',
     '',
   ].join('\n');
@@ -82,6 +83,7 @@ export function levelProblem(value: unknown): string | null {
   for (const floor of level.floors!) {
     if (!isRecord(floor) || typeof floor.tileset !== 'string' || ![floor.x, floor.y, floor.w, floor.h].every(isNumber)) return 'bad floor';
   }
+  if (level.landmarks !== undefined && !isRecord(level.landmarks)) return 'bad landmarks';
   for (const decal of level.decals!) {
     if (!isRecord(decal) || typeof decal.sprite !== 'string') return 'bad decal';
     if (![decal.x, decal.y, decal.angle, decal.scaleX, decal.scaleY, decal.alpha, decal.frame, decal.depth].every(isNumber)) return `decal ${decal.sprite}: bad number`;

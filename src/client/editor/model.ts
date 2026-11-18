@@ -2,15 +2,19 @@
 // modifications. Sans Phaser ni navigateur : l'affichage est dans EditorScene, les panneaux dans EditorUi.
 import { CONFIG } from '../../sim/config.ts';
 import type { LevelData, LevelDecal, LevelFloor, LevelInstance, LevelObjectInfo, LevelWall } from '../../sim/types.ts';
+import { landmarksFrom, marksOf, mergedLandmarks } from '../../sim/landmarks.ts';
+import type { Mark } from '../../sim/landmarks.ts';
+import { GROUND_FLOOR } from '../../sim/session.ts';
 import { wallObjects, wallRectsOf } from './walls.ts';
 import type { WallRect } from './walls.ts';
 
 /**
  * Famille d'un élément. L'éditeur les montre toutes ; seules celles de `EDITABLE` se retouchent pour l'instant
  * (étape 1 : décor, lumières, décalques ; étape 2 : sols, portes, boutons et fenêtres, et les murs, qui ne sont
- * pas des éléments mais des cases). Restent les personnages, le brouillard et les repères.
+ * pas des éléments mais des cases ; étape 3 : personnages, brouillard, points d'apparition). Restent les blocs
+ * de mur posés en instances, que les salles n'utilisent presque pas.
  */
-export type Category = 'decor' | 'light' | 'decal' | 'floor' | 'door' | 'window' | 'npc' | 'fog' | 'wall' | 'marker';
+export type Category = 'decor' | 'light' | 'decal' | 'floor' | 'door' | 'window' | 'npc' | 'fog' | 'wall' | 'marker' | 'script';
 
 export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'decor', label: 'Furniture & props' },
@@ -23,9 +27,10 @@ export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'fog', label: 'Fog zones' },
   { id: 'wall', label: 'Wall blocks' },
   { id: 'marker', label: 'Spawns & triggers' },
+  { id: 'script', label: 'Script landmarks' },
 ];
 
-export const EDITABLE: ReadonlySet<Category> = new Set<Category>(['decor', 'light', 'decal', 'floor', 'door', 'window']);
+export const EDITABLE: ReadonlySet<Category> = new Set<Category>(['decor', 'light', 'decal', 'floor', 'door', 'window', 'npc', 'fog', 'marker', 'script']);
 
 export const LIGHT_OBJECT = 'obj_lumiere';
 /** Décor sans parent que le jeu dessine quand même (même liste que `DECOR_ONLY` de world.ts). */
@@ -49,20 +54,21 @@ export function categoryOf(objects: Record<string, LevelObjectInfo>, object: str
   return 'marker';
 }
 
-export type EntData = LevelInstance | LevelDecal | LevelFloor;
+export type EntData = LevelInstance | LevelDecal | LevelFloor | Mark;
 /** Élément qui a un angle, une échelle et une teinte : tout sauf un sol. */
 export type Placed = LevelInstance | LevelDecal;
 
-/** Un élément de la salle : une instance, un décalque ou un sol. `data` est remplacé à chaque modification, jamais modifié en place. */
+/** Un élément de la salle : une instance, un décalque, un sol, ou un repère du scénario (ADR-020). `data` est remplacé à chaque modification, jamais modifié en place. */
 export interface Ent {
   readonly uid: number;
-  readonly kind: 'instance' | 'decal' | 'floor';
+  readonly kind: 'instance' | 'decal' | 'floor' | 'mark';
   readonly category: Category;
   data: EntData;
 }
 
 export const isInstance = (ent: Ent): ent is Ent & { data: LevelInstance } => ent.kind === 'instance';
 export const isFloor = (ent: Ent): ent is Ent & { data: LevelFloor } => ent.kind === 'floor';
+export const isMark = (ent: Ent): ent is Ent & { data: Mark } => ent.kind === 'mark';
 
 /** Les murs d'une salle : les pièces dessinées et les rectangles de collision qui en découlent. */
 export interface WallState {
@@ -125,6 +131,20 @@ export function lightProps(spot: boolean): Record<string, unknown> {
     : { radius: 500, hue: 0, sat: 0, lightIntensity: 0.4 };
 }
 
+/** Points de patrouille d'un personnage (`"x;y"` dans le fichier, comme dans les salles d'origine). */
+export function patrolPoints(inst: LevelInstance): { x: number; y: number }[] {
+  const raw = inst.props.patrolPoints;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((p) => String(p).split(';').map(Number)).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y)).map(([x, y]) => ({ x, y }));
+}
+
+/** Le personnage avec ces points de patrouille : il les parcourt dans l'ordre depuis sa place, puis revient. */
+export function withPatrol(inst: LevelInstance, points: { x: number; y: number }[]): LevelInstance {
+  const props: Record<string, unknown> = { ...inst.props, patrolPoints: points.map((p) => `${Math.round(p.x)};${Math.round(p.y)}`) };
+  if (points.length === 0) delete props.patrolPoints;
+  return { ...inst, props };
+}
+
 export function lightRadius(inst: LevelInstance): number {
   return Number(inst.props.radius ?? 256 * Math.abs(inst.scaleX));
 }
@@ -159,6 +179,10 @@ export class EditorModel {
     for (const decal of level.decals) this.ents.push({ uid: this.nextUid++, kind: 'decal', category: 'decal', data: decal });
     for (const floor of level.floors) this.ents.push({ uid: this.nextUid++, kind: 'floor', category: 'floor', data: floor });
     this.walls = { walls: level.walls, wallRects: level.wallRects };
+    // les repères du scénario n'existent que pour la salle qui le porte
+    if (level.name === GROUND_FLOOR) {
+      for (const mark of marksOf(mergedLandmarks(level.landmarks))) this.ents.push({ uid: this.nextUid++, kind: 'mark', category: 'script', data: mark });
+    }
   }
 
   get dirty(): boolean {
@@ -213,12 +237,25 @@ export class EditorModel {
     return { uid: this.nextUid++, kind: 'floor', category: 'floor', data };
   }
 
+  /** Nouvelle zone de brouillard : elle se lève quand un robot y entre ; son numéro permet d'y attacher d'autres zones. */
+  makeFog(x: number, y: number, w: number, h: number): Ent | null {
+    const template = this.catalog.objects.get('obj_warFog');
+    if (!template) return null;
+    const numbers = this.ents.filter(isInstance).map((e) => Number(e.data.props.warFogNumber)).filter((n) => Number.isFinite(n));
+    const data: LevelInstance = {
+      ...clone(template.sample), id: this.newId(), x, y, angle: 0, scaleX: w / 64, scaleY: h / 64,
+      props: { warFogNumber: Math.max(0, ...numbers) + 1, attachedWarFogNumber: null, apparitionSpeed: 0.08 },
+    };
+    return { uid: this.nextUid++, kind: 'instance', category: 'fog', data };
+  }
+
   /** Copie d'un élément, décalée. */
   duplicate(ent: Ent, dx: number, dy: number): Ent {
     const data = clone(ent.data);
     data.x += dx;
     data.y += dy;
     if (ent.kind === 'instance') (data as LevelInstance).id = this.newId();
+    // (un repère du scénario ne se copie pas : la scène ne le propose pas)
     return { uid: this.nextUid++, kind: ent.kind, category: ent.category, data };
   }
 
@@ -330,9 +367,11 @@ export class EditorModel {
     const instances: LevelInstance[] = [];
     const decals: LevelDecal[] = [];
     const floors: LevelFloor[] = [];
+    const marks: Mark[] = [];
     for (const ent of this.ents) {
       if (ent.kind === 'decal') decals.push(ent.data as LevelDecal);
       else if (ent.kind === 'floor') floors.push(ent.data as LevelFloor);
+      else if (ent.kind === 'mark') marks.push(ent.data as Mark);
       else {
         const inst = ent.data as LevelInstance;
         instances.push(inst);
@@ -343,6 +382,12 @@ export class EditorModel {
     // une pièce de mur posée par l'éditeur peut être d'un type que la salle n'avait pas (croix, plot)
     const pieces = wallObjects();
     for (const wall of this.walls.walls) if (!objects[wall.object] && pieces[wall.object]) objects[wall.object] = pieces[wall.object];
-    return { ...this.base, objects, instances, walls: this.walls.walls, wallRects: this.walls.wallRects, floors, decals };
+    const level: LevelData = { ...this.base, objects, instances, walls: this.walls.walls, wallRects: this.walls.wallRects, floors, decals };
+    // les repères ne sont écrits dans la salle que s'ils y étaient déjà ou s'ils ont quitté leur place par défaut
+    if (marks.length > 0) {
+      const landmarks = landmarksFrom(marks) as unknown as Record<string, unknown>;
+      if (this.base.landmarks !== undefined || JSON.stringify(landmarks) !== JSON.stringify(mergedLandmarks(undefined))) level.landmarks = landmarks;
+    }
+    return level;
   }
 }

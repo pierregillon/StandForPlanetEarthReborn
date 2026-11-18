@@ -18,7 +18,7 @@ import { createNpc, stepNpcs } from './npc.ts';
 import { DRILL_AREA, DRILL_OBJECTIVES, GROUND_FLOOR, OBJ, OBJECTIVES, UPPER_FLOOR, createSession, studioCheckpoint, studioDoors } from './session.ts';
 import { CONTROL_ROOM_TAKEN, castReader, vehicleVoice } from './broadcast.ts';
 import { EXTRACTION_CALL, SCENE, pickupPhases, sceneLines, sceneTotal, standoffSpeaker } from './scenes.ts';
-import { TV_STUDIO } from './landmarks.ts';
+import { TV_STUDIO, useLandmarks } from './landmarks.ts';
 import { HOLDING, engage, stageWave, stepWave } from './wave.ts';
 import type { RoomSave, Session } from './session.ts';
 import { NO_INPUT } from './types.ts';
@@ -137,6 +137,8 @@ export class World {
   constructor(level: LevelData, sprites: SpriteManifest, heroNames: string | string[], seed = 1, session: Session = createSession(heroNames, level.name)) {
     this.session = session;
     this.stats = session.stats;
+    // les repères du scénario sont ceux du rez-de-chaussée tel qu'il est sur le disque (ADR-020)
+    if (level.name === GROUND_FLOOR) useLandmarks(level.landmarks);
     this.level = level;
     this.sprites = sprites;
     this.width = level.width;

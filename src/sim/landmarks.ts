@@ -1,7 +1,9 @@
 // Repères du scénario de TvTv² : les endroits que le code du jeu vise par leurs coordonnées (marque de
 // l'ultimatum, barrage de police, zone d'extraction, plans des cinématiques).
-// Le décor, lui, est dans `public/levels` et se retouche avec l'éditeur de niveaux (ADR-018) : si l'on y
-// déplace le pupitre ou les portes du local technique, ces repères ne suivent pas tout seuls.
+// Les valeurs ci-dessous sont celles par défaut. Le fichier de la salle peut les remplacer (clé `landmarks`,
+// ADR-020) : l'éditeur de niveaux les y écrit quand on les déplace, et le jeu les relit à chaque ouverture du
+// rez-de-chaussée. `TV_STUDIO` est donc modifié sur place : le lire au moment de s'en servir, jamais au
+// chargement d'un module.
 
 /** Le plateau : toute la hauteur de la régie, de sa baie vitrée au mur extérieur. */
 const ROOM = { x0: 8256, x1: 10944, y0: 3072, y1: 4864 };
@@ -56,3 +58,79 @@ export const TV_STUDIO = {
   /** Dépose-minute au nord (portails 3), parking de départ au sud (portails 4). */
   parkings: { north: { x0: 9600, x1: 10944, y0: 1408, y1: 3040 }, south: { x0: 9600, x1: 10944, y0: 4896, y1: 6272 } },
 };
+
+/**
+ * Un repère mis à plat, pour l'éditeur de niveaux : son chemin dans `TV_STUDIO` (« wave.line.3 ») et sa forme.
+ * Un point n'a que x et y, parfois un angle ou un rayon ; un rectangle a une largeur et une hauteur.
+ */
+export interface Mark {
+  path: string;
+  x: number;
+  y: number;
+  w?: number;
+  h?: number;
+  radius?: number;
+  angle?: number;
+}
+
+const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const isObject = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object';
+const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+const DEFAULTS = copy(TV_STUDIO);
+
+/** Recopie dans `target` les nombres de `source` qui s'y trouvent au même endroit : la forme de `target` ne change pas. */
+function assign(target: Record<string, unknown>, source: unknown): void {
+  if (!isObject(source)) return;
+  for (const key of Object.keys(target)) {
+    const mine = target[key];
+    const theirs = source[key];
+    if (isNumber(mine) && isNumber(theirs)) target[key] = theirs;
+    else if (isObject(mine)) assign(mine, theirs);
+  }
+}
+
+/** Repères par défaut, complétés par ceux d'une salle. */
+export function mergedLandmarks(saved: unknown): typeof TV_STUDIO {
+  const merged = copy(DEFAULTS);
+  assign(merged as unknown as Record<string, unknown>, saved);
+  return merged;
+}
+
+/** Le jeu prend les repères de cette salle (ou ceux par défaut si elle n'en a pas). */
+export function useLandmarks(saved: unknown): void {
+  assign(TV_STUDIO as unknown as Record<string, unknown>, mergedLandmarks(saved));
+}
+
+/** Tous les repères, à plat. */
+export function marksOf(landmarks: unknown): Mark[] {
+  const marks: Mark[] = [];
+  const walk = (value: unknown, path: string): void => {
+    if (!isObject(value)) return;
+    if (isNumber(value.x) && isNumber(value.y)) {
+      const mark: Mark = { path, x: value.x, y: value.y };
+      if (isNumber(value.radius)) mark.radius = value.radius;
+      if (isNumber(value.angle)) mark.angle = value.angle;
+      marks.push(mark);
+    } else if (isNumber(value.x0) && isNumber(value.x1) && isNumber(value.y0) && isNumber(value.y1)) {
+      marks.push({ path, x: value.x0, y: value.y0, w: value.x1 - value.x0, h: value.y1 - value.y0 });
+    } else {
+      for (const [key, child] of Object.entries(value)) walk(child, path ? `${path}.${key}` : key);
+    }
+  };
+  walk(landmarks, '');
+  return marks;
+}
+
+/** Les repères par défaut, avec ces repères-là remis à leur place. */
+export function landmarksFrom(marks: Mark[]): typeof TV_STUDIO {
+  const result = copy(DEFAULTS) as unknown as Record<string, unknown>;
+  for (const mark of marks) {
+    let node: unknown = result;
+    for (const key of mark.path.split('.')) node = isObject(node) ? node[key] : undefined;
+    if (!isObject(node)) continue;
+    if (mark.w !== undefined && mark.h !== undefined) Object.assign(node, { x0: mark.x, x1: mark.x + mark.w, y0: mark.y, y1: mark.y + mark.h });
+    else Object.assign(node, { x: mark.x, y: mark.y }, mark.radius !== undefined ? { radius: mark.radius } : {}, mark.angle !== undefined ? { angle: mark.angle } : {});
+  }
+  return result as unknown as typeof TV_STUDIO;
+}

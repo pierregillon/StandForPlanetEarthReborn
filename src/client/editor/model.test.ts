@@ -3,7 +3,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { EDITABLE, EditorModel, LIGHT_OBJECT, buildCatalog, categoryOf, lightProps } from './model.ts';
+import { EDITABLE, EditorModel, LIGHT_OBJECT, buildCatalog, categoryOf, lightProps, patrolPoints, withPatrol } from './model.ts';
+import { TV_STUDIO, landmarksFrom, marksOf, mergedLandmarks } from '../../sim/landmarks.ts';
+import { World } from '../../sim/world.ts';
+import type { SpriteManifest } from '../../sim/types.ts';
 import { levelProblem, serializeLevel } from '../../sim/levelFile.ts';
 import type { LevelData, LevelInstance } from '../../sim/types.ts';
 
@@ -38,8 +41,8 @@ test('les familles suivent le chargement du jeu : décor, lumières et décalque
   assert.equal(of('obj_warFog'), 'fog');
   assert.equal(of('obj_spawnHeros'), 'marker');
   assert.equal(of('obj_button'), 'door', 'le bouton se règle avec sa porte');
-  assert.ok(['decor', 'light', 'decal', 'floor', 'door', 'window'].every((c) => EDITABLE.has(c as never)));
-  assert.ok(!EDITABLE.has('npc') && !EDITABLE.has('fog') && !EDITABLE.has('marker'));
+  assert.ok(['decor', 'light', 'decal', 'floor', 'door', 'window', 'npc', 'fog', 'marker'].every((c) => EDITABLE.has(c as never)));
+  assert.ok(!EDITABLE.has('wall'), 'les blocs de mur posés en instances restent en lecture seule');
   const model = open();
   assert.equal(model.ents.filter((e) => e.category === 'light').length, 37);
   assert.equal(model.ents.filter((e) => e.kind === 'decal').length, level.decals.length);
@@ -153,4 +156,73 @@ test('passer devant ou derrière change l\'ordre de la salle, qui est l\'ordre d
   assert.ok(model.redo() && model.redo() && model.redo());
   assert.deepEqual(ids().slice(0, 2), [idB, idA]);
   assert.equal(ids().at(-1), (chair.data as LevelInstance).id);
+});
+
+test('patrouille et brouillard : ce que l\'éditeur écrit est ce que le jeu lit', () => {
+  const sprites = JSON.parse(readFileSync(new URL('../../../public/assets/sprites.json', import.meta.url), 'utf8')) as SpriteManifest;
+  const model = open();
+  const guard = model.ents.find((e) => e.kind === 'instance' && (e.data as LevelInstance).object === 'obj_npc_human_pistol')!;
+  const inst = guard.data as LevelInstance;
+  assert.deepEqual(patrolPoints(inst), []);
+  const route = [{ x: inst.x + 200, y: inst.y }, { x: inst.x + 200.4, y: inst.y + 160 }];
+  const patrolling = withPatrol(inst, route);
+  assert.deepEqual(patrolling.props.patrolPoints, [`${inst.x + 200};${inst.y}`, `${inst.x + 200};${inst.y + 160}`], 'format d\'origine, en pixels entiers');
+  assert.equal(withPatrol(patrolling, []).props.patrolPoints, undefined);
+  model.apply([{ ent: guard, before: inst, after: { ...patrolling, props: { ...patrolling.props, patrolType: 'points' } } }]);
+
+  const fog = model.makeFog(640, 640, 320, 192)!;
+  model.apply([{ ent: fog, before: null, after: fog.data }]);
+  const fogInst = fog.data as LevelInstance;
+  const taken = model.base.instances.map((i) => Number(i.props.warFogNumber)).filter(Number.isFinite);
+  assert.ok(!taken.includes(Number(fogInst.props.warFogNumber)), 'numéro de zone libre');
+  assert.deepEqual([fogInst.scaleX, fogInst.scaleY, fogInst.props.attachedWarFogNumber], [5, 3, null]);
+
+  const level = model.toLevel();
+  assert.equal(levelProblem(level), null);
+  const world = new World(level, sprites, 'PetBot', 1);
+  const npc = world.npcs.find((n) => n.x === inst.x && n.y === inst.y)!;
+  assert.equal(npc.patrolType, 'points');
+  // le jeu ajoute la place du personnage en tête du trajet
+  assert.deepEqual(npc.patrolPoints, [{ x: inst.x, y: inst.y }, { x: inst.x + 200, y: inst.y }, { x: inst.x + 200, y: inst.y + 160 }]);
+  const zone = world.fogs.find((f) => f.x === 640 && f.y === 640)!;
+  assert.deepEqual([zone.w, zone.h, zone.number, zone.attached], [320, 192, fogInst.props.warFogNumber, null]);
+});
+
+test('repères du scénario : déplacés dans l\'éditeur, écrits dans la salle, relus par le jeu (ADR-020)', () => {
+  const sprites = JSON.parse(readFileSync(new URL('../../../public/assets/sprites.json', import.meta.url), 'utf8')) as SpriteManifest;
+  const defaults = mergedLandmarks(undefined);
+  const marks = marksOf(defaults);
+  assert.deepEqual(landmarksFrom(marks), defaults, 'mis à plat puis remis en place, rien ne bouge');
+  assert.ok(marks.some((m) => m.path === 'wave.line.9') && marks.some((m) => m.path === 'room' && m.w === 2688) && marks.some((m) => m.path === 'exit.zone' && m.radius === 300));
+  assert.equal(marksOf(mergedLandmarks({ mark: { x: 1, y: 2, extra: 3 }, nope: 4 })).find((m) => m.path === 'mark')!.x, 1, 'seuls les repères connus sont repris');
+
+  // seule la salle qui porte le scénario a des repères ; sans retouche, rien n'est écrit dans son fichier
+  assert.equal(open('rm_world2_1').ents.filter((e) => e.kind === 'mark').length, 0);
+  const model = open();
+  assert.equal(model.ents.filter((e) => e.kind === 'mark').length, marks.length);
+  assert.equal(model.toLevel().landmarks, undefined);
+
+  const mark = model.ents.find((e) => e.kind === 'mark' && e.data.x === defaults.mark.x && e.data.y === defaults.mark.y && (e.data as { path: string }).path === 'mark')!;
+  model.apply([{ ent: mark, before: mark.data, after: { ...mark.data, x: defaults.mark.x + 64 } }]);
+  const zone = model.ents.find((e) => e.kind === 'mark' && (e.data as { path: string }).path === 'wave.outside')!;
+  model.apply([{ ent: zone, before: zone.data, after: { ...zone.data, x: 10000, w: 500 } }]);
+  const level = JSON.parse(serializeLevel(model.toLevel())) as LevelData;
+  assert.equal(levelProblem(level), null);
+  const saved = level.landmarks as unknown as typeof TV_STUDIO;
+  assert.equal(saved.mark.x, defaults.mark.x + 64);
+  assert.deepEqual([saved.wave.outside.x0, saved.wave.outside.x1, saved.wave.outside.y0], [10000, 10500, defaults.wave.outside.y0]);
+  assert.deepEqual(saved.wave.line, defaults.wave.line, 'les autres repères gardent leur place');
+
+  // le jeu prend les repères de la salle qu'il ouvre, et revient aux valeurs par défaut pour une salle sans repères
+  const marked = new World(level, sprites, 'PetBot', 1);
+  assert.equal(TV_STUDIO.mark.x, defaults.mark.x + 64);
+  assert.equal(TV_STUDIO.wave.outside.x1, 10500);
+  assert.ok(marked.npcs.length > 0);
+  new World(load('rm_world2'), sprites, 'PetBot', 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(TV_STUDIO)), defaults);
+
+  // une salle rouverte garde ses repères, même revenus à leur place par défaut : la clé reste dans le fichier
+  const reopened = new EditorModel(level, buildCatalog([level]));
+  assert.ok(reopened.toLevel().landmarks);
+  assert.equal(serializeLevel(reopened.toLevel()), serializeLevel(level));
 });

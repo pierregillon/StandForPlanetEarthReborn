@@ -52,7 +52,7 @@ Toute la documentation : [docs/README.md](docs/README.md).
 | Architecture, multijoueur, chaîne des assets, carte du code | [docs/architecture-code.md](docs/architecture-code.md) |
 | Narration, dialogues, consignes de mission | [arc-narratif.md](docs/narration/arc-narratif.md), puis [niveau-tvtv2.md](docs/narration/niveau-tvtv2.md) ; consignes dans `src/sim/session.ts` (`OBJECTIVES`) ; textes d'origine dans [03-niveaux-et-interface.md](docs/reference/jeu-original/03-niveaux-et-interface.md) §6 |
 | Gameplay, équilibrage | `src/sim/config.ts`, [analyses du jeu d'origine](docs/reference/jeu-original/) |
-| Construction des niveaux | [docs/editeur-niveaux.md](docs/editeur-niveaux.md), [docs/formats-donnees.md](docs/formats-donnees.md), `public/levels/`, repères du scénario dans `src/sim/landmarks.ts` |
+| Construction des niveaux | [docs/editeur-niveaux.md](docs/editeur-niveaux.md), [docs/formats-donnees.md](docs/formats-donnees.md), `public/levels/`, repères du scénario dans `src/sim/landmarks.ts` (valeurs par défaut) |
 | Sprites, effets visuels | [docs/developpement.md § Sprites](docs/developpement.md#sprites-et-animations), `tools/make-sprites.ts`, `src/client/view/WorldView.ts` |
 | Le jeu d'origine | [docs/reference/README.md](docs/reference/README.md) |
 

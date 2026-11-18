@@ -10,6 +10,7 @@ import type { Peer } from './game.ts';
 import type { ClientMessage } from '../src/net/messages.ts';
 import { STEPS_PER_SECOND } from '../src/sim/config.ts';
 import { DRILL_AREA, GROUND_FLOOR, UPPER_FLOOR } from '../src/sim/session.ts';
+import { useLandmarks } from '../src/sim/landmarks.ts';
 import type { LevelData, SpriteManifest } from '../src/sim/types.ts';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,9 +63,11 @@ export function startServer(port = Number(process.env.PORT ?? 3000)): Server {
   // les salles, lues une fois ; l'éditeur de niveaux remplace ici celle qu'il vient de sauvegarder (ADR-018)
   const levels: Record<string, LevelData> = {};
   for (const room of [GROUND_FLOOR, UPPER_FLOOR, DRILL_AREA]) levels[room] = loadPublic<LevelData>(`levels/${room}.json`);
+  useLandmarks(levels[GROUND_FLOOR].landmarks);
   const server = createServer((req, res) => {
     if (handleEditorRequest(ROOT, req, res, (level) => {
       levels[level.name] = level;
+      if (level.name === GROUND_FLOOR) useLandmarks(level.landmarks);
     })) return;
     const urlPath = (req.url ?? '/').split('?')[0];
     const file = findFile(urlPath === '/' ? '/index.html' : urlPath);

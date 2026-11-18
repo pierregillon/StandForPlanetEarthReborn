@@ -1,25 +1,28 @@
 // Panneaux de l'éditeur de niveaux (ADR-018), en HTML par-dessus le jeu : barre d'outils, palette, couches,
 // réglages de la sélection. Des champs de saisie, des listes et un sélecteur de couleur se font mieux en HTML
 // que dans Phaser ; la carte, elle, reste dessinée par EditorScene.
-import { CATEGORIES, EDITABLE, LIGHT_OBJECT, isFloor, isInstance, lightRadius } from './model.ts';
+import { CATEGORIES, EDITABLE, LIGHT_OBJECT, isFloor, isInstance, isMark, lightRadius, patrolPoints } from './model.ts';
 import type { Catalog, Category, Ent } from './model.ts';
 import type { LevelDecal, LevelFloor, LevelInstance } from '../../sim/types.ts';
 
 export type PaletteItem =
   | { kind: 'object'; object: string } | { kind: 'decal'; sprite: string } | { kind: 'light'; spot: boolean }
-  | { kind: 'floor'; tileset: string } | { kind: 'wall'; tool: 'thick' | 'thin' | 'erase' };
+  | { kind: 'floor'; tileset: string } | { kind: 'wall'; tool: 'thick' | 'thin' | 'erase' }
+  // tracer une zone de brouillard ; ajouter des points à la patrouille du personnage sélectionné
+  | { kind: 'fog' } | { kind: 'patrol' };
 /**
- * Ce sur quoi on travaille : les objets (mobilier, lumières, décalques, portes), les murs (des cases que l'on
- * peint) ou les sols (des rectangles). Un sol couvre toute une pièce : sans cette séparation, chaque clic sur
- * la carte l'attraperait.
+ * Ce sur quoi on travaille : les objets (mobilier, lumières, décalques, portes, personnages, repères), les murs
+ * (des cases que l'on peint), les sols ou les zones (brouillard, sortie du niveau). Un sol ou une zone couvre
+ * toute une pièce : sans cette séparation, chaque clic sur la carte l'attraperait.
  */
-export type Mode = 'objects' | 'walls' | 'floors';
+export type Mode = 'objects' | 'walls' | 'floors' | 'zones' | 'script';
 /** Couches que l'on peut masquer : les familles d'éléments, plus les murs. */
 export type LayerId = Category | 'walls';
 export type Field =
   | 'x' | 'y' | 'angle' | 'scaleX' | 'scaleY' | 'tint' | 'alpha' | 'bulletCrossed' | 'shadow'
   | 'radius' | 'intensity' | 'color' | 'spot' | 'coneHalf'
-  | 'w' | 'h' | 'tileset' | 'phaseX' | 'phaseY' | 'doorId' | 'blockedOpen';
+  | 'w' | 'h' | 'tileset' | 'phaseX' | 'phaseY' | 'doorId' | 'blockedOpen'
+  | 'patrolType' | 'fogNumber' | 'fogAttached';
 
 export interface UiHandlers {
   exit(): void;
@@ -32,7 +35,9 @@ export interface UiHandlers {
   mode(mode: Mode): void;
   layer(id: LayerId, visible: boolean): void;
   edit(field: Field, value: number | string | boolean): void;
-  action(name: 'delete' | 'duplicate' | 'flipX' | 'flipY' | 'fit' | 'front' | 'back'): void;
+  /** Réglage quelconque d'une instance, par son nom (section « All settings »). */
+  prop(key: string, value: unknown): void;
+  action(name: 'delete' | 'duplicate' | 'flipX' | 'flipY' | 'fit' | 'front' | 'back' | 'addPoint' | 'dropPoint'): void;
 }
 
 export interface UiStatus {
@@ -66,13 +71,17 @@ const CSS = `
 .ed .panel.left { left: 0; border-width: 0 1px 0 0; }
 .ed .panel.right { right: 0; border-width: 0 0 0 1px; }
 .ed .panel h3 { margin: 0; padding: 8px 10px 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8d9abb; }
-.ed .tabs { display: flex; gap: 4px; padding: 0 10px 8px; }
-.ed .tabs.modes button { font-weight: 600; }
+.ed .tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 8px; }
+.ed .tabs button { flex: 1 1 30%; }
+.ed .tabs.modes button { font-weight: 600; flex: 1 1 22%; }
+.ed details { margin-top: 10px; border-top: 1px solid #2c3550; padding-top: 6px; }
+.ed details summary { cursor: pointer; color: #8d9abb; font-size: 11.5px; }
+.ed details .row { grid-template-columns: 110px 1fr; }
+.ed details input { width: 100%; font-family: ui-monospace, monospace; font-size: 11.5px; }
 .ed .tools { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 8px; }
 .ed .tools button { text-align: left; padding: 8px 10px; }
 .ed .note { color: #8d9abb; font-size: 11.5px; line-height: 1.5; padding: 2px 10px 10px; }
 .ed .item .tex { width: 100%; height: 52px; border-radius: 3px; background-size: 96px auto; }
-.ed .tabs button { flex: 1; padding: 5px 4px; }
 .ed .search { margin: 0 10px 8px; }
 .ed .search input { width: 100%; }
 .ed .items { flex: 1; overflow-y: auto; padding: 0 10px 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; align-content: start; }
@@ -144,9 +153,27 @@ export function colorToLamp(hex: string): { hue: number; sat: number } {
 
 const EXTRA_LAYERS: { id: LayerId; label: string }[] = [{ id: 'walls', label: 'Walls' }];
 /** Couches masquées à l'ouverture : les zones de brouillard recouvrent toute la carte. */
-export const HIDDEN_AT_START: ReadonlySet<LayerId> = new Set<LayerId>(['fog']);
+export const HIDDEN_AT_START: ReadonlySet<LayerId> = new Set<LayerId>(['fog', 'script']);
 
-type Tab = 'decor' | 'light' | 'decal' | 'door';
+/** Noms des repères du scénario, par leur chemin dans `TV_STUDIO` (le rang d'une liste est ajouté à la fin). */
+const MARK_NAMES: [RegExp, string][] = [
+  [/^room$/, 'studio set (the room)'], [/^mark$/, 'ultimatum mark (behind the desk)'], [/^regroup$/, 'checkpoint after the broadcast'],
+  [/^anchor$/, 'anchor\'s place'], [/^desk$/, 'desk'], [/^riser$/, 'riser'], [/^cameras\./, 'studio camera'],
+  [/^shots\.studio$/, 'intro shot: control room & set'], [/^shots\.hall$/, 'intro shot: lobby'], [/^shots\.desk$/, 'intro shot: desk'],
+  [/^wave\.line\./, 'police line, officer'], [/^wave\.vans\./, 'police van'], [/^wave\.doors\./, 'door that triggers the standoff'],
+  [/^wave\.outside$/, 'where reinforcements appear'], [/^wave\.rear$/, 'where extra officers line up'],
+  [/^exit\.zone$/, 'extraction zone'], [/^exit\.landing$/, 'where the vehicle lands'],
+  [/^parkings\.south$/, 'south parking lot'], [/^parkings\.north$/, 'north drop-off'], [/^techRoom$/, 'technical room'],
+  [/^toilets$/, 'toilets'], [/^lounges\.north$/, 'north lounge'], [/^lounges\.south$/, 'south lounge'],
+];
+
+export function markName(path: string): string {
+  const found = MARK_NAMES.find(([pattern]) => pattern.test(path));
+  const rank = /\.(\d+)$/.exec(path);
+  return found ? `${found[1]}${rank ? ` ${Number(rank[1]) + 1}` : ''}` : path;
+}
+
+type Tab = 'decor' | 'light' | 'decal' | 'door' | 'npc' | 'marker';
 
 export class EditorUi {
   private readonly root: HTMLDivElement;
@@ -158,6 +185,7 @@ export class EditorUi {
   private mode: Mode = 'objects';
   private readonly tilesets: string[];
   private readonly modeButtons = new Map<Mode, HTMLButtonElement>();
+  private readonly layerBoxes = new Map<LayerId, HTMLInputElement>();
   private readonly tabRow: HTMLDivElement;
   private readonly searchBox: HTMLDivElement;
   private readonly note: HTMLDivElement;
@@ -181,9 +209,11 @@ export class EditorUi {
   /** Éléments affichés dans le panneau de droite, et les champs à tenir à jour. */
   private shown = 'none yet';
   private readonly fields = new Map<Field, (ent: Ent) => void>();
+  /** Textes du panneau à tenir à jour, hors champs de saisie. */
+  private watchers: ((ent: Ent) => void)[] = [];
   private lightsOn = false;
 
-  constructor(title: string, catalog: Catalog, tilesets: string[], spriteOf: (object: string) => string | null, handlers: UiHandlers) {
+  constructor(title: string, catalog: Catalog, tilesets: string[], hasScript: boolean, spriteOf: (object: string) => string | null, handlers: UiHandlers) {
     this.handlers = handlers;
     this.tilesets = tilesets;
     this.catalog = catalog;
@@ -218,13 +248,15 @@ export class EditorUi {
 
     // ---- palette et couches
     const modes = el('div', { class: 'tabs modes' });
-    for (const [id, label] of [['objects', 'Objects'], ['walls', 'Walls'], ['floors', 'Floors']] as const) {
+    for (const [id, label] of [['objects', 'Objects'], ['walls', 'Walls'], ['floors', 'Floors'], ['zones', 'Zones'], ['script', 'Script']] as const) {
+      // les repères du scénario n'existent que dans la salle qui le porte
+      if (id === 'script' && !hasScript) continue;
       const button = el('button', { textContent: label, onclick: () => handlers.mode(id) });
       this.modeButtons.set(id, button);
       modes.append(button);
     }
     const tabs = el('div', { class: 'tabs' });
-    for (const [id, label] of [['decor', 'Props'], ['light', 'Lights'], ['decal', 'Decals'], ['door', 'Doors']] as const) {
+    for (const [id, label] of [['decor', 'Props'], ['light', 'Lights'], ['decal', 'Decals'], ['door', 'Doors'], ['npc', 'People'], ['marker', 'Markers']] as const) {
       const button = el('button', { textContent: label, onclick: () => this.showTab(id) });
       this.tabs.set(id, button);
       tabs.append(button);
@@ -236,6 +268,7 @@ export class EditorUi {
     const layers = el('div', { class: 'layers' }, [el('h3', { textContent: 'Show' })]);
     const layerRow = (id: LayerId, label: string, editable: boolean): void => {
       const box = el('input', { type: 'checkbox', checked: !HIDDEN_AT_START.has(id), onchange: () => handlers.layer(id, box.checked) });
+      this.layerBoxes.set(id, box);
       layers.append(el('label', { class: editable ? '' : 'locked', title: editable ? '' : 'Shown, not editable yet' }, [box, editable ? label : `${label} 🔒`]));
     };
     for (const c of CATEGORIES) layerRow(c.id, c.label, EDITABLE.has(c.id));
@@ -265,6 +298,12 @@ export class EditorUi {
     window.clearTimeout(this.toastTimer);
     this.root.remove();
     this.style.remove();
+  }
+
+  /** Coche ou décoche une couche depuis le code (le mode Zones montre le brouillard). */
+  checkLayer(id: LayerId, on: boolean): void {
+    const box = this.layerBoxes.get(id);
+    if (box) box.checked = on;
   }
 
   /** Vrai si le clavier est dans un champ : les raccourcis de l'éditeur ne doivent pas s'appliquer. */
@@ -332,11 +371,14 @@ export class EditorUi {
     this.mode = mode;
     for (const [id, button] of this.modeButtons) button.classList.toggle('on', id === mode);
     this.tabRow.style.display = mode === 'objects' ? '' : 'none';
-    this.searchBox.style.display = mode === 'walls' ? 'none' : '';
-    this.items.className = mode === 'walls' ? 'tools' : 'items';
+    const tools = mode === 'walls' || mode === 'zones' || mode === 'script';
+    this.searchBox.style.display = tools ? 'none' : '';
+    this.items.className = tools ? 'tools' : 'items';
     this.note.textContent = mode === 'walls'
       ? 'Drag to draw a straight wall; the pieces (corners, ends, T) and the collisions follow. Eraser: drag a box over the walls to remove.'
-      : mode === 'floors' ? 'Pick a texture, then drag a rectangle on the map. Without a texture picked: click a floor to move, resize or delete it.' : '';
+      : mode === 'floors' ? 'Pick a texture, then drag a rectangle on the map. Without a texture picked: click a floor to move, resize or delete it.'
+        : mode === 'zones' ? 'Fog hides a room until a robot walks into its zone. Zones that "lift with" another zone clear at the same time. Click a zone to move, resize or renumber it.'
+          : mode === 'script' ? 'The places the story code aims at: ultimatum mark, police line and vans, extraction zone, camera shots. Move them when the scenery around them moves. They cannot be added or deleted.' : '';
     this.note.style.display = mode === 'objects' ? 'none' : '';
     this.search.value = '';
     this.fillItems();
@@ -368,13 +410,28 @@ export class EditorUi {
       }));
       return;
     }
+    if (this.mode === 'script') {
+      this.items.replaceChildren();
+      return;
+    }
+    if (this.mode === 'zones') {
+      const item: PaletteItem = { kind: 'fog' };
+      const button = el('button', { class: this.sameItem(this.tool, item) ? 'on' : '', textContent: 'New fog zone — drag a rectangle' });
+      button.onclick = () => this.handlers.tool(this.sameItem(this.tool, item) ? null : item);
+      this.items.replaceChildren(button);
+      return;
+    }
     const entries: { item: PaletteItem; label: string; sprite: string | null; swatch?: string; texture?: string }[] = [];
     if (this.mode === 'floors') {
       for (const tileset of this.tilesets) entries.push({ item: { kind: 'floor', tileset }, label: tileset.replace(/^til_sol_/, ''), sprite: null, texture: `assets/floors/${tileset}.png` });
-    } else if (this.tab === 'decor' || this.tab === 'door') {
-      const wanted = this.tab === 'decor' ? ['decor'] : ['door', 'window'];
+    } else if (this.tab !== 'decal' && this.tab !== 'light') {
+      const wanted = this.tab === 'door' ? ['door', 'window'] : [this.tab];
       for (const t of this.catalog.objects.values()) {
-        if (wanted.includes(t.category)) entries.push({ item: { kind: 'object', object: t.object }, label: t.object.replace(/^obj_/, ''), sprite: this.spriteOf(t.object) });
+        if (!wanted.includes(t.category)) continue;
+        entries.push({
+          item: { kind: 'object', object: t.object }, label: t.object.replace(/^obj_(npc_)?/, ''), sprite: this.spriteOf(t.object),
+          swatch: 'linear-gradient(135deg, #ffd43b 0 50%, #e8a400 50%)',
+        });
       }
     } else if (this.tab === 'decal') {
       for (const sprite of this.catalog.decals.keys()) entries.push({ item: { kind: 'decal', sprite }, label: sprite.replace(/^spr_/, ''), sprite });
@@ -408,7 +465,7 @@ export class EditorUi {
       this.shown = key;
       this.buildProps(ents);
     }
-    if (ents.length === 1) for (const update of this.fields.values()) update(ents[0]);
+    if (ents.length === 1) for (const update of [...this.fields.values(), ...this.watchers]) update(ents[0]);
   }
 
   private help(): HTMLDivElement {
@@ -428,6 +485,7 @@ export class EditorUi {
 
   private buildProps(ents: Ent[]): void {
     this.fields.clear();
+    this.watchers = [];
     const h = this.handlers;
     const actions = el('div', { class: 'actions' }, [
       el('button', { textContent: 'To front', title: 'F — drawn over the elements it overlaps', onclick: () => h.action('front') }),
@@ -503,6 +561,22 @@ export class EditorUi {
     const props = (e: Ent): Record<string, unknown> => (e.data as LevelInstance).props ?? {};
     number('x', 'X', (e) => e.data.x);
     number('y', 'Y', (e) => e.data.y);
+    if (isMark(ent)) {
+      // un repère du scénario : un point, un rectangle ou un cercle
+      const mark = ent.data;
+      if (mark.w !== undefined) {
+        number('w', 'Width', (e) => (e.data as typeof mark).w ?? 0, 16, 16);
+        number('h', 'Height', (e) => (e.data as typeof mark).h ?? 0, 16, 16);
+      }
+      if (mark.radius !== undefined) number('radius', 'Radius', (e) => (e.data as typeof mark).radius ?? 0, 10, 20);
+      if (mark.angle !== undefined) number('angle', 'Angle °', (e) => (e.data as typeof mark).angle ?? 0, 1);
+      this.props.replaceChildren(
+        el('div', { class: 'what', textContent: markName(mark.path) }),
+        el('div', { class: 'sub', textContent: `Script landmark · ${mark.path}` }),
+        ...rows, this.help(),
+      );
+      return;
+    }
     if (isFloor(ent)) {
       const floor = (e: Ent): LevelFloor => e.data as LevelFloor;
       number('w', 'Width', (e) => floor(e).w, 16, 16);
@@ -514,6 +588,28 @@ export class EditorUi {
         el('div', { class: 'what', textContent: `Floor · ${ent.data.tileset.replace(/^til_sol_/, '')}` }),
         el('div', { class: 'sub', textContent: 'Drag it to move, drag a square handle to resize. To front / To back decide which floor covers the other.' }),
         ...rows, actions, this.help(),
+      );
+      return;
+    }
+    if (inst && ent.category === 'fog') {
+      // une zone : un rectangle et deux numéros
+      const blank = (field: Field, label: string, title: string, key: string): void => {
+        const input = el('input', { type: 'number', step: '1', min: '0', placeholder: 'none', title });
+        input.oninput = () => h.edit(field, input.value === '' ? '' : Number(input.value));
+        this.fields.set(field, (e) => {
+          const v = props(e)[key];
+          if (document.activeElement !== input) input.value = v === null || v === undefined ? '' : String(v);
+        });
+        rows.push(el('div', { class: 'row' }, [el('span', { textContent: label }), input]));
+      };
+      number('w', 'Width', (e) => 64 * data(e).scaleX, 16, 16);
+      number('h', 'Height', (e) => 64 * data(e).scaleY, 16, 16);
+      blank('fogNumber', 'Zone n°', 'Its own number, so that other zones can lift with it.', 'warFogNumber');
+      blank('fogAttached', 'Lifts with n°', 'Clears together with the zone of this number; empty: clears when a robot walks in.', 'attachedWarFogNumber');
+      this.props.replaceChildren(
+        el('div', { class: 'what', textContent: 'Fog zone' }),
+        el('div', { class: 'sub', textContent: `${inst.id} · hides what it covers until a robot enters it` }),
+        ...rows, actions, this.advanced(inst), this.help(),
       );
       return;
     }
@@ -541,6 +637,19 @@ export class EditorUi {
       if (inst && ent.category === 'door' && inst.object !== 'obj_button' && inst.props.automaticDoor !== true) {
         check('blockedOpen', 'Stays open once opened', 'A button or card door that does not close again.', (e) => props(e).blockedOpen === true);
       }
+      if (inst && ent.category === 'npc') {
+        // patrouille : aucune, au hasard autour de sa place, ou d'un point à l'autre
+        choice('patrolType', 'Patrol', ['none', 'random', 'points'], (e) => (props(e).patrolType === 'points' || props(e).patrolType === 'none' ? String(props(e).patrolType) : 'random'));
+        const count = el('span', { class: 'sub' });
+        this.watchers.push((e) => {
+          const n = patrolPoints(e.data as LevelInstance).length;
+          count.textContent = n === 0 ? 'No patrol point yet.' : `${n} patrol point${n > 1 ? 's' : ''}: walks there from its spot, then back.`;
+        });
+        rows.push(count, el('div', { class: 'actions' }, [
+          el('button', { textContent: 'Add points…', title: 'Then click on the map; Esc to stop', onclick: () => h.action('addPoint') }),
+          el('button', { textContent: 'Remove last', onclick: () => h.action('dropPoint') }),
+        ]));
+      }
       actions.append(
         el('button', { textContent: 'Flip ↔', onclick: () => h.action('flipX') }),
         el('button', { textContent: 'Flip ↕', onclick: () => h.action('flipY') }),
@@ -550,8 +659,32 @@ export class EditorUi {
     this.props.replaceChildren(
       el('div', { class: 'what', textContent: light ? (inst!.props.coneAngle !== undefined ? 'Spotlight' : 'Lamp') : what }),
       el('div', { class: 'sub', textContent: inst ? `${CATEGORIES.find((c) => c.id === ent.category)?.label ?? ''} · ${inst.id}` : 'Floor decal' }),
-      ...rows, actions, this.help(),
+      ...rows, actions, ...(inst && !light ? [this.advanced(inst)] : []), this.help(),
     );
+  }
+
+  /**
+   * Tous les réglages d'une instance, tels qu'ils sont dans le fichier : un filet de sécurité pour ce que le
+   * panneau ne propose pas (salle visée par un escalier, portée d'une porte…). Valeurs en JSON ; un texte
+   * sans guillemets est pris comme texte.
+   */
+  private advanced(inst: LevelInstance): HTMLElement {
+    const box = el('details');
+    box.append(el('summary', { textContent: `All settings (${Object.keys(inst.props).length})` }));
+    for (const [key, value] of Object.entries(inst.props)) {
+      const input = el('input', { type: 'text', value: typeof value === 'string' ? value : JSON.stringify(value) });
+      input.onchange = () => {
+        let parsed: unknown = input.value;
+        try {
+          parsed = JSON.parse(input.value);
+        } catch {
+          // pas du JSON : un nom de salle, d'objet ou une expression, gardé tel quel
+        }
+        this.handlers.prop(key, parsed);
+      };
+      box.append(el('div', { class: 'row' }, [el('span', { textContent: key, title: key }), input]));
+    }
+    return box;
   }
 
   /** Reconstruit le panneau même si la sélection n'a pas changé (un réglage a fait apparaître d'autres champs). */

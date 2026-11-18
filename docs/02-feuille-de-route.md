@@ -21,7 +21,7 @@ Dernière mise à jour : 2026-11-18.
 
 - Le MVP d'origine (4 étapes, GD-015) est livré, et bien dépassé : jeu à plusieurs jusqu'à 4, link, attaques ultimes, ombres portées, cinématiques.
 - TvTv² a été réécrit pour l'acte II de l'arc narratif et se joue du largage à l'écran de fin (GD-076 à GD-094).
-- L'éditeur de niveaux a ses étapes 1 et 2 (ADR-018, ADR-019) : mobilier, lumières, décalques, murs, sols, portes et fenêtres se retouchent dans le jeu. À essayer par l'utilisateur ; suite et limites dans [editeur-niveaux.md](editeur-niveaux.md).
+- L'éditeur de niveaux a ses trois étapes (ADR-018 à ADR-020) : mobilier, lumières, décalques, murs, sols, portes, fenêtres, personnages et patrouilles, brouillard, points d'apparition et repères du scénario se retouchent dans le jeu. À essayer par l'utilisateur ; mode d'emploi et limites dans [editeur-niveaux.md](editeur-niveaux.md).
 
 **Prochaine action** : trancher avec l'utilisateur les décisions ci-dessous, en commençant par le rôle du link et de la surcharge (elles orientent l'étape 5), puis commencer l'étape 5.
 
@@ -102,7 +102,7 @@ Chaque étape se termine par un essai de l'utilisateur, comme jusqu'ici.
 
 - [ ] Effet « glitch » fidèle quand un robot est touché (aujourd'hui un clignotement) ; ventilation animée.
 - [ ] Mort de SallyBot et destruction d'une foreuse : effets jamais observés à l'écran (salle hors de TvTv², pour l'acte I).
-- [ ] Éditeur de niveaux, étape 3 : personnages et patrouilles, brouillard, points d'apparition, repères du scénario.
+- [ ] Éditeur de niveaux : créer une salle vide, essayer la salle depuis l'éditeur.
 
 ## Après la démo
 
@@ -120,4 +120,4 @@ Le détail est dans git et dans les journaux de décisions.
 - **Étape 4** (2026-11-16) : zone de forage, foreuses, boss SallyBot, brouillard, lumières, écran de score, musique (GD-028).
 - **Après le MVP** : lumières avec ombres portées et couleurs (GD-038) ; jeu à plusieurs jusqu'à 4 avec résurrection (GD-039, GD-040, ADR-014) ; link et surcharge (GD-043) ; les quatre ultis (GD-044).
 - **TvTv², acte II** (2026-11-17 et 18) : introduction et largage, régie, plateau, ultimatum, riposte de la police, face-à-face, repli par le nord, extraction (GD-076 à GD-094).
-- **Éditeur de niveaux, étapes 1 et 2** (2026-11-18) : mobilier, lumières, décalques, ordre de dessin, murs, sols, portes, boutons et fenêtres (ADR-018, ADR-019, GD-095).
+- **Éditeur de niveaux, étapes 1 à 3** (2026-11-18) : mobilier, lumières, décalques, ordre de dessin, murs, sols, portes, boutons et fenêtres, personnages et patrouilles, brouillard, points d'apparition, repères du scénario (ADR-018 à ADR-020, GD-095).

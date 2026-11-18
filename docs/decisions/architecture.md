@@ -23,6 +23,7 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 | ADR-017 | Une caméra libre pour parcourir le niveau sans jouer | 2026-11-17 | Acceptée |
 | ADR-018 | Les fichiers de niveaux sont la source des cartes ; un éditeur intégré les retouche et commite | 2026-11-18 | Acceptée ; modifiée par ADR-019 (plus de commit automatique) |
 | ADR-019 | La sauvegarde de l'éditeur n'écrit que le fichier ; le commit se décide avec l'agent | 2026-11-18 | Acceptée |
+| ADR-020 | Les repères du scénario peuvent être dans le fichier de la salle, d'où le jeu les relit | 2026-11-18 | Acceptée |
 
 ---
 
@@ -373,4 +374,27 @@ Mode d'emploi et modèle d'entrée : [README.md](README.md).
 - Un agent qui trouve `public/levels/*.json` modifié en début de session a devant lui le travail de l'utilisateur dans l'éditeur : ne pas l'annuler ni l'écraser, et proposer de le commiter.
 - `git checkout -- public/levels/<salle>.json` annule les retouches non commitées d'une salle.
 - `server/levels.ts` n'appelle plus `git` ; `server/levels.test.ts` n'a plus besoin d'un dépôt jetable.
+
+## ADR-020 — Les repères du scénario peuvent être dans le fichier de la salle, d'où le jeu les relit
+
+- **Date** : 2026-11-18
+- **Statut** : Acceptée ; précise ADR-018
+- **Décidée par** : l'utilisateur pour le besoin (question 4 du cadrage de l'éditeur : « ils deviennent des marqueurs déplaçables à l'étape 3 », acceptée avec les autres choix par défaut) ; Claude pour le moyen
+
+**Contexte.** Le scénario de TvTv² vise des endroits par leurs coordonnées : marque de l'ultimatum, ligne de police, fourgons, zone d'extraction, plans des cinématiques. Elles étaient des constantes de `src/sim/landmarks.ts` (`TV_STUDIO`), lues dans une quarantaine d'endroits de la simulation et de l'affichage. Depuis que l'utilisateur retouche le décor lui-même (ADR-018), déplacer un mur ou le pupitre décalait le scénario sans qu'il puisse le corriger.
+
+**Décision.**
+
+- Une salle peut porter une clé `landmarks`, de la même forme que `TV_STUDIO`. Les valeurs de `landmarks.ts` restent les valeurs par défaut.
+- Le jeu les applique en ouvrant le rez-de-chaussée (`useLandmarks`, appelé par le constructeur de `World`, au démarrage du navigateur et du serveur, et à chaque sauvegarde de l'éditeur). `TV_STUDIO` est modifié sur place : sa forme ne change pas, seuls ses nombres.
+- L'éditeur les montre en mode « Script » comme des éléments ordinaires (points, rectangles, cercle), que l'on déplace ; leur nombre est fixe. La clé n'est écrite dans le fichier que lorsqu'un repère a quitté sa place par défaut.
+
+**Pourquoi.** `TV_STUDIO` reste un objet importé tel quel : aucune de ses lectures n'a eu à changer. Piste écartée : passer les repères par le `World` (`world.marks`), plus propre mais qui touchait toute la simulation, l'affichage et les tests pour un bénéfice que l'utilisateur ne verrait pas.
+
+**Conséquences.**
+
+- `TV_STUDIO` ne doit jamais être lu au chargement d'un module (une constante calculée à l'import garderait les valeurs par défaut) : toujours au moment de s'en servir. Ce n'est le cas nulle part aujourd'hui.
+- Les repères sont globaux à un processus : un seul scénario à la fois, celui du rez-de-chaussée. À revoir si un autre niveau reçoit un scénario.
+- Les tests qui comparent une position à `TV_STUDIO` restent justes après une retouche des repères, puisque le jeu et le test lisent la même salle ; ceux qui écrivent une coordonnée en dur peuvent demander une mise à jour.
+- `serializeLevel` écrit la clé après `decals`, une ligne par repère ; `levelProblem` l'accepte.
 

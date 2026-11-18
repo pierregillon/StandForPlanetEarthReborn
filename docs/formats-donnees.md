@@ -56,6 +56,7 @@ npm run extract-assets    # public/assets/ (sprites, sols, sons, manifestes) ; -
 | `wallRects` | Rectangles de collision des murs, fusionnés : `[x, y, largeur, hauteur, épais]`, `épais` = 1 pour un mur épais, 0 pour un mur fin. Un rectangle épais n'est jamais fusionné avec un rectangle fin. Les rectangles épais viennent d'abord. |
 | `floors` | Un sol par générateur, dans l'ordre de création (= ordre de dessin en cas de recouvrement). Voir « Sols ». |
 | `decals` | Sprites décoratifs de la couche d'assets, sans objet ni collision. `frame` = image de départ ; un sprite à plusieurs images s'anime à sa vitesse (`spr_ventilation`). |
+| `landmarks` | Facultatif (ADR-020) : repères du scénario déplacés avec l'éditeur de niveaux, de la même forme que `TV_STUDIO` dans `src/sim/landmarks.ts`, dont ils remplacent les valeurs. Absent tant qu'aucun repère n'a quitté sa place par défaut. |
 
 ### `props`
 

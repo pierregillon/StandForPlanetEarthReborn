@@ -3,6 +3,8 @@ import Phaser from 'phaser';
 import { commonSounds, frameKey, spritesNeeded } from '../assets.ts';
 import type { FloorManifest, SoundManifest } from '../assets.ts';
 import type { LevelData, SpriteManifest } from '../../sim/types.ts';
+import { useLandmarks } from '../../sim/landmarks.ts';
+import { GROUND_FLOOR } from '../../sim/session.ts';
 
 /** Salles du niveau, chargées au démarrage. */
 export const LEVELS = ['rm_world2', 'rm_world2_1', 'rm_world2_2'];
@@ -29,6 +31,8 @@ export class BootScene extends Phaser.Scene {
       }).setOrigin(0.5);
       return;
     }
+    // les repères du scénario sont ceux du rez-de-chaussée (ADR-020), avant même la première partie
+    useLandmarks(levels.find((l) => l.name === GROUND_FLOOR)?.landmarks);
     const floors = (this.cache.json.get('floors') ?? {}) as FloorManifest;
     const sounds = (this.cache.json.get('sounds') ?? {}) as SoundManifest;
 

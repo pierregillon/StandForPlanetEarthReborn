@@ -100,6 +100,8 @@ export interface LevelData {
   wallRects: [number, number, number, number, number][];
   floors: LevelFloor[];
   decals: LevelDecal[];
+  /** Repères du scénario déplacés avec l'éditeur de niveaux : ils remplacent ceux de `landmarks.ts` (ADR-020). */
+  landmarks?: Record<string, unknown>;
 }
 
 // ---------- Entrées du joueur ----------
